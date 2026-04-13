@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParacetamolHaze</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            color: #888;
+            font-size: 1.2rem;
+        }
+        .menu {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .menu-item {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 40px 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: #fff;
+            display: block;
+        }
+        .menu-item:hover {
+            transform: translateY(-5px);
+            background: rgba(255,255,255,0.1);
+            border-color: #00d9ff;
+            box-shadow: 0 10px 40px rgba(0,217,255,0.2);
+        }
+        .menu-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .menu-title {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+        }
+        .menu-desc {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        footer {
+            text-align: center;
+            margin-top: 80px;
+            color: #555;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ParacetamolHaze</h1>
+            <p class="subtitle"> Twitch инструменты</p>
+        </header>
+        
+        <nav class="menu">
+            <a href="roz.html" class="menu-item">
+                <div class="menu-icon">🎰</div>
+                <h2 class="menu-title">Roz</h2>
+                <p class="menu-desc">Twitch Чат Рулетка</p>
+            </a>
+            <a href="check.html" class="menu-item">
+                <div class="menu-icon">✓</div>
+                <h2 class="menu-title">Check</h2>
+                <p class="menu-desc">Проверка подписок Twitch</p>
+            </a>
+            <a href="kino.html" class="menu-item">
+                <div class="menu-icon">🎬</div>
+                <h2 class="menu-title">Kino</h2>
+                <p class="menu-desc">Кино и тайминги</p>
+            </a>
+        </nav>
+        
+        <footer>
+            <p>© 2026 ParacetamolHaze</p>
+        </footer>
+    </div>
+</body>
+</html>
