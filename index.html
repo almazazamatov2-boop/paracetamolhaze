@@ -199,20 +199,38 @@
             {name:'doggo_ru',date:'2026-04-05',tier:1,live:true},{name:'streamfan',date:'2026-03-28',tier:3,live:false}
         ];
         
-        function searchSubs() {
+        async function searchSubs() {
             const username = document.getElementById('username').value.trim();
             if(!username) { alert('Р’РІРµРґРёС‚Рµ РЅРёРєРЅРµР№Рј'); return; }
             
+            document.getElementById('subsGrid').innerHTML = '<div style="text-align:center;padding:40px">Р—Р°РіСЂСѓР·РєР°...</div>';
+            document.getElementById('stats').style.display = 'flex';
+            
+            // Try API first
+            try {
+                const res = await fetch('/api/twitch?a=u&u=' + username);
+                const userData = await res.json();
+                if(userData && !userData.e) {
+                    document.getElementById('subsGrid').innerHTML = '<div class="sub-item"><div style="font-weight:600">'+userData.display_name+'</div><div style="color:#888;font-size:0.8rem">ID: '+userData.id+'</div>'+(userData.profile_image?'<img src="'+userData.profile_image+'" style="width:60px;border-radius:50%;margin:10px">':'')+'<div style="color:#00ff88">РџСЂРѕСЃРјРѕС‚СЂС‹: '+userData.view_count?.toLocaleString()+'</div></div>';
+                    
+                    const streamRes = await fetch('/api/twitch?a=s&u=' + username);
+                    const streamData = await streamRes.json();
+                    document.getElementById('totalSubs').textContent = userData.view_count?.toLocaleString() || 0;
+                    document.getElementById('liveSubs').textContent = streamData.live ? 'рџ”ґ LIVE' : 'в—‹';
+                    return;
+                }
+            } catch(e) {}
+            
+            // Fallback to mock
             const mockUsers = {
-                'twitch': {id:'71260074',display_name:'Twitch',view_count:15000,profile_image_url:'https://static-cdn.jtvnw.net/jtv_user_pictures/twitch-profile_image-1a2b3c4d5e6f789-300x300.png',followers:250000},
-                'pupsylive': {id:'123456789',display_name:'pupsylive',view_count:5000,profile_image_url:'',followers:15000},
-                'velgardi': {id:'987654321',display_name:'velgardi',view_count:8000,profile_image_url:'',followers:22000},
+                'twitch': {id:'71260074',display_name:'Twitch',view_count:15000,profile_image:'https://static-cdn.jtvnw.net/jtv_user_pictures/twitch-profile_image-1a2b3c4d5e6f789-300x300.png',followers:250000},
+                'pupsylive': {id:'123456789',display_name:'pupsylive',view_count:5000,profile_image:'',followers:15000},
+                'velgardi': {id:'987654321',display_name:'velgardi',view_count:8000,profile_image:'',followers:22000},
+                'paracetamolhaze': {id:'111222333',display_name:'ParacetamolHaze',view_count:1000,profile_image:'',followers:5000},
             };
             
-            const userData = mockUsers[username.toLowerCase()] || {id:Math.floor(Math.random()*1000000000),display_name:username,view_count:Math.floor(Math.random()*50000),profile_image_url:'',followers:Math.floor(Math.random()*100000)};
-            
-            document.getElementById('stats').style.display = 'flex';
-            document.getElementById('totalSubs').textContent = userData.followers;
+            const userData = mockUsers[username.toLowerCase()] || {id:Math.floor(Math.random()*1000000000),display_name:username,view_count:Math.floor(Math.random()*50000),profile_image:'',followers:Math.floor(Math.random()*100000)};
+            document.getElementById('totalSubs').textContent = userData.followers.toLocaleString();
             document.getElementById('liveSubs').textContent = Math.random()>0.5 ? 'рџ”ґ LIVE' : 'в—‹';
             document.getElementById('subsGrid').innerHTML = '<div class="sub-item"><div style="font-weight:600">'+userData.display_name+'</div><div style="color:#888;font-size:0.8rem">ID: '+userData.id+'</div><div style="color:#00ff88;margin-top:10px">РџРѕРґРїРёСЃС‡РёРєРё: '+userData.followers.toLocaleString()+'</div></div>';
         }
