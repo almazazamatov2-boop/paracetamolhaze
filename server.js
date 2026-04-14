@@ -1,157 +1,213 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const {
+  getStreamsChartsSubscriptions,
+  sortSubscriptions,
+  extractKinopoiskId,
+  buildMirrorList,
+  getKinoTimings,
+  addKinoTiming,
+  removeKinoTiming,
+  getRealtimeState,
+  setRealtimeState,
+  getTwitchUserByLogin,
+  getStreamByLogin,
+  getFollowersTotalByLogin
+} = require('./lib/core');
 
-const CLIENT_ID = 'njwi66jx4ju5kpb25aeh4fd4i2okq5';
-const CLIENT_SECRET = 'pyah3tkzpdk8bd3ta4d8v2ynygt9j5';
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml'
+};
 
-const SC_CLIENT_ID = 'B48zwWMdEXabNmvW';
-const SC_TOKEN = '$2y$10$1oDc6YqpQ2dOdh10tdmLhOZX56f99.u9rD.1gCKf2TqabJPUPeWKO';
+function sendJson(res, status, payload) {
+  res.statusCode = status;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.end(JSON.stringify(payload));
+}
 
-// Updated Twitch API credentials - redeploy trigger
-
-let tokenCache = null;
-let tokenExpiry = 0;
-
-async function getToken() {
-  if (tokenCache && Date.now() < tokenExpiry) return tokenCache;
-  
-  console.log('CLIENT_ID:', CLIENT_ID);
-  console.log('CLIENT_SECRET:', CLIENT_SECRET);
-  
-  const res = await fetch('https://id.twitch.tv/oauth2/token', {
-    method: 'POST',
-    body: `client_id=${CLIENT_ID}&client_secret=${CLIENT_SECRET}&grant_type=client_credentials`
+function readJsonBody(req) {
+  return new Promise((resolve) => {
+    let raw = '';
+    req.on('data', (chunk) => {
+      raw += chunk;
+    });
+    req.on('end', () => {
+      if (!raw) return resolve({});
+      try {
+        resolve(JSON.parse(raw));
+      } catch (_) {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
   });
-  const data = await res.json();
-  console.log('Token response:', data);
-  tokenCache = data.access_token;
-  tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
-  return tokenCache;
+}
+
+async function routeApi(req, res, url) {
+  if (req.method === 'OPTIONS') {
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (url.pathname === '/api/check/subscriptions' && req.method === 'GET') {
+    const user = (url.searchParams.get('user') || '').trim().toLowerCase();
+    const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+    const sort = (url.searchParams.get('sort') || 'date_desc').trim();
+    const page = Math.max(1, Number(url.searchParams.get('page') || 1));
+    if (!user) return sendJson(res, 400, { error: 'Missing user' });
+
+    const data = await getStreamsChartsSubscriptions(user);
+    if (!data.user) {
+      return sendJson(res, 404, { error: 'User not found', user: null, totals: { totalSubs: 0, liveCount: 0 }, items: [], page: 1, pages: 1 });
+    }
+
+    let items = data.items;
+    if (q) items = items.filter((x) => x.displayName.toLowerCase().includes(q) || x.login.includes(q));
+    items = sortSubscriptions(items, sort);
+    const liveCount = items.filter((x) => x.isLive).length;
+    const pageSize = 24;
+    const pages = Math.max(1, Math.ceil(items.length / pageSize));
+    const safePage = Math.min(page, pages);
+    const start = (safePage - 1) * pageSize;
+    return sendJson(res, 200, {
+      user: data.user,
+      totals: { totalSubs: items.length, liveCount },
+      items: items.slice(start, start + pageSize),
+      page: safePage,
+      pages
+    });
+  }
+
+  if (url.pathname === '/api/kino/resolve' && req.method === 'GET') {
+    const id = extractKinopoiskId((url.searchParams.get('id') || '').trim());
+    if (!id) return sendJson(res, 400, { error: 'Invalid Kinopoisk id/url' });
+    return sendJson(res, 200, {
+      movieMeta: { id, sourceUrl: `https://www.kinopoisk.ru/film/${id}/`, title: `Kinopoisk #${id}` },
+      mirrors: buildMirrorList(id)
+    });
+  }
+
+  if (url.pathname === '/api/kino/timings') {
+    const id = extractKinopoiskId((url.searchParams.get('id') || '').trim());
+    if (!id) return sendJson(res, 400, { error: 'Invalid id' });
+
+    if (req.method === 'GET') {
+      return sendJson(res, 200, { id, timings: await getKinoTimings(id) });
+    }
+    if (req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const created = await addKinoTiming(id, {
+        time: String(body.time || '').trim(),
+        category: String(body.category || '').trim(),
+        label: String(body.label || '').trim()
+      });
+      return sendJson(res, 201, { id, timing: created });
+    }
+    if (req.method === 'DELETE') {
+      const timingId = (url.searchParams.get('timingId') || '').trim();
+      return sendJson(res, 200, { id, timings: await removeKinoTiming(id, timingId) });
+    }
+  }
+
+  if (url.pathname === '/api/roz/participants') {
+    const channel = (url.searchParams.get('channel') || '').trim().toLowerCase();
+    if (!channel) return sendJson(res, 400, { error: 'Missing channel' });
+    if (req.method === 'GET') {
+      const state = await getRealtimeState('roz', channel, { participants: [] });
+      return sendJson(res, 200, { channel, participants: state.participants || [], updatedAt: state.updatedAt || null });
+    }
+    if (req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const participants = Array.isArray(body.participants) ? body.participants : [];
+      const state = await setRealtimeState('roz', channel, { participants });
+      return sendJson(res, 200, { channel, participants: state.participants || [], updatedAt: state.updatedAt || null });
+    }
+  }
+
+  const dynamic = url.pathname.match(/^\/api\/realtime\/state\/([^/]+)\/([^/]+)$/);
+  if (dynamic) {
+    const moduleName = dynamic[1].toLowerCase();
+    const room = dynamic[2].toLowerCase();
+    if (req.method === 'GET') {
+      return sendJson(res, 200, { module: moduleName, room, state: await getRealtimeState(moduleName, room, {}) });
+    }
+    if (req.method === 'POST') {
+      const body = await readJsonBody(req);
+      const next = await setRealtimeState(moduleName, room, body.state || {}, Number(body.ttlSec || 60 * 60 * 24));
+      return sendJson(res, 200, { module: moduleName, room, state: next });
+    }
+  }
+
+  if (url.pathname === '/api/twitch' && req.method === 'GET') {
+    const a = (url.searchParams.get('a') || '').trim();
+    const u = (url.searchParams.get('u') || '').trim().toLowerCase();
+    if (!u) return sendJson(res, 400, { error: 'Missing u' });
+
+    if (a === 'u') {
+      const user = await getTwitchUserByLogin(u);
+      return sendJson(res, user ? 200 : 404, user || { error: 'not found' });
+    }
+    if (a === 's') {
+      const stream = await getStreamByLogin(u);
+      return sendJson(res, 200, { live: Boolean(stream), stream: stream || null });
+    }
+    if (a === 'f') {
+      const total = await getFollowersTotalByLogin(u);
+      return sendJson(res, 200, { total });
+    }
+    return sendJson(res, 400, { error: 'Unknown action' });
+  }
+
+  return sendJson(res, 404, { error: 'Not found' });
+}
+
+function safeResolve(p) {
+  const normalized = p === '/' ? '/index.html' : p;
+  const resolved = path.normalize(path.join(__dirname, normalized));
+  if (!resolved.startsWith(__dirname)) return path.join(__dirname, 'index.html');
+  return resolved;
 }
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  
-  console.log('Request:', req.method, url.pathname);
-  
-  // API endpoint - handle /api and /api/twitch
-  if (url.pathname.startsWith('/api') || url.pathname === '/api' || url.pathname.startsWith('/api/twitch')) {
-    const action = url.searchParams.get('a');
-    const user = url.searchParams.get('u');
-    
-    try {
-      const token = await getToken();
-      const headers = { 'Client-ID': CLIENT_ID, 'Authorization': `Bearer ${token}` };
-      
-      // User info via Twitch API
-      if ((action === 'u' || url.pathname.includes('user')) && user) {
-        try {
-          const res2 = await fetch(`https://api.twitch.tv/helix/users?login=${user}`, { headers });
-          const data = await res2.json();
-          console.log('Twitch response:', data);
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.end(JSON.stringify(data.data?.[0] || { error: 'not found', data: data }));
-          return;
-        } catch (e) {
-          console.log('Twitch error:', e.message);
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: e.message }));
-          return;
-        }
-      }
-      
-      // StreamsCharts API
-      if (action === 'sc' && user) {
-        try {
-          // First get user ID from Twitch
-          const userRes = await fetch(`https://api.twitch.tv/helix/users?login=${user}`, { headers });
-          const userData = await userRes.json();
-          const twitchId = userData.data?.[0]?.id;
-          
-          if (!twitchId) {
-            res.setHeader('Content-Type', 'application/json');
-            res.end(JSON.stringify({ error: 'user not found' }));
-            return;
-          }
-          
-          // Then get data from streamscharts
-          const scRes = await fetch(`https://streamscharts.com/api/token?login=${twitchId}`, {
-            headers: {
-              'Authorization': `Bearer ${SC_TOKEN}`,
-              'Client-ID': SC_CLIENT_ID
-            }
-          });
-          const scData = await scRes.json();
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          res.end(JSON.stringify(scData));
-          return;
-        } catch (e) {
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: e.message }));
-          return;
-        }
-      }
-      
-      // Stream status
-      if (action === 's' && user) {
-        const res2 = await fetch(`https://api.twitch.tv/helix/streams?user_login=${user}`, { headers });
-        const data = await res2.json();
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.end(JSON.stringify({ live: !!data.data?.length, stream: data.data?.[0] || null }));
-        return;
-      }
-      
-      // Followers
-      if (action === 'f' && user) {
-        const res2 = await fetch(`https://api.twitch.tv/helix/users?login=${user}`, { headers });
-        const ud = await res2.json();
-        const uid = ud.data?.[0]?.id;
-        if (!uid) {
-          res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ total: 0 }));
-          return;
-        }
-        const res3 = await fetch(`https://api.twitch.tv/helix/channels/followers?broadcaster_id=${uid}&first=1`, { headers });
-        const fd = await res3.json();
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.end(JSON.stringify({ total: fd.total || 0 }));
-        return;
-      }
-      
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'unknown action', path: url.pathname, params: { a: action, u: user } }));
-      return;
-    } catch (e) {
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: e.message }));
+  try {
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    if (url.pathname.startsWith('/api/')) {
+      await routeApi(req, res, url);
       return;
     }
-  }
-  
-  // Static files
-  let filePath = url.pathname === '/' ? '/index.html' : url.pathname;
-  
-  const ext = path.extname(filePath);
-  const contentTypes = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'application/javascript; charset=utf-8',
-    '.css': 'text/css; charset=utf-8'
-  };
-  
-  try {
-    const content = fs.readFileSync(path.join(__dirname, filePath));
-    res.setHeader('Content-Type', contentTypes[ext] || 'text/plain; charset=utf-8');
-    res.end(content);
-  } catch (e) {
+
+    const fullPath = safeResolve(url.pathname);
+    let stat = null;
+    try {
+      stat = fs.statSync(fullPath);
+    } catch (_) {}
+
+    if (stat && stat.isFile()) {
+      const ext = path.extname(fullPath).toLowerCase();
+      res.statusCode = 200;
+      res.setHeader('Content-Type', MIME[ext] || 'application/octet-stream');
+      fs.createReadStream(fullPath).pipe(res);
+      return;
+    }
+
+    const indexPath = path.join(__dirname, 'index.html');
+    res.statusCode = 200;
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.end(fs.readFileSync(path.join(__dirname, 'index.html')));
+    fs.createReadStream(indexPath).pipe(res);
+  } catch (e) {
+    sendJson(res, 500, { error: e.message });
   }
 });
 
-const port = process.env.PORT || 3000;
-server.listen(port, () => console.log(`Server on ${port}`));
+const port = Number(process.env.PORT || 3000);
+server.listen(port, () => {
+  console.log(`Server on http://localhost:${port}`);
+});
