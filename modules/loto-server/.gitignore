@@ -1,0 +1,4 @@
+node_modules/
+loto.db
+*.zip
+start.js
