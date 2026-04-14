@@ -1,3 +1,6 @@
 {
-  "spa": true
+  "rewrites": [
+    { "source": "/((.*)?.html)", "destination": "/$1" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
