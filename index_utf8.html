@@ -1,0 +1,236 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ParacetamolHaze</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460); min-height: 100vh; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        h1 { font-size: 2.5rem; background: linear-gradient(90deg, #00d9ff, #00ff88); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin: 40px 0; }
+        .menu-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
+        .menu-item:hover { transform: translateY(-5px); border-color: #00d9ff; }
+        .menu-icon { font-size: 2.5rem; margin-bottom: 15px; }
+        .menu-title { font-size: 1.3rem; margin-bottom: 8px; }
+        .menu-desc { color: #888; font-size: 0.85rem; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .back-link { display: inline-block; color: #00d9ff; text-decoration: none; margin-bottom: 20px; cursor: pointer; }
+        
+        /* Roz styles */
+        .control-panel { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 25px; margin-bottom: 25px; }
+        .input-group { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 20px; }
+        input { flex: 1; min-width: 180px; padding: 12px 18px; border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; background: rgba(255,255,255,0.05); color: #fff; }
+        input::placeholder { color: #666; }
+        .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+        button { padding: 12px 25px; border: none; border-radius: 10px; cursor: pointer; font-size: 0.95rem; }
+        .btn-primary { background: linear-gradient(90deg, #00d9ff, #00ff88); color: #000; font-weight: 600; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); }
+        .stats { display: flex; justify-content: center; gap: 40px; margin: 25px 0; }
+        .stat { text-align: center; }
+        .stat-value { font-size: 1.8rem; color: #00d9ff; }
+        .stat-label { color: #888; font-size: 0.85rem; }
+        .games { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .game-btn { padding: 15px 30px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #fff; cursor: pointer; }
+        
+        /* Check styles */
+        .search-box { display: flex; gap: 15px; flex-wrap: wrap; margin-bottom: 25px; }
+        .stats-row { display: flex; justify-content: center; gap: 50px; margin: 25px 0; }
+        .subs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+        .sub-item { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 15px; text-align: center; }
+        
+        /* Kino styles */
+        .movie-title { font-size: 1.4rem; margin-bottom: 20px; text-align: center; }
+        .video-placeholder { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+        .video-text { color: #666; }
+        .timeline { display: flex; gap: 4px; height: 35px; background: rgba(255,255,255,0.05); border-radius: 8px; overflow: hidden; }
+        .timeline-marker { flex: 1; background: rgba(255,255,255,0.1); display: flex; align-items: flex-end; justify-content: center; padding-bottom: 5px; font-size: 0.65rem; color: #666; cursor: pointer; }
+        .timeline-marker:hover { background: rgba(0,217,255,0.3); }
+        .timings-list { display: flex; flex-direction: column; gap: 10px; }
+        .timing-item { display: flex; justify-content: space-between; padding: 10px 15px; background: rgba(255,255,255,0.05); border-radius: 8px; }
+        
+        .winner-panel { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 100; }
+        .winner-content { text-align: center; padding: 40px; }
+        .winner-name { font-size: 2.5rem; color: #00d9ff; margin: 20px 0; }
+        .close-btn { padding: 12px 35px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; color: #fff; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a class="back-link" onclick="showPage('home')">← На главную</a>
+        
+        <div id="home" class="page active">
+            <header style="text-align:center;margin-bottom:40px">
+                <h1>ParacetamolHaze</h1>
+                <p style="color:#888;margin-top:10px">Twitch инструменты</p>
+            </header>
+            <nav class="menu">
+                <div class="menu-item" onclick="showPage('roz')">
+                    <div class="menu-icon">🎰</div>
+                    <h2 class="menu-title">Roz</h2>
+                    <p class="menu-desc">Twitch Чат Рулетка</p>
+                </div>
+                <div class="menu-item" onclick="showPage('check')">
+                    <div class="menu-icon">✓</div>
+                    <h2 class="menu-title">Check</h2>
+                    <p class="menu-desc">Проверка подписок Twitch</p>
+                </div>
+                <div class="menu-item" onclick="showPage('kino')">
+                    <div class="menu-icon">🎬</div>
+                    <h2 class="menu-title">Kino</h2>
+                    <p class="menu-desc">Кино и тайминги</p>
+                </div>
+            </nav>
+            <footer style="text-align:center;margin-top:60px;color:#555;font-size:0.8rem">
+                <p>© 2026 ParacetamolHaze</p>
+            </footer>
+        </div>
+        
+        <div id="roz" class="page">
+            <header><h1>Roz</h1><p style="color:#888;margin-top:10px">Twitch Чат Рулетка</p></header>
+            <div class="control-panel">
+                <div class="input-group">
+                    <input type="text" id="streamer" placeholder="Никнейм стримера">
+                    <input type="text" id="keyword" placeholder="Ключевое слово">
+                </div>
+                <div class="btn-group">
+                    <button class="btn-primary" onclick="startSelection()">Начать Отбор</button>
+                    <button class="btn-secondary" onclick="disconnect()">Отключиться</button>
+                </div>
+            </div>
+            <div class="stats">
+                <div class="stat"><div class="stat-value" id="participants">0</div><div class="stat-label">Участников</div></div>
+                <div class="stat"><div class="stat-value" id="messages">0</div><div class="stat-label">Сообщений</div></div>
+                <div class="stat"><div class="stat-value" id="timer">0:00</div><div class="stat-label">Время работы</div></div>
+            </div>
+            <div class="games">
+                <button class="game-btn" onclick="startRoulette()">Рулетка</button>
+                <button class="game-btn" onclick="startVases()">Вазы</button>
+                <button class="game-btn" onclick="startCS()">КС</button>
+            </div>
+            <div class="winner-panel" id="winnerPanel">
+                <div class="winner-content">
+                    <h2>🎉 Победитель!</h2>
+                    <div class="winner-name" id="winnerName">User</div>
+                    <p>Поздравляем с победой!</p>
+                    <button class="close-btn" onclick="closeWinner()" style="margin-top:25px">Закрыть</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="check" class="page">
+            <header><h1>Check</h1><p style="color:#888;margin-top:10px">Просмотр подписок</p></header>
+            <div class="control-panel">
+                <div class="search-box">
+                    <input type="text" id="username" placeholder="Введите никнейм Twitch">
+                    <button class="btn-primary" onclick="searchSubs()">Получить Подписки</button>
+                </div>
+            </div>
+            <div class="stats-row" id="stats" style="display:none">
+                <div class="stat"><div class="stat-value" id="totalSubs">0</div><div class="stat-label">Всего подписок</div></div>
+                <div class="stat"><div class="stat-value" id="liveSubs">0</div><div class="stat-label">Сейчас в эфире</div></div>
+            </div>
+            <div class="subs-grid" id="subsGrid"></div>
+        </div>
+        
+        <div id="kino" class="page">
+            <header><h1>Kino</h1><p style="color:#888;margin-top:10px">Кино и тайминги</p></header>
+            <div class="control-panel">
+                <input type="text" id="search" placeholder="Поиск..." style="width:100%">
+            </div>
+            <div class="movie-title" id="movieTitle">Загрузка фильма...</div>
+            <div class="video-placeholder"><span class="video-text">видео плеер</span></div>
+            <div class="timeline" id="timeline"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:15px">
+                <span id="currentTime" style="font-size:1.1rem;font-weight:bold">00:00:00</span>
+                <div class="btn-group">
+                    <button class="btn-secondary" onclick="addTiming()">+ Добавить тайминг</button>
+                    <button class="btn-secondary" onclick="refreshTimings()">Обновить</button>
+                </div>
+            </div>
+            <div class="timings-list" id="timingsList" style="margin-top:25px">
+                <div class="timing-item"><span>Интересный момент</span><span>01:23:45</span></div>
+                <div class="timing-item"><span>Важная сцена</span><span>00:45:30</span></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function showPage(page) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(page).classList.add('active');
+        }
+        
+        let timer = 0, timerInterval = setInterval(() => {
+            timer++;
+            document.getElementById('timer').textContent = Math.floor(timer/60) + ':' + String(timer%60).padStart(2,'0');
+        }, 1000);
+        
+        function startSelection() {
+            const streamer = document.getElementById('streamer').value;
+            const keyword = document.getElementById('keyword').value;
+            if(!streamer || !keyword) { alert('Введите никнейм и ключевое слово'); return; }
+            document.getElementById('participants').textContent = Math.floor(Math.random() * 50) + 10;
+            document.getElementById('messages').textContent = Math.floor(Math.random() * 500) + 100;
+        }
+        
+        function disconnect() {
+            document.getElementById('streamer').value = '';
+            document.getElementById('keyword').value = '';
+            document.getElementById('participants').textContent = '0';
+            document.getElementById('messages').textContent = '0';
+            timer = 0;
+        }
+        
+        function startRoulette() {
+            const names = ['User1','User2','User3','User4','User5'];
+            document.getElementById('winnerName').textContent = names[Math.floor(Math.random() * names.length)];
+            document.getElementById('winnerPanel').style.display = 'flex';
+        }
+        
+        function closeWinner() { document.getElementById('winnerPanel').style.display = 'none'; }
+        function startVases() { alert('Вазы - в разработке'); }
+        function startCS() { alert('КС - в разработке'); }
+        
+        const mockSubs = [
+            {name:'pupsylive',date:'2026-04-10',tier:1,live:true},{name:'catviewer',date:'2026-04-08',tier:2,live:false},
+            {name:'doggo_ru',date:'2026-04-05',tier:1,live:true},{name:'streamfan',date:'2026-03-28',tier:3,live:false}
+        ];
+        
+        function searchSubs() {
+            const username = document.getElementById('username').value.trim();
+            if(!username) { alert('Введите никнейм'); return; }
+            document.getElementById('stats').style.display = 'flex';
+            document.getElementById('totalSubs').textContent = mockSubs.length;
+            document.getElementById('liveSubs').textContent = mockSubs.filter(s=>s.live).length;
+            document.getElementById('subsGrid').innerHTML = mockSubs.map(s => 
+                '<div class="sub-item"><div style="font-weight:600">'+s.name+'</div><div style="color:#888;font-size:0.8rem">'+s.date+'</div><span style="display:inline-block;padding:3px 10px;background:#9146ff;border-radius:5px;font-size:0.7rem;margin-top:8px">Tier '+s.tier+'</span></div>'
+            ).join('');
+        }
+        
+        for(let i=0;i<20;i++) {
+            const marker = document.createElement('div');
+            marker.className = 'timeline-marker';
+            marker.textContent = i*5+'m';
+            document.getElementById('timeline').appendChild(marker);
+        }
+        let currentSeconds = 0;
+        function addTiming() {
+            const time = document.getElementById('currentTime').textContent;
+            const list = document.getElementById('timingsList');
+            const item = document.createElement('div');
+            item.className = 'timing-item';
+            item.innerHTML = '<span>Тайминг '+(list.children.length+1)+'</span><span>'+time+'</span>';
+            list.appendChild(item);
+        }
+        function refreshTimings() { alert('Обновление таймингов...'); }
+        
+        const params = new URLSearchParams(window.location.search);
+        if(params.get('p') === 'roz') showPage('roz');
+        if(params.get('p') === 'check') showPage('check');
+        if(params.get('p') === 'kino') showPage('kino');
+    </script>
+</body>
+</html>
