@@ -436,7 +436,7 @@
       </div>
     </section>
 
-    <footer>© 2026 tg:paracetomolhaze</footer>
+    <footer>В© 2026 tg:paracetomolhaze</footer>
   </div>
 
   <script>
@@ -495,7 +495,7 @@
             <img class="avatar" src="${item.avatar || ''}" alt="${item.displayName}" onerror="this.style.visibility='hidden'">
             <div>
               <div class="sub-name">${item.displayName || item.login}</div>
-              <div class="sub-meta">@${item.login || 'unknown'} · ${date}</div>
+              <div class="sub-meta">@${item.login || 'unknown'} В· ${date}</div>
               <div style="margin-top:6px">${item.isLive ? '<span class=\"pill live\">● в эфире</span>' : '<span class=\"pill off\">○ offline</span>'}</div>
             </div>
           </div>`;
@@ -772,6 +772,62 @@
       if (overlayVisible) pullOverlayState();
       if (bingoVisible) pullBingoState();
     }, 2000);
+
+    function decodeMojibake(str) {
+      if (typeof str !== 'string') return str;
+      if (!/[РС][\u0080-\u04FF]/.test(str) && !/Р.|С./.test(str)) return str;
+      try {
+        const fixed = decodeURIComponent(escape(str));
+        return fixed || str;
+      } catch (_) {
+        return str;
+      }
+    }
+
+    function fixNodeText(root) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach((n) => {
+        if (!n.nodeValue) return;
+        const fixed = decodeMojibake(n.nodeValue);
+        if (fixed !== n.nodeValue) n.nodeValue = fixed;
+      });
+    }
+
+    function fixAttributes(root) {
+      const attrs = ['placeholder', 'title', 'aria-label', 'value'];
+      const all = root.querySelectorAll ? root.querySelectorAll('*') : [];
+      all.forEach((el) => {
+        attrs.forEach((a) => {
+          const v = el.getAttribute(a);
+          if (!v) return;
+          const fixed = decodeMojibake(v);
+          if (fixed !== v) el.setAttribute(a, fixed);
+        });
+      });
+    }
+
+    function fixMojibakeInDOM(root = document.body) {
+      if (!root) return;
+      fixNodeText(root);
+      fixAttributes(root);
+    }
+
+    fixMojibakeInDOM(document.body);
+    const mojiObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        m.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            const fixed = decodeMojibake(node.nodeValue || '');
+            if (fixed !== node.nodeValue) node.nodeValue = fixed;
+          } else if (node.nodeType === Node.ELEMENT_NODE) {
+            fixMojibakeInDOM(node);
+          }
+        });
+      }
+    });
+    mojiObserver.observe(document.body, { childList: true, subtree: true });
   </script>
 </body>
 </html>
