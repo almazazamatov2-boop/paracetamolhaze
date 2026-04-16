@@ -94,7 +94,11 @@ export async function POST(req: NextRequest) {
         await redis.sadd(`loto:lobby_players:${lobbyId}`, userId);
         await redis.hset(`loto:player_status:${lobbyId}`, { [userId]: 'waiting' });
 
-        return NextResponse.json({ type: 'lobby_joined', lobbyId });
+        return NextResponse.json({ 
+          type: 'lobby_joined', 
+          lobbyId,
+          isAdmin: lobby.admin_id === userId
+        });
       }
 
       case 'start_game': {
@@ -117,7 +121,27 @@ export async function POST(req: NextRequest) {
         if (lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Только админ может тянуть бочонки' });
 
         await redis.rpush(`loto:drawn:${lobbyId}`, number);
-        return NextResponse.json({ type: 'number_drawn', number });
+        const drawn = await redis.lrange(`loto:drawn:${lobbyId}`, 0, -1);
+        return NextResponse.json({ type: 'number_drawn', number, drawn });
+      }
+
+      case 'undo_number': {
+        const { userId, lobbyId } = data;
+        const lobby: any = await redis.hgetall(`loto:lobby:${lobbyId}`);
+        if (lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Только админ может отменять' });
+
+        await redis.rpop(`loto:drawn:${lobbyId}`);
+        const drawn = await redis.lrange(`loto:drawn:${lobbyId}`, 0, -1);
+        return NextResponse.json({ type: 'state_update', drawn: drawn.map(Number) });
+      }
+
+      case 'reset_numbers': {
+        const { userId, lobbyId } = data;
+        const lobby: any = await redis.hgetall(`loto:lobby:${lobbyId}`);
+        if (lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Только админ может сбросить' });
+
+        await redis.del(`loto:drawn:${lobbyId}`);
+        return NextResponse.json({ type: 'state_update', drawn: [] });
       }
 
       case 'chat_message': {

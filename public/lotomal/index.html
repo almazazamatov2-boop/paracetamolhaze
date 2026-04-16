@@ -1068,7 +1068,7 @@
               }
             } catch(e) {}
           }
-        }, 2000);
+        }, 1000); // Быстрее (1 сек)
       }
       
       setConnStatus('connected', 'Онлайн (Vercel Mode)');
@@ -1155,22 +1155,12 @@
           break;
 
         case 'lobby_joined':
-          currentLobbyId = msg.lobby.id;
-          currentLobby = {
-            code: msg.lobby.code,
-            name: msg.lobby.name,
-            maxPlayers: msg.lobby.max_players || 10,
-            players: (msg.lobby.players || []).map(p => ({
-              id: p.id,
-              nickname: (typeof p.nickname === 'object' ? p.nickname?.nickname : p.nickname) || 'Игрок',
-              avatar: (typeof p.nickname === 'object' ? p.nickname?.avatar : p.avatar) || '👤',
-              isAdmin: p.id === msg.lobby.admin_id
-            }))
-          };
-          isAdmin = (msg.lobby.admin_id === userId);
+          currentLobbyId = msg.lobbyId || msg.lobby?.id;
+          isAdmin = msg.isAdmin || false;
           gameScreenShown = false;
           showScreen('lobbyWaitScreen');
-          updateLobbyDisplay();
+          // Сразу запрашиваем состояние
+          fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`).then(r => r.json()).then(m => handleWsMessage(m));
           break;
 
         case 'player_joined':
@@ -1628,7 +1618,23 @@
         container.appendChild(item);
       });
 
-      document.getElementById('adminControls').style.display = isAdmin ? 'block' : 'none';
+      const adminControls = document.getElementById('adminControls');
+      if (isAdmin) {
+        adminControls.style.display = 'block';
+        // Добавляем кнопки Админки и Оверлея если их нет
+        if (!document.getElementById('creatorButtons')) {
+            const div = document.createElement('div');
+            div.id = 'creatorButtons';
+            div.style.cssText = 'display:flex; gap:10px; margin-top:10px;';
+            div.innerHTML = `
+                <button class="btn-secondary" style="flex:1" onclick="window.open('./admin.html?lobbyId='+currentLobbyId, '_blank')">🛡️ Админ.панель</button>
+                <button class="btn-secondary" style="flex:1" onclick="window.open('./overlay.html?lobbyId='+currentLobbyId, '_blank')">🎥 Оверлей</button>
+            `;
+            adminControls.appendChild(div);
+        }
+      } else {
+        adminControls.style.display = 'none';
+      }
       document.getElementById('playerWaiting').style.display = isAdmin ? 'none' : 'block';
     }
 

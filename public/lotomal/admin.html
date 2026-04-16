@@ -447,16 +447,20 @@
             input.focus();
         }
 
+        const query = new URLSearchParams(window.location.search);
+        const lobbyId = query.get('lobbyId');
+
         async function addNumberToDrawn(num) {
+            if (!lobbyId) return;
             try {
-                const res = await fetch('/api/drawn', {
+                const res = await fetch('/api/loto', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ number: num })
+                    body: JSON.stringify({ action: 'draw_number', lobbyId, number: num })
                 });
                 const data = await res.json();
                 if (data.drawn) {
-                    drawnOrder = data.drawn; // сервер хранит порядок
+                    drawnOrder = data.drawn;
                     drawnNumbers = new Set(data.drawn);
                     updateDisplay();
                     showLastNumber(num);
@@ -467,9 +471,17 @@
         }
 
         async function removeNumber(num) {
+            if (!lobbyId) return;
             if (!confirm(`Удалить бочонок ${num}?`)) return;
             try {
-                const res = await fetch(`/api/drawn/${num}`, { method: 'DELETE' });
+                // В нашей текущей API нет удаления конкретного числа, но мы можем реализовать или просто перезаписать
+                // Для простоты — пока игнорируем или реализуем через reset + redraw (но это плохо)
+                // Давайте добавим 'undo_last' в API
+                const res = await fetch('/api/loto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'undo_number', lobbyId, number: num })
+                });
                 const data = await res.json();
                 if (data.drawn) {
                     drawnOrder = data.drawn;
@@ -520,9 +532,14 @@
         }
 
         async function clearAll() {
+            if (!lobbyId) return;
             if (!confirm('Удалить все выпавшие бочонки?')) return;
             try {
-                await fetch('/api/drawn/all', { method: 'DELETE' });
+                await fetch('/api/loto', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'reset_numbers', lobbyId })
+                });
                 drawnOrder = [];
                 drawnNumbers.clear();
                 updateDisplay();
@@ -530,12 +547,17 @@
         }
 
         async function loadFromServer() {
+            if (!lobbyId) return;
             try {
-                const res = await fetch('/api/drawn', { cache: 'no-store' });
+                const res = await fetch(`/api/loto?action=get_state&lobbyId=${lobbyId}`, { cache: 'no-store' });
                 const data = await res.json();
-                drawnOrder = data.drawn || [];
+                drawnOrder = (data.drawn || []).map(Number);
                 drawnNumbers = new Set(drawnOrder);
                 updateDisplay();
+                
+                if (data.lobby && data.lobby.players) {
+                    renderPlayers(data.lobby.players);
+                }
             } catch(e) {
                 document.getElementById('drawnList').innerHTML =
                     '<div style="color:rgba(255,100,100,.8);font-size:14px;">⚠️ Сервер недоступен</div>';
@@ -642,10 +664,10 @@
             });
         }
 
-        // Автообновление игроков каждые 3 секунды
+        // Автообновление данных каждые 2 секунды
         setInterval(() => {
-            if (activeLobbyId) loadPlayers(activeLobbyId, document.getElementById('playersPanelTitle').textContent.replace('👥 ', ''));
-        }, 3000);
+            loadFromServer();
+        }, 2000);
 
     </script>
 </body>
