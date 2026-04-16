@@ -6,7 +6,7 @@ import FloatingNicknames from '@/components/floating-nicknames'
 const DEFAULT_NICKS = [
   'paracetamolhaze', 'paracetamolHAZE', 'HAZE', 'r1ch_crazy', 'deluxe_2004',
   'yaTomal', 'habarhub', 'RinaMiura', 'm1llenn1ummm', 'txt_abloko',
-  'txt_abloko2', 'gantitupik', 'kukushonkovtv', 'Wiesal_t', 'lll_mommy',
+  'txt_abloko2', 'gantitupik', 'kukushonoktv', 'Wiesal_t', 'lll_mommy',
   'Saint_ioannX', 'Juliebayy', 'tripleoff', 'zxckostik2010', 'sasavot',
   'evelone2004'
 ];
