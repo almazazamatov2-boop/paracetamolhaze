@@ -104,7 +104,10 @@ export default function Home() {
   const [vaseWinnerIdx, setVaseWinnerIdx] = useState<number | null>(null)
   const [vasePlayers, setVasePlayers] = useState<Participant[]>([])
 
+  const [spinOffset, setSpinOffset] = useState(0)
+  const spinList = participants.length > 0 ? Array(15).fill(participants).flat() : []
   const chatRef = useRef<HTMLDivElement>(null)
+  const seenUsersRef = useRef<Set<string>>(new Set())
   const participantsRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const simulateRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -178,17 +181,16 @@ export default function Home() {
         const text = textRaw.toLowerCase()
         const currentKeyword = keyword.toLowerCase().trim()
         
-        setTotalMessages(prev => prev + 1)
-
         if (text === currentKeyword || text.startsWith(currentKeyword + ' ')) {
-          setParticipants(prev => {
-            if (prev.some(p => p.username === login)) return prev
-            return [...prev, {
+          if (!seenUsersRef.current.has(login)) {
+            seenUsersRef.current.add(login)
+            setTotalMessages(prev => prev + 1)
+            setParticipants(prev => [...prev, {
               username: m[1],
               color: getRandomColor(),
               joinedAt: Date.now()
-            }]
-          })
+            }])
+          }
 
           const msg: ChatMessage = {
             id: `${Date.now()}-${Math.random()}`,
@@ -197,7 +199,7 @@ export default function Home() {
             text: textRaw,
             timestamp: Date.now(),
           }
-          setChatMessages(prev => [...prev.slice(-50), msg])
+          setChatMessages(prev => [...prev.slice(-500), msg])
         }
       })
     }
@@ -223,6 +225,7 @@ export default function Home() {
     setIsConnected(true)
     setParticipants([])
     setChatMessages([])
+    seenUsersRef.current.clear()
     setTotalMessages(0)
     setConnectionTime(0)
     setWinner(null)
@@ -241,20 +244,31 @@ export default function Home() {
   const handleStartRoulette = () => {
     if (participants.length < 2) return
     setRouletteOpen(true)
+    setSpinOffset(0)
     setSpinWinner(null)
     setIsSpinning(false)
   }
 
   const handleSpinRoulette = () => {
     setIsSpinning(true)
+    const loops = 5
+    const targetIdx = participants.length * loops + winnerIdx
+    setSpinOffset(-(targetIdx * 128))
+
     setTimeout(() => {
-      const winnerIdx = Math.floor(Math.random() * participants.length)
-      const w = participants[winnerIdx]
       setSpinWinner(w)
       setWinner(w)
       setIsSpinning(false)
-    }, 3000)
+    }, 5100)
   }
+
+  useEffect(() => {
+    if (!rouletteOpen) {
+      setSpinOffset(0)
+      setSpinWinner(null)
+      setIsSpinning(false)
+    }
+  }, [rouletteOpen])
 
   /* ─── Vase ─── */
   const handleStartVase = () => {
@@ -448,14 +462,18 @@ export default function Home() {
               ref={chatRef}
               className="flex-1 bg-[#1a1a1a] rounded-xl p-3 overflow-y-auto max-h-96 lg:max-h-[600px] min-h-[200px]"
             >
-              {chatMessages.length === 0 ? (
+              {(() => {
+                const displayedMessages = winner 
+                  ? chatMessages.filter(m => m.username === winner.username)
+                  : chatMessages;
+                return displayedMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-500 py-12">
                   <MessageSquare className="w-10 h-10 mb-3 opacity-40" />
                   <p className="text-sm">Сообщения появятся здесь</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {chatMessages.map((msg) => (
+                  {displayedMessages.map((msg) => (
                     <div key={msg.id} className="message-appear flex gap-2 text-sm group">
                       <span className="font-semibold shrink-0 hover:underline cursor-pointer" style={{ color: msg.color }}>
                         {msg.username}
@@ -464,7 +482,8 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-              )}
+                )
+              })()}
             </div>
           </section>
 
@@ -542,60 +561,37 @@ export default function Home() {
           </div>
 
           {/* Roulette Wheel */}
-          <div className="relative bg-[#1a1a1a] mx-6 rounded-xl overflow-hidden h-28 border border-[#333]">
+          <div className="relative bg-[#1a1a1a] mx-2 sm:mx-6 rounded-xl overflow-hidden h-36 border border-[#333]">
             {/* Pointer */}
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center">
-              <ArrowDown className="w-6 h-6 text-purple-400 drop-shadow-lg" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center">
+              <ArrowDown className="w-6 h-6 text-yellow-500 drop-shadow-md" />
             </div>
-            {/* Scrolling names */}
-            <div className="flex items-center h-full overflow-hidden">
-              <div
-                className={`flex gap-3 whitespace-nowrap px-4 ${isSpinning ? 'animate-[rouletteSpin_3s_linear_infinite]' : ''}`}
-                style={{ animationTimingFunction: 'linear' }}
-              >
-                {isSpinning
-                  ? [...participants, ...participants, ...participants].map((p, i) => (
-                      <div
-                        key={i}
-                        className="shrink-0 px-4 py-2 rounded-lg text-sm font-medium"
-                        style={{ color: p.color }}
-                      >
-                        {p.username}
-                      </div>
-                    ))
-                  : spinWinner
-                    ? Array.from({ length: 20 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="shrink-0 px-4 py-2 rounded-lg text-sm font-medium"
-                          style={{ color: participants[i % participants.length]?.color }}
-                        >
-                          {participants[i % participants.length]?.username}
-                        </div>
-                      ))
-                    : participants.map((p, i) => (
-                        <div
-                          key={i}
-                          className="shrink-0 px-4 py-2 rounded-lg text-sm font-medium"
-                          style={{ color: p.color }}
-                        >
-                          {p.username}
-                        </div>
-                      ))}
-              </div>
+            
+            <div 
+              className="flex items-center h-full transition-transform duration-[5000ms] ease-[cubic-bezier(0.15,0.85,0.3,1)]"
+              style={{ transform: `translateX(calc(50% - 64px + ${spinOffset}px))` }}
+            >
+               {spinList.map((p, i) => (
+                 <div key={i} className="shrink-0 flex flex-col items-center justify-center border-r border-[#333] last:border-none relative" style={{ width: 128, height: '100%' }}>
+                   <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold mb-2 shadow-lg" style={{ backgroundColor: p.color }}>
+                      {p.username.charAt(0).toUpperCase()}
+                   </div>
+                   <span className="text-xs font-semibold text-white truncate w-24 text-center">{p.username}</span>
+                 </div>
+               ))}
             </div>
           </div>
 
           {/* Winner Display */}
           {spinWinner && (
-            <div className="mx-6 mt-4 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-5 text-center">
-              <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg shadow-purple-500/30">
-                <Crown className="w-7 h-7 text-white" />
+            <div className="mx-6 mt-4 bg-[#1a1a1a] border border-purple-500/30 rounded-xl p-6 text-center shadow-[0_0_15px_rgba(168,85,247,0.15)] flex flex-col items-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-purple-500/30 mb-3" style={{ background: spinWinner.color }}>
+                {spinWinner.username.charAt(0).toUpperCase()}
               </div>
-              <div className="text-2xl font-bold winner-glow" style={{ color: spinWinner.color }}>
+              <div className="text-3xl font-bold drop-shadow-md winner-glow" style={{ color: spinWinner.color }}>
                 {spinWinner.username}
               </div>
-              <div className="text-sm text-gray-400 mt-1">Поздравляем с победой в розыгрыше!</div>
+              <div className="text-sm text-gray-400 mt-2">Поздравляем с победой в розыгрыше!</div>
             </div>
           )}
 
