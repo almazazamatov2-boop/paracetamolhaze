@@ -27,13 +27,24 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case 'auth': {
+        const { userId, nickname } = data;
+        const userKey = `loto:user:${userId}`;
         const lowerNick = (nickname || 'Игрок').toLowerCase();
         const existingId = await redis.hget('loto:nicknames', lowerNick);
         if (existingId && existingId !== userId) {
           return NextResponse.json({ type: 'error', message: 'Этот никнейм уже занят другим игроком' });
         }
 
-        let user: any = await redis.hgetall(userKey);
+        // Remove old nickname mapping if user had a different one
+        const oldUser: any = await redis.hgetall(userKey);
+        if (oldUser && oldUser.nickname) {
+          const oldLower = oldUser.nickname.toLowerCase();
+          if (oldLower !== lowerNick) {
+            await redis.hdel('loto:nicknames', oldLower);
+          }
+        }
+
+        let user: any = oldUser;
         if (!user || Object.keys(user).length === 0) {
           user = {
             id: userId,
@@ -145,6 +156,10 @@ export async function POST(req: NextRequest) {
       }
 
       case 'chat_message': {
+        const { userId, lobbyId, text, nickname, avatar } = data;
+        if (!userId || !lobbyId || !text) {
+          return NextResponse.json({ type: 'error', message: 'Missing required fields' });
+        }
         let finalNick = nickname;
         let finalAvatar = avatar;
         if (!finalNick) {
@@ -162,7 +177,37 @@ export async function POST(req: NextRequest) {
         };
         await redis.rpush(`loto:chat:${lobbyId}`, JSON.stringify(msg));
         await redis.ltrim(`loto:chat:${lobbyId}`, -50, -1); // Keep last 50
-        return NextResponse.json({ type: 'chat_sent', message: msg });
+        return NextResponse.json({ type: 'chat_message', message: msg });
+      }
+
+      case 'update_profile': {
+        const { userId, nickname: newNick, avatar: newAvatar } = data;
+        if (!userId) return NextResponse.json({ type: 'error', message: 'Missing userId' });
+        const profileKey = `loto:user:${userId}`;
+        
+        if (newNick) {
+          const lowerNewNick = newNick.toLowerCase();
+          const existingOwner = await redis.hget('loto:nicknames', lowerNewNick);
+          if (existingOwner && existingOwner !== userId) {
+            return NextResponse.json({ type: 'error', message: 'Этот никнейм уже занят другим игроком' });
+          }
+          // Remove old nickname mapping
+          const oldProfile: any = await redis.hgetall(profileKey);
+          if (oldProfile?.nickname) {
+            const oldLower = oldProfile.nickname.toLowerCase();
+            if (oldLower !== lowerNewNick) {
+              await redis.hdel('loto:nicknames', oldLower);
+            }
+          }
+          await redis.hset('loto:nicknames', { [lowerNewNick]: userId });
+        }
+        
+        const updates: any = { last_seen: Math.floor(Date.now() / 1000).toString() };
+        if (newNick) updates.nickname = newNick;
+        if (newAvatar) updates.avatar = newAvatar;
+        await redis.hset(profileKey, updates);
+        
+        return NextResponse.json({ type: 'profile_updated' });
       }
 
       case 'mark_cell': {
