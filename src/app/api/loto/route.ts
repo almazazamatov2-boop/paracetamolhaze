@@ -27,10 +27,13 @@ export async function POST(req: NextRequest) {
 
     switch (action) {
       case 'auth': {
-        const { userId, nickname, telegramId } = data;
-        const userKey = `loto:user:${userId}`;
-        
-        let user = await redis.hgetall(userKey);
+        const lowerNick = (nickname || 'Игрок').toLowerCase();
+        const existingId = await redis.hget('loto:nicknames', lowerNick);
+        if (existingId && existingId !== userId) {
+          return NextResponse.json({ type: 'error', message: 'Этот никнейм уже занят другим игроком' });
+        }
+
+        let user: any = await redis.hgetall(userKey);
         if (!user || Object.keys(user).length === 0) {
           user = {
             id: userId,
@@ -48,6 +51,7 @@ export async function POST(req: NextRequest) {
         } else {
           await redis.hset(userKey, { nickname: nickname || user.nickname, last_seen: Math.floor(Date.now() / 1000).toString() });
         }
+        await redis.hset('loto:nicknames', { [lowerNick]: userId });
         
         return NextResponse.json({ type: 'auth_success', user });
       }
@@ -141,18 +145,24 @@ export async function POST(req: NextRequest) {
       }
 
       case 'chat_message': {
-        const { userId, lobbyId, text, nickname, avatar } = data;
+        let finalNick = nickname;
+        let finalAvatar = avatar;
+        if (!finalNick) {
+           const profile: any = await redis.hgetall(`loto:user:${userId}`);
+           finalNick = profile?.nickname || 'Игрок';
+           finalAvatar = profile?.avatar || '👤';
+        }
         const msg = {
           id: crypto.randomUUID(),
           userId,
-          nickname,
-          avatar,
+          nickname: finalNick,
+          avatar: finalAvatar,
           text,
           timestamp: Date.now(),
         };
         await redis.rpush(`loto:chat:${lobbyId}`, JSON.stringify(msg));
         await redis.ltrim(`loto:chat:${lobbyId}`, -50, -1); // Keep last 50
-        return NextResponse.json({ type: 'chat_sent' });
+        return NextResponse.json({ type: 'chat_sent', message: msg });
       }
 
       default:

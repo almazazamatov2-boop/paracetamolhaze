@@ -906,8 +906,8 @@
     let currentLobby = null;
     let currentLobbyId = null;
     let isAdmin = false;
-    let cardNumbers = [];
-    let markedCells = new Set();
+    let cardNumbers = []; try { const saved = sessionStorage.getItem("cardNumbers"); if(saved) cardNumbers = JSON.parse(saved); } catch(e) {}
+    let markedCells = new Set(); try { const saved = sessionStorage.getItem("markedCells"); if(saved) markedCells = new Set(JSON.parse(saved)); } catch(e) {}
     let drawnNumbers = new Set();
     let drawnOrder = []; // порядок выпадения
     let gameScreenShown = false;
@@ -1051,7 +1051,7 @@
 
     // ====== POLLING & API ======
     let pollInterval = null;
-    let wsReady = false;
+    let wsReady = false; const chatMessages = new Set();
 
     function initWS() {
       wsReady = true; const savedId = sessionStorage.getItem("currentLobbyId"); if(savedId) { currentLobbyId = savedId; isAdmin = (sessionStorage.getItem("isAdmin") === "true"); }
@@ -1188,7 +1188,7 @@
 
         case 'game_started':
           if (msg.card) {
-            cardNumbers = msg.card;
+            cardNumbers = msg.card; sessionStorage.setItem("cardNumbers", JSON.stringify(cardNumbers));
             markedCells.clear();
             drawnNumbers.clear();
             drawnOrder = [];
@@ -2096,7 +2096,7 @@
     }
 
     // ====== ЧАТ (через WebSocket) ======
-    function appendChatMessage(msg) {
+    function appendChatMessage(msg) { if (!msg.id || chatMessages.has(msg.id)) return; chatMessages.add(msg.id);
       const boxId = currentScreen === 'gameScreen' ? 'chatBoxGame' : 'chatBoxLobby';
       const box = document.getElementById(boxId);
       if (!box) return;
