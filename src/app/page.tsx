@@ -4,9 +4,11 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import FloatingNicknames from '@/components/floating-nicknames'
 
 const DEFAULT_NICKS = [
-  'ShadowKiller', 'NightWolf', 'CyberPhoenix', 'DarkViper',
-  'StormBreaker', 'IronGhost', 'NeonBlade', 'ThunderAce',
-  'Paracetamol', 'TXT_ABLOKO', 'VelGardi', 'Haze'
+  'paracetamolhaze', 'paracetamolHAZE', 'HAZE', 'r1ch_crazy', 'deluxe_2004',
+  'yaTomal', 'habarhub', 'RinaMiura', 'm1llenn1ummm', 'txt_abloko',
+  'txt_abloko2', 'gantitupik', 'kukushonkovtv', 'Wiesal_t', 'lll_mommy',
+  'Saint_ioannX', 'Juliebayy', 'tripleoff', 'zxckostik2010', 'sasavot',
+  'evelone2004'
 ];
 
 const PROJECTS = [

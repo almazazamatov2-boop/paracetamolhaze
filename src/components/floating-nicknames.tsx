@@ -58,7 +58,7 @@ const COLORS = [
 function generateParticles(nicknames: string[]): ParticleState[] {
   if (nicknames.length === 0) return [];
 
-  const count = Math.max(nicknames.length * 3, 50);
+  const count = 100;
   const particles: ParticleState[] = [];
 
   for (let i = 0; i < count; i++) {
@@ -119,7 +119,7 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
       mouseRef.current = { x: -9999, y: -9999 };
     };
 
-    el.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseleave', onMouseLeave);
 
     const REPEL_RADIUS = 200;
@@ -180,7 +180,7 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
 
     return () => {
       cancelAnimationFrame(animId);
-      el.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseleave', onMouseLeave);
     };
   }, [isClient, nicknames, particles]);
@@ -190,7 +190,7 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#000000]">
+    <div className="fixed inset-0 overflow-hidden bg-[#0c0c0e]">
       {/* Subtle purple radial glow */}
       <div className="absolute inset-0">
         <div
