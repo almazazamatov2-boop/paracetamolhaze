@@ -22,6 +22,7 @@ import {
   ArrowDown,
   Sparkles
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -105,7 +106,7 @@ export default function Home() {
   const [vasePlayers, setVasePlayers] = useState<Participant[]>([])
 
   const [spinOffset, setSpinOffset] = useState(0)
-  const spinList = participants.length > 0 ? Array(15).fill(participants).flat() : []
+  const spinList = participants.length > 0 ? Array(30).fill(participants).flat() : []
   const chatRef = useRef<HTMLDivElement>(null)
   const userColorsRef = useRef<Map<string, string>>(new Map())
   const participantsSet = useRef<Set<string>>(new Set())
@@ -575,12 +576,11 @@ export default function Home() {
               <ArrowDown className="w-6 h-6 text-yellow-500 drop-shadow-md" />
             </div>
             
-            <div 
+            <motion.div 
               className="flex items-center h-full"
-              style={{ 
-                 transform: `translateX(calc(50% - 64px + ${spinOffset}px))`,
-                 transition: isSpinning ? 'transform 5.1s cubic-bezier(0.15, 0.85, 0.3, 1)' : 'none'
-              }}
+              initial={{ x: "calc(50% - 64px)" }}
+              animate={{ x: `calc(50% - ${64 - spinOffset}px)` }}
+              transition={{ duration: 5.4, ease: [0.15, 0.85, 0.3, 1] }}
             >
                {spinList.map((p, i) => (
                  <div key={i} className="shrink-0 flex flex-col items-center justify-center border-r border-[#333] last:border-none relative" style={{ width: 128, height: '100%' }}>
@@ -590,7 +590,7 @@ export default function Home() {
                    <span className="text-xs font-semibold text-white truncate w-24 text-center">{p.username}</span>
                  </div>
                ))}
-            </div>
+            </motion.div>
           </div>
 
           {/* Winner Display */}
