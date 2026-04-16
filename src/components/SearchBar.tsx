@@ -29,7 +29,9 @@ export default function SearchBar({ onSearch, isLoading, initialUsername = '' }:
     <div className="w-full max-w-2xl mx-auto">
       <form onSubmit={handleSubmit} className="relative flex gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center justify-center">
+            <Search className="w-5 h-5 text-muted-foreground" />
+          </div>
           <input
             ref={inputRef}
             type="text"
@@ -39,9 +41,6 @@ export default function SearchBar({ onSearch, isLoading, initialUsername = '' }:
             className="w-full h-14 pl-12 pr-4 bg-[#1f1f23] border border-[#2f2f35] rounded-xl text-foreground placeholder:text-muted-foreground text-base focus:outline-none focus:border-twitch-purple focus:ring-1 focus:ring-twitch-purple transition-all"
             disabled={isLoading}
           />
-          <p className="text-center text-muted-foreground text-[10px] md:text-sm mt-2 opacity-60">
-            Пример: <span className="text-twitch-purple-light cursor-pointer hover:underline" onClick={() => { setUsername('tiktokevelone888'); }}>tiktokevelone888</span>
-          </p>
         </div>
         <button
           type="submit"
