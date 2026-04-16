@@ -20,30 +20,35 @@ const PROJECTS = [
     desc: 'Просмотр подписок пользователя twitch',
     href: '/check.html',
     color: '#ff4500',
+    disabled: true,
   },
   {
     title: 'ЛОТОМАЛЬ',
     desc: '',
     href: '#',
     color: '#ff4500',
+    disabled: true,
   },
   {
     title: 'РОЛЛ',
     desc: 'оверлей рулетка с балами twitch',
     href: '/roz-old.html',
     color: '#ff4500',
+    disabled: true,
   },
   {
     title: 'ФЕЙССВАП',
     desc: 'Замена лица LIVE',
     href: '#',
     color: '#ff4500',
+    disabled: true,
   },
   {
     title: 'ПАСТА',
     desc: 'Генерация и поиск паст',
     href: '#',
     color: '#ff4500',
+    disabled: true,
   },
 ]
 
@@ -135,8 +140,8 @@ export default function Home() {
             {PROJECTS.map((project) => (
               <a
                 key={project.title}
-                href={project.href}
-                className="paracetamol-project-card"
+                href={project.disabled ? undefined : project.href}
+                className={`paracetamol-project-card ${(project as any).disabled ? 'is-disabled' : ''}`}
                 onMouseMove={handleCardMouseMove}
                 onMouseLeave={handleCardMouseLeave}
               >
