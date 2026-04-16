@@ -283,7 +283,7 @@ export default function Home() {
     if (participants.length < 2) return
     const shuffled = [...participants].sort(() => Math.random() - 0.5).slice(0, 9)
     setVasePlayers(shuffled)
-    setVaseWinnerIdx(Math.floor(Math.random() * 9))
+    setVaseWinnerIdx(Math.floor(Math.random() * shuffled.length))
     setVaseBroken([])
     setVaseOpen(true)
   }
