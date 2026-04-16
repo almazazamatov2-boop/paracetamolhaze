@@ -399,13 +399,6 @@
             </div>
         </div>
 
-        <div class="panel" id="lobbiesPanel">
-            <div class="section-title">Активные лобби</div>
-            <div id="lobbiesList" style="display:flex;flex-direction:column;gap:10px;min-height:40px;">
-                <div style="color:rgba(255,215,0,.5);text-align:center;font-size:14px;">Нажми "Обновить"</div>
-            </div>
-            <button class="btn" style="background:linear-gradient(145deg,#4a9eff,#2980b9);color:#fff;margin-top:15px;width:100%;" onclick="loadLobbies()">🔄 Обновить лобби</button>
-        </div>
 
         <div class="panel" id="playersPanel" style="display:none;">
             <div class="section-title" id="playersPanelTitle">Игроки</div>
@@ -449,14 +442,15 @@
 
         const query = new URLSearchParams(window.location.search);
         const lobbyId = query.get('lobbyId');
+        const userId = query.get('userId');
 
         async function addNumberToDrawn(num) {
-            if (!lobbyId) return;
+            if (!lobbyId || !userId) return;
             try {
                 const res = await fetch('/api/loto', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'draw_number', lobbyId, number: num })
+                    body: JSON.stringify({ action: 'draw_number', lobbyId, userId, number: num })
                 });
                 const data = await res.json();
                 if (data.drawn) {
@@ -480,7 +474,7 @@
                 const res = await fetch('/api/loto', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'undo_number', lobbyId, number: num })
+                    body: JSON.stringify({ action: 'undo_number', lobbyId, userId, number: num })
                 });
                 const data = await res.json();
                 if (data.drawn) {
@@ -538,7 +532,7 @@
                 await fetch('/api/loto', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'reset_numbers', lobbyId })
+                    body: JSON.stringify({ action: 'reset_numbers', lobbyId, userId })
                 });
                 drawnOrder = [];
                 drawnNumbers.clear();

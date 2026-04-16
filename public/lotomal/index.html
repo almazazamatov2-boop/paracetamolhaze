@@ -678,6 +678,7 @@
     </div>
 
     
+    <!-- Скрыто по просьбе пользователя
     <div class="lobby-action-card">
       <div class="action-title">Доступные лобби</div>
       <div class="hint" style="margin-top:6px;"></div>
@@ -686,6 +687,7 @@
       </div>
       <button class="btn-secondary" onclick="refreshLobbyList()">🔄 Обновить</button>
     </div>
+    -->
 
 <div class="lobby-action-card">
       <div class="action-title">Присоединиться к игре</div>
@@ -1564,6 +1566,7 @@
 
     // ====== ЛОББИ (через WebSocket) ======
     function createLobby() {
+      currentLobbyId = null; // Сброс перед созданием
       playSound('click');
       if (!wsReady) { alert('Нет связи с сервером. Проверь подключение.'); return; }
       const name = document.getElementById('lobbyNameInput').value || 'Моя игра';
@@ -1583,11 +1586,16 @@
     }
 
     function leaveLobby() {
-      if (currentLobbyId) sendWS({ type: 'leave_lobby' });
-      currentLobby = null;
       currentLobbyId = null;
+      sendWS({ type: 'leave_lobby' });
+      currentLobby = null;
       isAdmin = false;
       gameScreenShown = false;
+      showScreen('mainMenu');
+    }
+
+    function leaveGame() {
+      currentLobbyId = null;
       showScreen('mainMenu');
     }
 
@@ -1604,10 +1612,10 @@
               div.id = 'creatorButtonsGame';
               div.style.cssText = 'display:flex; gap:10px; margin-bottom:15px;';
               div.innerHTML = `
-                  <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="window.open('/admin.html?lobbyId='+currentLobbyId, '_blank')">🛡️ Админ</button>
-                  <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="window.open('/overlay.html?lobbyId='+currentLobbyId, '_blank')">🎥 Оверлей</button>
+                  <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="window.open('/lotomal/admin.html?lobbyId='+currentLobbyId+'&userId='+userId, '_blank')">🛡️ Админ</button>
+                  <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="window.open('/lotomal/overlay.html?lobbyId='+currentLobbyId, '_blank')">🎥 Оверлей</button>
               `;
-              const gameHeader = document.querySelector('#gameScreen .screen-header');
+              const gameHeader = document.querySelector('#gameScreen .header');
               if (gameHeader) gameHeader.after(div);
           }
       }
@@ -1646,7 +1654,7 @@
             div.id = 'creatorButtons';
             div.style.cssText = 'display:flex; gap:10px; margin-top:10px;';
             div.innerHTML = `
-                <button class="btn-secondary" style="flex:1" onclick="window.open('/lotomal/admin.html?lobbyId='+currentLobbyId, '_blank')">🛡️ Админ.панель</button>
+                <button class="btn-secondary" style="flex:1" onclick="window.open('/lotomal/admin.html?lobbyId='+currentLobbyId+'&userId='+userId, '_blank')">🛡️ Админ.панель</button>
                 <button class="btn-secondary" style="flex:1" onclick="window.open('/lotomal/overlay.html?lobbyId='+currentLobbyId, '_blank')">🎥 Оверлей</button>
             `;
             adminControls.appendChild(div);
