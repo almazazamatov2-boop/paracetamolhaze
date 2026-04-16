@@ -64,24 +64,24 @@ function RouletteSelector({ value, onChange }: { value: { h: string, m: string, 
   };
 
   const Slot = ({ part, label }: { part: 'h' | 'm' | 's', label: string }) => (
-    <div className="flex flex-col items-center group/slot cursor-ns-resize" onWheel={(e) => handleWheel(part, e)}>
+    <div className="flex flex-col items-center group/slot cursor-ns-resize px-1" onWheel={(e) => handleWheel(part, e)}>
       <input
         type="text"
         inputMode="numeric"
         value={value[part]}
         onChange={(e) => handleInput(part, e.target.value)}
-        className="w-8 bg-transparent text-center text-sm font-mono font-bold text-yellow-500 outline-none hover:text-yellow-400 transition-colors"
+        className="w-10 bg-transparent text-center text-lg font-mono font-black text-yellow-500 outline-none hover:text-white focus:text-white transition-colors"
       />
-      <span className="text-[7px] text-gray-600 group-hover/slot:text-gray-400 uppercase tracking-tighter">{label}</span>
+      <span className="text-[8px] text-gray-600 group-hover/slot:text-gray-400 uppercase tracking-tighter font-bold">{label}</span>
     </div>
   );
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/5 bg-[#0a0a0a] group focus-within:border-yellow-500/40 transition-all shadow-inner">
+    <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border border-white/10 bg-[#050505] group focus-within:border-yellow-500/50 transition-all shadow-2xl">
       <Slot part="h" label="час" />
-      <span className="text-gray-700 font-bold -mt-3">:</span>
+      <span className="text-gray-800 font-black text-xl mb-4">:</span>
       <Slot part="m" label="мин" />
-      <span className="text-gray-700 font-bold -mt-3">:</span>
+      <span className="text-gray-800 font-black text-xl mb-4">:</span>
       <Slot part="s" label="сек" />
     </div>
   );
@@ -629,70 +629,84 @@ export default function KinoPage() {
                   )}
                 </h3>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_250px_140px] gap-6 items-end">
-                  {/* Author */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1">Никнейм</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={30}
-                      placeholder="Ваш никнейм"
-                      value={newTimingAuthor}
-                      onChange={e => setNewTimingAuthor(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
-                      style={{ background: '#0a0a0a' }}
-                    />
+                <div className="flex flex-col gap-6">
+                  {/* Row 1: Author & Description */}
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="md:w-1/4">
+                      <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1 mb-2 block">Никнейм</label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={30}
+                        placeholder="Ваш никнейм"
+                        value={newTimingAuthor}
+                        onChange={e => setNewTimingAuthor(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
+                        style={{ background: '#0a0a0a' }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1 mb-2 block">Описание происходящего</label>
+                      <input
+                        type="text"
+                        required
+                        maxLength={150}
+                        placeholder="Напр. 01:27:02 - 01:27:05 обнаженка / скример / важный момент"
+                        value={newTimingDesc}
+                        onChange={e => setNewTimingDesc(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
+                        style={{ background: '#0a0a0a' }}
+                      />
+                    </div>
                   </div>
 
-                  {/* Description */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1">Описание</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={150}
-                      placeholder="Напр. обнаженка / скример"
-                      value={newTimingDesc}
-                      onChange={e => setNewTimingDesc(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
-                      style={{ background: '#0a0a0a' }}
-                    />
-                  </div>
+                  {/* Row 2: Time & Submit */}
+                  <div className="flex flex-col md:flex-row items-end gap-6 pt-2 border-t border-white/5">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Тайминг во время фильма</label>
+                        <button 
+                          type="button" 
+                          onClick={() => setUseEndTime(!useEndTime)}
+                          className={`text-[10px] font-bold uppercase tracking-tight px-3 py-1 rounded-lg border transition-all ${useEndTime ? 'bg-yellow-500/10 border-yellow-500/40 text-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.1)]' : 'bg-white/5 border-white/10 text-gray-500 hover:text-gray-300'}`}
+                        >
+                          {useEndTime ? 'Убрать диапазон' : '+ Добавить диапазон (ДО)'}
+                        </button>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[8px] text-gray-600 uppercase text-center">{useEndTime ? 'ОТ' : 'ВРЕМЯ'}</span>
+                          <RouletteSelector value={startTime} onChange={setStartTime} />
+                        </div>
+                        
+                        {useEndTime && (
+                          <>
+                            <div className="w-4 h-[1px] bg-white/10 mt-4" />
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[8px] text-gray-600 uppercase text-center">ДО</span>
+                              <RouletteSelector value={endTime} onChange={setEndTime} />
+                            </div>
+                          </>
+                        )}
+                        
+                        <div className="hidden lg:block ml-4 text-[10px] text-gray-600 italic max-w-[180px] leading-tight">
+                          * Листайте колесиком мыши по цифрам для быстрой смены
+                        </div>
+                      </div>
+                    </div>
 
-                  {/* Time Roulette Container */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between px-1">
-                      <label className="text-[10px] text-gray-500 uppercase tracking-wider">Время</label>
-                      <button 
-                        type="button" 
-                        onClick={() => setUseEndTime(!useEndTime)}
-                        className={`text-[9px] uppercase tracking-tighter px-2 py-0.5 rounded border transition-colors ${useEndTime ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' : 'bg-white/5 border-white/10 text-gray-500'}`}
+                    <div className="w-full md:w-48">
+                      <button
+                        type="submit"
+                        disabled={isSubmittingTiming}
+                        className="w-full h-[52px] rounded-2xl font-black text-black text-sm uppercase tracking-widest transition-all hover:scale-[1.03] active:scale-[0.97] disabled:opacity-50 flex justify-center items-center gap-2 shadow-[0_8px_30px_rgb(0,0,0,0.4)] hover:shadow-yellow-500/20"
+                        style={{ background: editingId ? '#34d399' : '#e6a800' }}
                       >
-                        {useEndTime ? 'Убрать диапазон' : 'Добавить до'}
+                        {isSubmittingTiming ? <RefreshCw className="w-4 h-4 animate-spin" /> : (editingId ? 'ГОТОВО' : 'ОТПРАВИТЬ')}
                       </button>
                     </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <RouletteSelector value={startTime} onChange={setStartTime} />
-                      {useEndTime && (
-                        <>
-                          <span className="text-gray-600 font-bold">-</span>
-                          <RouletteSelector value={endTime} onChange={setEndTime} />
-                        </>
-                      )}
-                    </div>
                   </div>
-
-                  {/* Submit Button */}
-                  <button
-                    type="submit"
-                    disabled={isSubmittingTiming}
-                    className="w-full h-[46px] rounded-xl font-bold text-black text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex justify-center items-center gap-2 shadow-lg shadow-yellow-500/5"
-                    style={{ background: editingId ? '#34d399' : '#e6a800' }}
-                  >
-                    {isSubmittingTiming ? <RefreshCw className="w-4 h-4 animate-spin" /> : (editingId ? 'Готово' : 'Отправить')}
-                  </button>
                 </div>
               </form>
             </div>
