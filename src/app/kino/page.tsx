@@ -63,18 +63,39 @@ function RouletteSelector({ value, onChange }: { value: { h: string, m: string, 
     onChange({ ...value, [part]: n.toString().padStart(2, '0') });
   };
 
-  const Slot = ({ part, label }: { part: 'h' | 'm' | 's', label: string }) => (
-    <div className="flex flex-col items-center group/slot cursor-ns-resize px-1" onWheel={(e) => handleWheel(part, e)}>
-      <input
-        type="text"
-        inputMode="numeric"
-        value={value[part]}
-        onChange={(e) => handleInput(part, e.target.value)}
-        className="w-10 bg-transparent text-center text-lg font-mono font-black text-yellow-500 outline-none hover:text-white focus:text-white transition-colors"
-      />
-      <span className="text-[8px] text-gray-600 group-hover/slot:text-gray-400 uppercase tracking-tighter font-bold">{label}</span>
-    </div>
-  );
+  const Slot = ({ part, label }: { part: 'h' | 'm' | 's', label: string }) => {
+    const slotRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+      const el = slotRef.current;
+      if (!el) return;
+      const onWheelEvent = (e: WheelEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const delta = e.deltaY < 0 ? 1 : -1;
+        const max = part === 'h' ? 99 : 59;
+        let next = parseInt(value[part]) + delta;
+        if (next > max) next = 0;
+        if (next < 0) next = max;
+        onChange({ ...value, [part]: next.toString().padStart(2, '0') });
+      };
+      el.addEventListener('wheel', onWheelEvent, { passive: false });
+      return () => el.removeEventListener('wheel', onWheelEvent);
+    }, [part, value, onChange]);
+
+    return (
+      <div ref={slotRef} className="flex flex-col items-center group/slot cursor-ns-resize px-1">
+        <input
+          type="text"
+          inputMode="numeric"
+          value={value[part]}
+          onChange={(e) => handleInput(part, e.target.value)}
+          className="w-10 bg-transparent text-center text-lg font-mono font-black text-yellow-500 outline-none hover:text-white focus:text-white transition-colors"
+        />
+        <span className="text-[8px] text-gray-600 group-hover/slot:text-gray-400 uppercase tracking-tighter font-bold">{label}</span>
+      </div>
+    );
+  };
 
   return (
     <div className="flex items-center gap-1.5 px-4 py-2.5 rounded-2xl border border-white/10 bg-[#050505] group focus-within:border-yellow-500/50 transition-all shadow-2xl">
@@ -527,7 +548,6 @@ export default function KinoPage() {
           <div className="w-full max-w-4xl mt-6">
             <div className="p-6 md:p-8 rounded-2xl border border-white/10 shadow-lg" style={{ background: '#111' }}>
               <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-4">
-                <div className="flex items-center gap-3 w-full sm:w-auto">
                   <div className="w-10 h-10 rounded-full bg-yellow-500/10 flex items-center justify-center border border-yellow-500/20">
                     <Timer className="w-5 h-5 text-yellow-500" />
                   </div>
@@ -538,15 +558,29 @@ export default function KinoPage() {
                     </button>
                   </h2>
                 </div>
-                <button
-                  onClick={() => fetchTimings(selectedFilm.kinopoiskId.toString())}
-                  disabled={timingsLoading}
-                  className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-white/10 hover:bg-white/10 transition-all text-gray-300 disabled:opacity-50 w-full sm:w-auto shrink-0"
-                  style={{ background: '#1a1a1a' }}
-                >
-                  <RefreshCw className={`w-4 h-4 ${timingsLoading ? 'animate-spin' : ''}`} />
-                  обновить
-                </button>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    onClick={() => {
+                      const url = `${window.location.origin}/kino/overlay/${selectedFilm.kinopoiskId}`
+                      navigator.clipboard.writeText(url)
+                      alert('Ссылка для OBS скопирована!')
+                    }}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-medium border border-white/5 hover:bg-white/5 transition-all text-gray-400 bg-[#161616]"
+                    title="Для добавления в OBS (Browser Source) с прозрачным фоном"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    Ссылка для OBS
+                  </button>
+                  <button
+                    onClick={() => fetchTimings(selectedFilm.kinopoiskId.toString())}
+                    disabled={timingsLoading}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border border-white/10 hover:bg-white/10 transition-all text-gray-300 disabled:opacity-50"
+                    style={{ background: '#1a1a1a' }}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${timingsLoading ? 'animate-spin' : ''}`} />
+                    обновить
+                  </button>
+                </div>
               </div>
 
               {/* Timings List */}
@@ -646,12 +680,12 @@ export default function KinoPage() {
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1 mb-2 block">Описание происходящего</label>
+                      <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1 mb-2 block">Описание</label>
                       <input
                         type="text"
                         required
                         maxLength={150}
-                        placeholder="Напр. 01:27:02 - 01:27:05 обнаженка / скример / важный момент"
+                        placeholder=""
                         value={newTimingDesc}
                         onChange={e => setNewTimingDesc(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
@@ -679,7 +713,6 @@ export default function KinoPage() {
                           <span className="text-[8px] text-gray-600 uppercase text-center">{useEndTime ? 'ОТ' : 'ВРЕМЯ'}</span>
                           <RouletteSelector value={startTime} onChange={setStartTime} />
                         </div>
-                        
                         {useEndTime && (
                           <>
                             <div className="w-4 h-[1px] bg-white/10 mt-4" />
@@ -689,10 +722,6 @@ export default function KinoPage() {
                             </div>
                           </>
                         )}
-                        
-                        <div className="hidden lg:block ml-4 text-[10px] text-gray-600 italic max-w-[180px] leading-tight">
-                          * Листайте колесиком мыши по цифрам для быстрой смены
-                        </div>
                       </div>
                     </div>
 

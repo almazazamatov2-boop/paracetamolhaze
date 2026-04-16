@@ -95,11 +95,8 @@ export async function GET(req: NextRequest) {
   // Append any system mocked ones if they match
   const systemTimings = MOCK_SYSTEM_TIMINGS.filter(t => t.filmId === filmId)
   
-  // Sort descending by created at
-  filmTimings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-  // System timings go first
-  const result = [...systemTimings, ...filmTimings]
+  // Combine and sort ascending by timeStr (HH:MM:SS)
+  const result = [...systemTimings, ...filmTimings].sort((a, b) => a.timeStr.localeCompare(b.timeStr))
 
   return NextResponse.json(result)
 }
