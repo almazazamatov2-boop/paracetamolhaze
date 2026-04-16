@@ -151,12 +151,16 @@
 </div>
 
 <script>
-    let drawnOrder = [];
-    let lastNumber = null;
+    const query = new URLSearchParams(window.location.search);
+    const lobbyId = query.get('lobbyId');
 
     async function updateDisplay() {
+        if (!lobbyId) {
+            document.body.innerHTML = '<div style="color:#FFD700;padding:20px;">Lobby ID not specified in URL (?lobbyId=...)</div>';
+            return;
+        }
         try {
-            const res = await fetch('/api/drawn', { cache: 'no-store' });
+            const res = await fetch(`/api/loto?action=get_state&lobbyId=${lobbyId}`, { cache: 'no-store' });
             const data = await res.json();
             const newOrder = (data.drawn || []).map(Number);
 

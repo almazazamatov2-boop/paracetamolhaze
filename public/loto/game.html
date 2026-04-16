@@ -1047,34 +1047,51 @@
     }
 
     // ====== WEBSOCKET ======
-    let ws = null;
-    let wsReady = false;
+    // ====== POLLING & API ======
+    let pollInterval = null;
 
     function initWS() {
-      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      ws = new WebSocket(`${proto}//${location.host}`);
+      // Авторизация при старте
+      sendAPI({ action: 'auth', userId, nickname: userProfile.nickname })
+        .then(msg => handleWsMessage(msg));
+      
+      // Запуск поллинга
+      if (!pollInterval) {
+        pollInterval = setInterval(async () => {
+          if (currentLobbyId) {
+            try {
+              const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`);
+              if (res.ok) {
+                const msg = await res.json();
+                handleWsMessage(msg);
+              }
+            } catch(e) {}
+          }
+        }, 2000);
+      }
+      
+      setConnStatus('connected', 'Онлайн (Vercel Mode)');
+    }
 
-      ws.onopen = () => {
-        wsReady = true;
-        setConnStatus('connecting', 'Авторизация...');
-        sendWS({ type: 'auth', userId, telegramId: Number(userId) || 0, nickname: userProfile.nickname });
-      };
-
-      ws.onmessage = (e) => {
-        try { handleWsMessage(JSON.parse(e.data)); } catch(_) {}
-      };
-
-      ws.onclose = () => {
-        wsReady = false;
-        setConnStatus('disconnected', 'Нет связи');
-        setTimeout(initWS, 3000);
-      };
-
-      ws.onerror = () => ws.close();
+    async function sendAPI(data) {
+      try {
+        const res = await fetch('/api/loto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        const resp = await res.json();
+        // В режиме поллинга мы можем сразу обработать ответ
+        if (resp && resp.type) handleWsMessage(resp);
+        return resp;
+      } catch(e) {
+        return { type: 'error', message: 'Ошибка связи с сервером' };
+      }
     }
 
     function sendWS(msg) {
-      if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+      // Прокси для обратной совместимости
+      sendAPI({ ...msg, action: msg.type, userId, lobbyId: currentLobbyId });
     }
 
     function handleWsMessage(msg) {
@@ -1082,8 +1099,43 @@
         case 'auth_success':
           setConnStatus('connected', 'Онлайн');
           if (msg.user) {
-            userProfile.gamesPlayed = msg.user.games_played || 0;
-            userProfile.gamesWon = msg.user.games_won || 0;
+            userProfile.gamesPlayed = Number(msg.user.games_played) || 0;
+            userProfile.gamesWon = Number(msg.user.games_won) || 0;
+          }
+          break;
+
+        case 'state_update':
+          if (msg.lobby) {
+            // Обновляем лобби
+            currentLobbyId = msg.lobby.id;
+            currentLobby = {
+              code: msg.lobby.code,
+              name: msg.lobby.name,
+              maxPlayers: msg.lobby.max_players || 10,
+              players: msg.lobby.players || []
+            };
+            isAdmin = (msg.lobby.admin_id === userId);
+            
+            if (msg.lobby.status === 'playing' && !gameScreenShown) {
+               handleWsMessage({ type: 'game_started' });
+            }
+            updateLobbyDisplay();
+          }
+          if (msg.drawn) {
+            const newCount = msg.drawn.length;
+            const oldCount = drawnNumbers.size;
+            drawnNumbers = new Set(msg.drawn.map(Number));
+            drawnOrder = msg.drawn.map(Number);
+            updateDrawnNumbersDisplay();
+            if (newCount > oldCount) {
+              playSound('barrel');
+              if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+            }
+          }
+          if (msg.chat) {
+            // Очищаем и рендерим чат заново или добавляем новые (упростим: просто перерисуем если нужно)
+            // Но лучше appendChatMessage уже умеет фильтровать дубли по ID
+            msg.chat.forEach(m => appendChatMessage(m));
           }
           break;
 
@@ -1221,9 +1273,7 @@
       if (!box) return;
       box.innerHTML = '<div class="lobby-empty">⏳ Загрузка...</div>';
       try {
-        const ctrl = new AbortController();
-        setTimeout(() => ctrl.abort(), 8000);
-        const res = await fetch('/api/lobbies', { cache: 'no-store', signal: ctrl.signal });
+        const res = await fetch('/api/loto?action=list_lobbies', { cache: 'no-store' });
         const lobbies = await res.json();
         if (!Array.isArray(lobbies) || lobbies.length === 0) {
           box.innerHTML = '<div class="lobby-empty">🎲 Нет активных лобби.<br><span style="font-size:13px;">Создайте первое!</span></div>';
