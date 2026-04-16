@@ -153,6 +153,8 @@
 <script>
     const query = new URLSearchParams(window.location.search);
     const lobbyId = query.get('lobbyId');
+    let drawnOrder = [];
+    let lastNumber = null;
 
     async function updateDisplay() {
         if (!lobbyId) {
