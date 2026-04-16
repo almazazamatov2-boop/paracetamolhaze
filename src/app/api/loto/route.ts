@@ -129,7 +129,11 @@ export async function POST(req: NextRequest) {
       case 'draw_number': {
         const { userId, lobbyId, number } = data;
         const lobby: any = await redis.hgetall(`loto:lobby:${lobbyId}`);
-        if (lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Только админ может тянуть бочонки' });
+        if (!lobby || Object.keys(lobby).length === 0) return NextResponse.json({ type: 'error', message: 'Лобби не найдено' });
+        if (lobby.admin_id !== userId) {
+          console.warn(`Loto Admin Error: Lobby admin is ${lobby.admin_id}, requester is ${userId}`);
+          return NextResponse.json({ type: 'error', message: 'Только админ может тянуть бочонки' });
+        }
 
         await redis.rpush(`loto:drawn:${lobbyId}`, number);
         const drawn = await redis.lrange(`loto:drawn:${lobbyId}`, 0, -1);
