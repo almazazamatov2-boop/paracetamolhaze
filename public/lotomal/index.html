@@ -906,7 +906,7 @@
     let currentLobby = null;
     let currentLobbyId = null;
     let isAdmin = false;
-    let cardNumbers = []; try { const saved = sessionStorage.getItem("cardNumbers"); if(saved) cardNumbers = JSON.parse(saved); } catch(e) {}
+    let cardNumbers = []; try { const _saved = sessionStorage.getItem("cardNumbers"); if(_saved) { cardNumbers = JSON.parse(_saved); console.log("Recovered card:", cardNumbers); } } catch(e) {} try { const saved = sessionStorage.getItem("cardNumbers"); if(saved) cardNumbers = JSON.parse(saved); } catch(e) {}
     let markedCells = new Set(); try { const saved = sessionStorage.getItem("markedCells"); if(saved) markedCells = new Set(JSON.parse(saved)); } catch(e) {}
     let drawnNumbers = new Set();
     let drawnOrder = []; // порядок выпадения
@@ -1123,7 +1123,7 @@
             if (msg.lobby.status === 'playing' && !gameScreenShown) {
                gameScreenShown = true;
                showScreen('gameScreen');
-               updateGameDisplay(); // Показываем кнопки админа в игре
+               updateGameDisplay(); renderCard();
             }
             updateLobbyDisplay(); updateGameDisplay();
           }
@@ -2096,7 +2096,7 @@
     }
 
     // ====== ЧАТ (через WebSocket) ======
-    function appendChatMessage(msg) { if (!msg.id || chatMessages.has(msg.id)) return; chatMessages.add(msg.id);
+    function appendChatMessage(msg) { console.log("New msg:", msg); if (!msg.id || chatMessages.has(msg.id)) return; chatMessages.add(msg.id); if (!msg.id || chatMessages.has(msg.id)) return; chatMessages.add(msg.id);
       const boxId = currentScreen === 'gameScreen' ? 'chatBoxGame' : 'chatBoxLobby';
       const box = document.getElementById(boxId);
       if (!box) return;
