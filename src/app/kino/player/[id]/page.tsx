@@ -39,11 +39,11 @@ export default function PlayerPage() {
       </div>
 
       {/*
-        The kinopoisk.vip page has a ~190px ad banner at the top.
+        The kinopoisk.vip page has a ~330px ad header at the top.
         We clip it by:
           1. The outer wrapper clips overflow
-          2. The iframe is pushed up by 190px so the player area aligns to top
-          3. Iframe height = 100% + 190px to compensate
+          2. The iframe is pushed up by 330px
+          3. Iframe height = 100% + 330px to compensate
       */}
       <div
         className="flex-1 relative"
@@ -55,10 +55,10 @@ export default function PlayerPage() {
           allow="autoplay; fullscreen; picture-in-picture"
           style={{
             position: 'absolute',
-            top: -190,
+            top: -330,
             left: 0,
             width: '100%',
-            height: 'calc(100% + 190px)',
+            height: 'calc(100% + 330px)',
             border: 'none',
           }}
           title={decodeURIComponent(title) || 'Player'}
@@ -70,8 +70,8 @@ export default function PlayerPage() {
             position: 'absolute',
             bottom: 0,
             left: 0,
-            width: 130,
-            height: 110,
+            width: 150,
+            height: 160,
             background: '#000',
             zIndex: 20,
             pointerEvents: 'none',
