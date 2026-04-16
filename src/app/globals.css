@@ -221,7 +221,7 @@
   left: 50%;
   width: calc(100% + 0.24em);
   height: calc(100% + 0.12em);
-  transform: translate(-50%, -55%);
+  transform: translate(-50%, -50%);
   background-color: #ff4500;
   box-shadow: 0 0 15px rgba(255, 69, 0, 0.9);
   z-index: 1;

@@ -33,6 +33,18 @@ const PROJECTS = [
     href: '/roz-old.html',
     color: '#ff4500',
   },
+  {
+    title: 'ФЕЙССВАП',
+    desc: 'Замена лица LIVE',
+    href: '#',
+    color: '#ff4500',
+  },
+  {
+    title: 'ПАСТА',
+    desc: 'Генерация и поиск паст',
+    href: '#',
+    color: '#ff4500',
+  },
 ]
 
 export default function Home() {
