@@ -1120,10 +1120,10 @@
             };
             isAdmin = (String(msg.lobby.admin_id).trim() === String(userId).trim()); sessionStorage.setItem("currentLobbyId", currentLobbyId); sessionStorage.setItem("isAdmin", isAdmin);
             
-            if (msg.lobby.status === 'playing' && !gameScreenShown) {
+            if (msg.lobby.status === 'playing' && !gameScreenShown && currentScreen !== 'mainMenu') {
                gameScreenShown = true;
                showScreen('gameScreen');
-               updateGameDisplay(); renderCard();
+               if (!cardNumbers || cardNumbers.length === 0) { cardNumbers = generateLotoCard(); sessionStorage.setItem("cardNumbers", JSON.stringify(cardNumbers)); } if (!cardNumbers || cardNumbers.length === 0) { cardNumbers = generateLotoCard(); sessionStorage.setItem("cardNumbers", JSON.stringify(cardNumbers)); } updateGameDisplay(); renderCard();
             }
             updateLobbyDisplay(); updateGameDisplay();
           }
@@ -1602,16 +1602,19 @@
       console.log('Game session cleared');
     }
 
-    function leaveLobby() { if (currentLobbyId) sendWS({ type: "leave_lobby" }); clearGameSession();
-      currentLobbyId = null;
-      sendWS({ type: 'leave_lobby' });
-      currentLobby = null;
-      isAdmin = false;
-      gameScreenShown = false;
+    function leaveLobby() {
+      if (currentLobbyId) sendWS({ type: 'leave_lobby' });
+      clearGameSession();
       showScreen('mainMenu');
     }
 
     function leaveGame() {
+      if (confirm('Выйти из игры?')) {
+        if (currentLobbyId) sendWS({ type: 'leave_lobby' });
+        clearGameSession();
+        showScreen('mainMenu');
+      }
+    } }
       currentLobbyId = null;
       showScreen('mainMenu');
     }
