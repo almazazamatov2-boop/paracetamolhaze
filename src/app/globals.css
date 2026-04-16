@@ -49,6 +49,12 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --color-twitch-purple: #9146ff;
+  --color-twitch-purple-light: #a970ff;
+  --color-twitch-purple-dark: #772ce8;
+  --color-live-red: #eb0400;
+  --color-success-green: #00e676;
+  --color-warning-orange: #ff9100;
 }
 
 :root {
@@ -431,4 +437,53 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+/* Checker Utilities */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-live-pulse {
+  animation: live-pulse 1.5s ease-in-out infinite;
+}
+
+.card-glow {
+  transition: all 0.3s ease;
+}
+
+.card-glow:hover {
+  box-shadow: 0 0 20px rgba(145, 70, 201, 0.15);
+  border-color: rgba(145, 70, 201, 0.3);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #9146ff, #a970ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-grid-pattern {
+  background-image:
+    linear-gradient(rgba(145, 70, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(145, 70, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.loading-shimmer {
+  background: linear-gradient(
+    90deg,
+    #18181b 25%,
+    #2f2f35 50%,
+    #18181b 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }

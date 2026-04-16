@@ -27,9 +27,8 @@ const PROJECTS = [
   {
     title: 'ЧЕК',
     desc: 'Просмотр подписок пользователя twitch',
-    href: '/check.html',
+    href: '/check',
     color: '#ff4500',
-    disabled: true,
   },
   {
     title: 'ЛОТОМАЛЬ',
