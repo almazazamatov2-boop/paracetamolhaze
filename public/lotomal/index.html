@@ -785,7 +785,7 @@
       <div class="header-title">Игра</div>
       <div class="header-placeholder"></div>
     </div>
-    <div id="creatorButtonsGameContainer" style="display:none; padding:10px; gap:10px; max-width:800px; margin:10px auto;"></div>
+    <div id="creatorButtonsGameContainer" style="display:none; padding:10px; gap:10px; max-width:800px; margin:10px auto; border:1px dashed rgba(255,215,0,0.3); border-radius:10px;"></div>
 
     <div class="game-container">
       <div class="drawn-numbers">
@@ -1118,14 +1118,14 @@
               maxPlayers: msg.lobby.max_players || 10,
               players: msg.lobby.players || []
             };
-            isAdmin = (String(msg.lobby.admin_id) === String(userId));
+            isAdmin = (String(msg.lobby.admin_id).trim() === String(userId).trim());
             
             if (msg.lobby.status === 'playing' && !gameScreenShown) {
                gameScreenShown = true;
                showScreen('gameScreen');
                updateGameDisplay(); // Показываем кнопки админа в игре
             }
-            updateLobbyDisplay();
+            updateLobbyDisplay(); updateGameDisplay();
           }
           if (msg.drawn) {
             const newCount = msg.drawn.length;
