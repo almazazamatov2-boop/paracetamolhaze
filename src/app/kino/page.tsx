@@ -44,6 +44,49 @@ interface FilmDetail {
   type: string
 }
 
+function RouletteSelector({ value, onChange }: { value: { h: string, m: string, s: string }, onChange: (v: any) => void }) {
+  const handleWheel = (part: 'h' | 'm' | 's', e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1 : -1;
+    const max = part === 'h' ? 99 : 59;
+    let next = parseInt(value[part]) + delta;
+    if (next > max) next = 0;
+    if (next < 0) next = max;
+    onChange({ ...value, [part]: next.toString().padStart(2, '0') });
+  };
+
+  const handleInput = (part: 'h' | 'm' | 's', val: string) => {
+    const clean = val.replace(/\D/g, '').slice(-2);
+    const max = part === 'h' ? 99 : 59;
+    let n = parseInt(clean) || 0;
+    if (n > max) n = max;
+    onChange({ ...value, [part]: n.toString().padStart(2, '0') });
+  };
+
+  const Slot = ({ part, label }: { part: 'h' | 'm' | 's', label: string }) => (
+    <div className="flex flex-col items-center group/slot cursor-ns-resize" onWheel={(e) => handleWheel(part, e)}>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={value[part]}
+        onChange={(e) => handleInput(part, e.target.value)}
+        className="w-8 bg-transparent text-center text-sm font-mono font-bold text-yellow-500 outline-none hover:text-yellow-400 transition-colors"
+      />
+      <span className="text-[7px] text-gray-600 group-hover/slot:text-gray-400 uppercase tracking-tighter">{label}</span>
+    </div>
+  );
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/5 bg-[#0a0a0a] group focus-within:border-yellow-500/40 transition-all shadow-inner">
+      <Slot part="h" label="час" />
+      <span className="text-gray-700 font-bold -mt-3">:</span>
+      <Slot part="m" label="мин" />
+      <span className="text-gray-700 font-bold -mt-3">:</span>
+      <Slot part="s" label="сек" />
+    </div>
+  );
+}
+
 
 export default function KinoPage() {
   const router = useRouter()
@@ -59,10 +102,13 @@ export default function KinoPage() {
   const [timings, setTimings] = useState<Timing[]>([])
   const [timingsLoading, setTimingsLoading] = useState(false)
   const [newTimingAuthor, setNewTimingAuthor] = useState('')
-  const [newTimingTimeStart, setNewTimingTimeStart] = useState('')
-  const [newTimingTimeEnd, setNewTimingTimeEnd] = useState('')
   const [newTimingDesc, setNewTimingDesc] = useState('')
   const [isSubmittingTiming, setIsSubmittingTiming] = useState(false)
+
+  // Custom Time State
+  const [startTime, setStartTime] = useState({ h: '00', m: '00', s: '00' })
+  const [endTime, setEndTime] = useState({ h: '00', m: '00', s: '00' })
+  const [useEndTime, setUseEndTime] = useState(false)
 
   const [adminKey, setAdminKey] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -100,8 +146,15 @@ export default function KinoPage() {
     setEditingId(t.id)
     setNewTimingAuthor(t.author)
     const times = t.timeStr.split('-')
-    setNewTimingTimeStart(times[0]?.trim() || '')
-    setNewTimingTimeEnd(times[1]?.trim() || '')
+    const startParts = (times[0]?.trim() || '00:00:00').split(':')
+    setStartTime({ h: startParts[0] || '00', m: startParts[1] || '00', s: startParts[2] || '00' })
+    if (times[1]) {
+      const endParts = (times[1]?.trim() || '00:00:00').split(':')
+      setEndTime({ h: endParts[0] || '00', m: endParts[1] || '00', s: endParts[2] || '00' })
+      setUseEndTime(true)
+    } else {
+      setUseEndTime(false)
+    }
     setNewTimingDesc(t.description)
   }
 
@@ -183,9 +236,11 @@ export default function KinoPage() {
   // Add or Update Timing
   const handleAddTiming = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedFilm || !newTimingAuthor.trim() || !newTimingTimeStart.trim() || !newTimingDesc.trim()) return
+    if (!selectedFilm || !newTimingAuthor.trim() || !newTimingDesc.trim()) return
 
-    const timeStrCombined = newTimingTimeEnd.trim() ? `${newTimingTimeStart.trim()} - ${newTimingTimeEnd.trim()}` : newTimingTimeStart.trim()
+    const sTime = `${startTime.h}:${startTime.m}:${startTime.s}`
+    const eTime = `${endTime.h}:${endTime.m}:${endTime.s}`
+    const timeStrCombined = useEndTime ? `${sTime} - ${eTime}` : sTime
 
     setIsSubmittingTiming(true)
     try {
@@ -213,9 +268,8 @@ export default function KinoPage() {
       
       if (res.ok) {
         setEditingId(null)
-        setNewTimingTimeStart('')
-        setNewTimingTimeEnd('')
         setNewTimingDesc('')
+        // Optionally reset times but usually better to leave as base
         await fetchTimings(selectedFilm.kinopoiskId.toString())
       } else if (editingId) {
         alert('Ошибка. Неверный пароль?')
@@ -563,70 +617,81 @@ export default function KinoPage() {
               {/* Add/Edit form */}
               <form onSubmit={handleAddTiming} className="p-6 rounded-xl border border-white/5 relative overflow-hidden group" style={{ background: '#161616' }}>
                 <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-yellow-500/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <h3 className="text-sm font-semibold text-gray-300 mb-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-300 mb-6 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Plus className="w-4 h-4 text-yellow-500" />
                     {editingId ? 'Редактировать тайминг' : 'Добавить свой тайминг'}
                   </div>
                   {editingId && (
-                    <button type="button" onClick={() => { setEditingId(null); setNewTimingTimeStart(''); setNewTimingTimeEnd(''); setNewTimingDesc('') }} className="text-xs text-gray-500 hover:text-white transition-colors">
+                    <button type="button" onClick={() => { setEditingId(null); setNewTimingDesc('') }} className="text-xs text-gray-500 hover:text-white transition-colors">
                       отменить <X className="w-3 h-3 inline" />
                     </button>
                   )}
                 </h3>
-                <div className="flex flex-col lg:flex-row gap-4">
-                  <input
-                    type="text"
-                    required
-                    maxLength={30}
-                    placeholder="Ваш никнейм"
-                    value={newTimingAuthor}
-                    onChange={e => setNewTimingAuthor(e.target.value)}
-                    className="flex-1 lg:w-48 px-4 py-3 rounded-lg border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
-                    style={{ background: '#0a0a0a' }}
-                  />
-                  
-                  {/* Container for two time pickers */}
-                  <div className="flex items-center gap-2">
+                
+                <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_250px_140px] gap-6 items-end">
+                  {/* Author */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1">Никнейм</label>
                     <input
-                      type="time"
-                      step="1"
+                      type="text"
                       required
-                      value={newTimingTimeStart}
-                      onChange={e => setNewTimingTimeStart(e.target.value)}
-                      className="w-[110px] px-3 py-3 rounded-lg border border-white/10 outline-none text-sm text-yellow-500 focus:border-yellow-500/50 focus:bg-white/5 transition-all font-mono text-center"
-                      style={{ background: '#0a0a0a', colorScheme: 'dark' }}
-                      title="Начало"
-                    />
-                    <span className="text-gray-600 font-medium">-</span>
-                    <input
-                      type="time"
-                      step="1"
-                      value={newTimingTimeEnd}
-                      onChange={e => setNewTimingTimeEnd(e.target.value)}
-                      className="w-[110px] px-3 py-3 rounded-lg border border-white/10 outline-none text-sm text-yellow-500 focus:border-yellow-500/50 focus:bg-white/5 transition-all font-mono text-center"
-                      style={{ background: '#0a0a0a', colorScheme: 'dark' }}
-                      title="Конец (необязательно)"
+                      maxLength={30}
+                      placeholder="Ваш никнейм"
+                      value={newTimingAuthor}
+                      onChange={e => setNewTimingAuthor(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
+                      style={{ background: '#0a0a0a' }}
                     />
                   </div>
 
-                  <input
-                    type="text"
-                    required
-                    maxLength={150}
-                    placeholder="Что произойдет? (напр. обнаженка / скример)"
-                    value={newTimingDesc}
-                    onChange={e => setNewTimingDesc(e.target.value)}
-                    className="flex-[2] px-4 py-3 rounded-lg border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
-                    style={{ background: '#0a0a0a' }}
-                  />
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <label className="text-[10px] text-gray-500 uppercase tracking-wider ml-1">Описание</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={150}
+                      placeholder="Напр. обнаженка / скример"
+                      value={newTimingDesc}
+                      onChange={e => setNewTimingDesc(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
+                      style={{ background: '#0a0a0a' }}
+                    />
+                  </div>
+
+                  {/* Time Roulette Container */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                      <label className="text-[10px] text-gray-500 uppercase tracking-wider">Время</label>
+                      <button 
+                        type="button" 
+                        onClick={() => setUseEndTime(!useEndTime)}
+                        className={`text-[9px] uppercase tracking-tighter px-2 py-0.5 rounded border transition-colors ${useEndTime ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' : 'bg-white/5 border-white/10 text-gray-500'}`}
+                      >
+                        {useEndTime ? 'Убрать диапазон' : 'Добавить до'}
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <RouletteSelector value={startTime} onChange={setStartTime} />
+                      {useEndTime && (
+                        <>
+                          <span className="text-gray-600 font-bold">-</span>
+                          <RouletteSelector value={endTime} onChange={setEndTime} />
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
                   <button
                     type="submit"
                     disabled={isSubmittingTiming}
-                    className="px-6 py-3 rounded-lg font-semibold text-black text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 shrink-0 flex justify-center items-center gap-2"
+                    className="w-full h-[46px] rounded-xl font-bold text-black text-sm transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 flex justify-center items-center gap-2 shadow-lg shadow-yellow-500/5"
                     style={{ background: editingId ? '#34d399' : '#e6a800' }}
                   >
-                    {isSubmittingTiming ? <RefreshCw className="w-4 h-4 animate-spin" /> : (editingId ? 'Сохранить' : 'Отправить')}
+                    {isSubmittingTiming ? <RefreshCw className="w-4 h-4 animate-spin" /> : (editingId ? 'Готово' : 'Отправить')}
                   </button>
                 </div>
               </form>
