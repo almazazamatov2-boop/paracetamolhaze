@@ -34,8 +34,8 @@ interface FilmDetail {
 }
 
 function PlayerModal({ film, onClose }: { film: FilmDetail; onClose: () => void }) {
-  // rezka.vip accepts KP id as embed source
-  const playerUrl = `https://rezka.vip/embed/kinopoisk/${film.kinopoiskId}`
+  // kinopoisk.vip = replace .ru with .vip — full Kinobox aggregator player
+  const playerUrl = `https://kinopoisk.vip/film/${film.kinopoiskId}/`
 
   return (
     <div
