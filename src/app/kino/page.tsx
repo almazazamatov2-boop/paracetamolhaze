@@ -59,7 +59,8 @@ export default function KinoPage() {
   const [timings, setTimings] = useState<Timing[]>([])
   const [timingsLoading, setTimingsLoading] = useState(false)
   const [newTimingAuthor, setNewTimingAuthor] = useState('')
-  const [newTimingTime, setNewTimingTime] = useState('')
+  const [newTimingTimeStart, setNewTimingTimeStart] = useState('')
+  const [newTimingTimeEnd, setNewTimingTimeEnd] = useState('')
   const [newTimingDesc, setNewTimingDesc] = useState('')
   const [isSubmittingTiming, setIsSubmittingTiming] = useState(false)
 
@@ -98,7 +99,9 @@ export default function KinoPage() {
   const startEditing = (t: Timing) => {
     setEditingId(t.id)
     setNewTimingAuthor(t.author)
-    setNewTimingTime(t.timeStr)
+    const times = t.timeStr.split('-')
+    setNewTimingTimeStart(times[0]?.trim() || '')
+    setNewTimingTimeEnd(times[1]?.trim() || '')
     setNewTimingDesc(t.description)
   }
 
@@ -180,7 +183,9 @@ export default function KinoPage() {
   // Add or Update Timing
   const handleAddTiming = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedFilm || !newTimingAuthor.trim() || !newTimingTime.trim() || !newTimingDesc.trim()) return
+    if (!selectedFilm || !newTimingAuthor.trim() || !newTimingTimeStart.trim() || !newTimingDesc.trim()) return
+
+    const timeStrCombined = newTimingTimeEnd.trim() ? `${newTimingTimeStart.trim()} - ${newTimingTimeEnd.trim()}` : newTimingTimeStart.trim()
 
     setIsSubmittingTiming(true)
     try {
@@ -190,7 +195,7 @@ export default function KinoPage() {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            id: editingId, adminKey, timeStr: newTimingTime, description: newTimingDesc, author: newTimingAuthor
+            id: editingId, adminKey, timeStr: timeStrCombined, description: newTimingDesc, author: newTimingAuthor
           })
         })
       } else {
@@ -200,7 +205,7 @@ export default function KinoPage() {
           body: JSON.stringify({
             filmId: selectedFilm.kinopoiskId.toString(),
             author: newTimingAuthor,
-            timeStr: newTimingTime,
+            timeStr: timeStrCombined,
             description: newTimingDesc,
           })
         })
@@ -208,7 +213,8 @@ export default function KinoPage() {
       
       if (res.ok) {
         setEditingId(null)
-        setNewTimingTime('')
+        setNewTimingTimeStart('')
+        setNewTimingTimeEnd('')
         setNewTimingDesc('')
         await fetchTimings(selectedFilm.kinopoiskId.toString())
       } else if (editingId) {
@@ -563,7 +569,7 @@ export default function KinoPage() {
                     {editingId ? 'Редактировать тайминг' : 'Добавить свой тайминг'}
                   </div>
                   {editingId && (
-                    <button type="button" onClick={() => { setEditingId(null); setNewTimingTime(''); setNewTimingDesc('') }} className="text-xs text-gray-500 hover:text-white transition-colors">
+                    <button type="button" onClick={() => { setEditingId(null); setNewTimingTimeStart(''); setNewTimingTimeEnd(''); setNewTimingDesc('') }} className="text-xs text-gray-500 hover:text-white transition-colors">
                       отменить <X className="w-3 h-3 inline" />
                     </button>
                   )}
@@ -579,15 +585,31 @@ export default function KinoPage() {
                     className="flex-1 lg:w-48 px-4 py-3 rounded-lg border border-white/10 outline-none text-sm text-white placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all"
                     style={{ background: '#0a0a0a' }}
                   />
-                  <input
-                    type="time"
-                    step="1"
-                    required
-                    value={newTimingTime}
-                    onChange={e => setNewTimingTime(e.target.value)}
-                    className="w-full lg:w-40 px-4 py-3 rounded-lg border border-white/10 outline-none text-sm text-yellow-500 placeholder:text-gray-600 focus:border-yellow-500/50 focus:bg-white/5 transition-all font-mono"
-                    style={{ background: '#0a0a0a', colorScheme: 'dark' }}
-                  />
+                  
+                  {/* Container for two time pickers */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      step="1"
+                      required
+                      value={newTimingTimeStart}
+                      onChange={e => setNewTimingTimeStart(e.target.value)}
+                      className="w-[110px] px-3 py-3 rounded-lg border border-white/10 outline-none text-sm text-yellow-500 focus:border-yellow-500/50 focus:bg-white/5 transition-all font-mono text-center"
+                      style={{ background: '#0a0a0a', colorScheme: 'dark' }}
+                      title="Начало"
+                    />
+                    <span className="text-gray-600 font-medium">-</span>
+                    <input
+                      type="time"
+                      step="1"
+                      value={newTimingTimeEnd}
+                      onChange={e => setNewTimingTimeEnd(e.target.value)}
+                      className="w-[110px] px-3 py-3 rounded-lg border border-white/10 outline-none text-sm text-yellow-500 focus:border-yellow-500/50 focus:bg-white/5 transition-all font-mono text-center"
+                      style={{ background: '#0a0a0a', colorScheme: 'dark' }}
+                      title="Конец (необязательно)"
+                    />
+                  </div>
+
                   <input
                     type="text"
                     required
