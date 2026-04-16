@@ -12,7 +12,7 @@ const PROJECTS = [
   {
     title: 'КИНО',
     desc: 'Онлайн просмотр фильмов и таймингов',
-    href: '/kino.html',
+    href: '/kino',
     color: '#ff4500',
   },
   {
