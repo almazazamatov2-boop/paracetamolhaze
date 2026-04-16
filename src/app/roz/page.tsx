@@ -107,7 +107,8 @@ export default function Home() {
   const [spinOffset, setSpinOffset] = useState(0)
   const spinList = participants.length > 0 ? Array(15).fill(participants).flat() : []
   const chatRef = useRef<HTMLDivElement>(null)
-  const seenUsersRef = useRef<Set<string>>(new Set())
+  const userColorsRef = useRef<Map<string, string>>(new Map())
+  const participantsSet = useRef<Set<string>>(new Set())
   const participantsRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const simulateRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -181,26 +182,32 @@ export default function Home() {
         const text = textRaw.toLowerCase()
         const currentKeyword = keyword.toLowerCase().trim()
         
+        let userColor = userColorsRef.current.get(login)
+        if (!userColor) {
+          userColor = getRandomColor()
+          userColorsRef.current.set(login, userColor)
+        }
+
         if (text === currentKeyword || text.startsWith(currentKeyword + ' ')) {
-          if (!seenUsersRef.current.has(login)) {
-            seenUsersRef.current.add(login)
+          if (!participantsSet.current.has(login)) {
+            participantsSet.current.add(login)
             setTotalMessages(prev => prev + 1)
             setParticipants(prev => [...prev, {
               username: m[1],
-              color: getRandomColor(),
+              color: userColor,
               joinedAt: Date.now()
             }])
           }
-
-          const msg: ChatMessage = {
-            id: `${Date.now()}-${Math.random()}`,
-            username: m[1],
-            color: getRandomColor(),
-            text: textRaw,
-            timestamp: Date.now(),
-          }
-          setChatMessages(prev => [...prev.slice(-500), msg])
         }
+
+        const msg: ChatMessage = {
+          id: `${Date.now()}-${Math.random()}`,
+          username: m[1],
+          color: userColor,
+          text: textRaw,
+          timestamp: Date.now(),
+        }
+        setChatMessages(prev => [...prev.slice(-500), msg])
       })
     }
 
@@ -225,7 +232,8 @@ export default function Home() {
     setIsConnected(true)
     setParticipants([])
     setChatMessages([])
-    seenUsersRef.current.clear()
+    userColorsRef.current.clear()
+    participantsSet.current.clear()
     setTotalMessages(0)
     setConnectionTime(0)
     setWinner(null)
@@ -568,8 +576,11 @@ export default function Home() {
             </div>
             
             <div 
-              className="flex items-center h-full transition-transform duration-[5000ms] ease-[cubic-bezier(0.15,0.85,0.3,1)]"
-              style={{ transform: `translateX(calc(50% - 64px + ${spinOffset}px))` }}
+              className="flex items-center h-full"
+              style={{ 
+                 transform: `translateX(calc(50% - 64px + ${spinOffset}px))`,
+                 transition: isSpinning ? 'transform 5.1s cubic-bezier(0.15, 0.85, 0.3, 1)' : 'none'
+              }}
             >
                {spinList.map((p, i) => (
                  <div key={i} className="shrink-0 flex flex-col items-center justify-center border-r border-[#333] last:border-none relative" style={{ width: 128, height: '100%' }}>
