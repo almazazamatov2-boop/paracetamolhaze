@@ -34,7 +34,8 @@ interface FilmDetail {
 }
 
 function PlayerModal({ film, onClose }: { film: FilmDetail; onClose: () => void }) {
-  const playerUrl = `https://alloha.tv/?kp=${film.kinopoiskId}`
+  // rezka.vip accepts KP id as embed source
+  const playerUrl = `https://rezka.vip/embed/kinopoisk/${film.kinopoiskId}`
 
   return (
     <div
@@ -178,7 +179,7 @@ export default function KinoPage() {
               value={query}
               onChange={e => handleQueryChange(e.target.value)}
               onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-              placeholder="Например: Люди Икс, Интерстеллар, Матрица..."
+              placeholder="Например: Бесстыжие, Во все тяжкие, Дюна..."
               className="flex-1 bg-transparent text-white placeholder:text-gray-600 outline-none text-base"
             />
             {query && (
@@ -381,8 +382,8 @@ export default function KinoPage() {
       {/* Footer */}
       <footer className="py-4 px-6 border-t border-white/5">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-700">
-          <span>© 2026 velcam — ДА ДА права собачек, кошечек и стримеров — ВСЕ ЗАЩИЩЕНЫ🔒</span>
-          <span>Вопросы? вопросы к РУТУБУ блта сначала!</span>
+          <span>© 2026 КИНО - ВСЕ ПРАВА ЗАЩИЩЕНЫ🔒</span>
+          <span>может быть))))</span>
         </div>
       </footer>
     </div>
