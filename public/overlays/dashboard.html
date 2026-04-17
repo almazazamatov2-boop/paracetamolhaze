@@ -629,8 +629,9 @@
         <div class="card-body">
           <div class="obs-url-block">
             <div class="obs-url" id="obs-url">Загрузка...</div>
-            <button class="btn-copy" onclick="copyUrl()">Скопировать</button>
-            <a href="#" class="btn-test" id="obs-test-btn" target="_blank">Тест ↗</a>
+            <button class="btn-copy" onclick="copyUrl()">URL</button>
+            <button class="btn-copy" style="background:#22c55e" onclick="triggerTest(this)">ТЕСТ</button>
+            <a href="#" class="btn-test" id="obs-test-btn" target="_blank">OBS ↗</a>
           </div>
           <div class="obs-hint">
             В OBS: <strong>Источники → + → Браузер</strong> &nbsp;·&nbsp;
@@ -760,11 +761,8 @@
               <div class="asset-type-icon">🖼️</div>
               <div class="asset-info">
                 <div class="asset-name">Фон панели</div>
-                <div class="asset-desc">
-                  Фоновое изображение всей панели оверлея. Если не загружено — используется цвет фона из настроек.<br>
-                  Изображение растягивается на 1600×210 px, поэтому лучше использовать широкоформатную картинку.
-                </div>
-                <span class="asset-spec">PNG / JPG · 1600×210 рекомендовано</span>
+                <div class="asset-desc">Фоновое изображение оверлея.</div>
+                <span class="asset-spec">PNG / JPG</span>
               </div>
               <div class="asset-upload">
                 <label class="file-input-label">
@@ -784,11 +782,8 @@
               <div class="asset-type-icon">🏆</div>
               <div class="asset-info">
                 <div class="asset-name">Картинка награды</div>
-                <div class="asset-desc">
-                  Иконка или иллюстрация, которая отображается на панели во время анимации. Поддерживает прозрачность.<br>
-                  Используй квадратный PNG с прозрачным фоном — около 200×200 px.
-                </div>
-                <span class="asset-spec">PNG · прозрачный фон · ~200×200</span>
+                <div class="asset-desc">Иконка, отображаемая при активации.</div>
+                <span class="asset-spec">PNG</span>
               </div>
               <div class="asset-upload">
                 <label class="file-input-label">
@@ -811,10 +806,8 @@
               <div class="asset-type-icon">🔔</div>
               <div class="asset-info">
                 <div class="asset-name">Звук появления</div>
-                <div class="asset-desc">
-                  Играет в момент появления панели на экране. Должен быть коротким и чётким — звук-уведомление, «вжух», удар.
-                </div>
-                <span class="asset-spec">MP3 · 0.5 – 2 сек</span>
+                <div class="asset-desc">Играет при появлении панели.</div>
+                <span class="asset-spec">MP3</span>
               </div>
               <div class="asset-upload">
                 <label class="file-input-label">
@@ -834,10 +827,8 @@
               <div class="asset-type-icon">🎲</div>
               <div class="asset-info">
                 <div class="asset-name">Звук рандома</div>
-                <div class="asset-desc">
-                  Играет во время прокрутки чисел. Должен быть зацикленным по характеру — тиканье, жужжание барабана, нарастающее напряжение. Звук обрывается сразу после остановки рулетки.
-                </div>
-                <span class="asset-spec">MP3 · 3 – 8 сек</span>
+                <div class="asset-desc">Играет во время прокрутки.</div>
+                <span class="asset-spec">MP3</span>
               </div>
               <div class="asset-upload">
                 <label class="file-input-label">
@@ -857,10 +848,8 @@
               <div class="asset-type-icon">🏅</div>
               <div class="asset-info">
                 <div class="asset-name">Звук победы</div>
-                <div class="asset-desc">
-                  Играет когда зритель выигрывает (число попадает в победный диапазон). Торжественный, праздничный звук. Фанфары, джингл, победный возглас.
-                </div>
-                <span class="asset-spec">MP3 · 1 – 4 сек</span>
+                <div class="asset-desc">Играет при совпадении чисел.</div>
+                <span class="asset-spec">MP3</span>
               </div>
               <div class="asset-upload">
                 <label class="file-input-label">
@@ -880,10 +869,8 @@
               <div class="asset-type-icon">💀</div>
               <div class="asset-info">
                 <div class="asset-name">Звук проигрыша</div>
-                <div class="asset-desc">
-                  Играет при проигрыше. Грустный, смешной или драматичный — выбор за тобой. «Sad trombone», провальный звук.
-                </div>
-                <span class="asset-spec">MP3 · 1 – 4 сек</span>
+                <div class="asset-desc">Играет при проигрыше.</div>
+                <span class="asset-spec">MP3</span>
               </div>
               <div class="asset-upload">
                 <label class="file-input-label">
@@ -903,10 +890,8 @@
               <div class="asset-type-icon">🌫️</div>
               <div class="asset-info">
                 <div class="asset-name">Звук исчезновения</div>
-                <div class="asset-desc">
-                  Играет когда панель уходит с экрана. Короткий звук-завершение: свист, «вжух» наоборот, затухающий тон.
-                </div>
-                <span class="asset-spec">MP3 · 0.5 – 2 сек</span>
+                <div class="asset-desc">Играет при уходе панели.</div>
+                <span class="asset-spec">MP3</span>
               </div>
               <div class="asset-upload">
                 <label class="file-input-label">
@@ -972,11 +957,11 @@
     formData.append('asset', fileInput.files[0]);
     formData.append('key', key);
 
-    btn.disabled = true;
     btn.textContent = '...';
+    btn.disabled = true;
 
     try {
-      const res = await fetch('/dashboard/upload', { method: 'POST', body: formData });
+      const res = await fetch('/api/overlays/upload', { method: 'POST', body: formData });
       if (res.ok) {
         statusEl.textContent = '✓ Загружено';
         statusEl.className = 'asset-status';
@@ -991,6 +976,23 @@
     } finally {
       btn.disabled = false;
       btn.textContent = 'Загрузить';
+    }
+  }
+
+  // Trigger Local Test
+  async function triggerTest(btn) {
+    const oldText = btn.textContent;
+    btn.textContent = '...';
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/overlays/trigger/test', { method: 'POST' });
+      if (res.ok) showToast('Тест запущен!');
+      else throw new Error();
+    } catch {
+      showToast('Ошибка запуска теста', true);
+    } finally {
+      btn.textContent = oldText;
+      btn.disabled = false;
     }
   }
 

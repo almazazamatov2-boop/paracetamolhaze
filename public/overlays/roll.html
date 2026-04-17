@@ -60,6 +60,23 @@
         const userId = params.get('id');
         let isRunning = false;
         let settings = {};
+        let assets = {};
+        let sounds = {};
+
+        async function loadAssets() {
+            try {
+                const res = await fetch(`/api/overlays/upload?userId=${userId}`);
+                assets = await res.json();
+                
+                // Preload sounds
+                ['s_in', 's_roll', 's_win', 's_lose', 's_out'].forEach(key => {
+                    if (assets[key]) sounds[key] = new Audio(assets[key]);
+                });
+
+                if (assets.panel_bg) document.getElementById('panel').style.backgroundImage = `url(${assets.panel_bg})`;
+                if (assets.reward_img) document.getElementById('reward-icon').innerHTML = `<img src="${assets.reward_img}" style="width:100%;height:100%;object-fit:contain">`;
+            } catch (e) {}
+        }
 
         async function loadSettings() {
             try {
@@ -96,26 +113,38 @@
             const badge = document.getElementById('win-badge');
             
             panel.classList.add('active');
+            if (sounds.s_in) sounds.s_in.play();
             
             setTimeout(() => {
+                if (sounds.s_roll) {
+                    sounds.s_roll.loop = true;
+                    sounds.s_roll.play();
+                }
                 let count = 0;
                 const rollInt = setInterval(() => {
-                    randomEl.textContent = Math.floor(Math.random() * (settings.max_val || 100 - (settings.min_val || 1)) + (settings.min_val || 1)).toString().padStart(2, '0');
+                    randomEl.textContent = Math.floor(Math.random() * ((settings.max_val || 100) - (settings.min_val || 1) + 1) + (settings.min_val || 1)).toString().padStart(2, '0');
                     count++;
                     if (count > 40) {
                         clearInterval(rollInt);
-                        const final = data.userChoice; // Force win or random? Original logic is random.
-                        // For demo let's do real random:
-                        const finalRandom = Math.floor(Math.random() * (settings.max_val || 100 - (settings.min_val || 1)) + (settings.min_val || 1));
+                        if (sounds.s_roll) {
+                            sounds.s_roll.pause();
+                            sounds.s_roll.currentTime = 0;
+                        }
+
+                        const finalRandom = Math.floor(Math.random() * ((settings.max_val || 100) - (settings.min_val || 1) + 1) + (settings.min_val || 1));
                         randomEl.textContent = finalRandom.toString().padStart(2, '0');
                         
                         if (finalRandom === data.userChoice) {
                             badge.classList.add('active');
+                            if (sounds.s_win) sounds.s_win.play();
+                        } else {
+                            if (sounds.s_lose) sounds.s_lose.play();
                         }
                         
                         setTimeout(() => {
                             badge.classList.remove('active');
                             panel.classList.remove('active');
+                            if (sounds.s_out) sounds.s_out.play();
                             setTimeout(() => { isRunning = false; }, 1000);
                         }, 5000);
                     }
@@ -125,6 +154,7 @@
 
         if (userId) {
             loadSettings();
+            loadAssets();
             setInterval(checkTrigger, 3000);
         }
     </script>
