@@ -4,20 +4,27 @@ import { Redis } from '@upstash/redis';
 const redis = process.env.KV_REST_API_URL ? new Redis({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN!,
-}) : null;
+}) : (process.env.UPSTASH_REDIS_REST_URL ? new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+}) : null);
 
 export async function POST(req: NextRequest) {
   try {
-    if (!redis) return NextResponse.json({ error: 'DB missing' }, { status: 500 });
+    if (!redis) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
     const token = req.cookies.get('twitch_token')?.value;
-    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!token) return NextResponse.json({ error: 'Unauthorized (no token)' }, { status: 401 });
 
     const clientId = process.env.TWITCH_CLIENT_ID;
+    if (!clientId) return NextResponse.json({ error: 'Server config missing (Client ID)' }, { status: 500 });
+
     const authRes = await fetch('https://api.twitch.tv/helix/users', {
-      headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId! },
+      headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId },
     });
-  const authData = await authRes.json();
-  if (!authRes.ok || !authData.data?.[0]) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authData = await authRes.json();
+    if (!authRes.ok || !authData.data?.[0]) {
+      return NextResponse.json({ error: 'Twitch auth failed: ' + (authData.message || 'Unknown error') }, { status: 401 });
+    }
   
     const userId = authData.data[0].id;
 
@@ -44,6 +51,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!redis) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get('userId');
   if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 });

@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
+const redis = process.env.KV_REST_API_URL ? new Redis({
+  url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN!,
-});
+}) : (process.env.UPSTASH_REDIS_REST_URL ? new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+}) : null);
 
 export async function GET(request: NextRequest) {
+  if (!redis) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
 
@@ -19,13 +23,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!redis) return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
   const token = request.cookies.get('twitch_token')?.value;
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!token) return NextResponse.json({ error: 'Unauthorized (no token)' }, { status: 401 });
 
   // Verify user via /api/auth/me logic
   const clientId = process.env.TWITCH_CLIENT_ID;
+  if (!clientId) return NextResponse.json({ error: 'Server config missing (Client ID)' }, { status: 500 });
+  
   const authRes = await fetch('https://api.twitch.tv/helix/users', {
-    headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId! },
+    headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId },
   });
   const authData = await authRes.json();
   if (!authRes.ok || !authData.data?.[0]) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

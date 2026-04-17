@@ -960,17 +960,18 @@
 
     try {
       const res = await fetch('/api/overlays/upload', { method: 'POST', body: formData });
+      const result = await res.json();
       if (res.ok) {
         statusEl.textContent = '✓ Загружено';
         statusEl.className = 'asset-status';
         showToast('Файл загружен');
       } else {
-        throw new Error();
+        throw new Error(result.error || 'Ошибка сервера');
       }
-    } catch {
+    } catch (err) {
       statusEl.textContent = '✗ Ошибка';
       statusEl.style.color = 'var(--red)';
-      showToast('Ошибка загрузки', true);
+      showToast(err.message || 'Ошибка загрузки', true);
     } finally {
       btn.disabled = false;
       btn.textContent = 'Загрузить';
@@ -986,7 +987,9 @@
     btn.disabled = true;
     try {
       const res = await fetch('/api/overlays/trigger/test', { method: 'POST' });
-      if (!res.ok) throw new Error();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Ошибка сервера');
+      
       // Open overlay in a small popup
       const popup = window.open(
         obsUrl,
@@ -995,8 +998,8 @@
       );
       showToast('Тест запущен!');
       setTimeout(() => { if (popup) popup.close(); }, 15000);
-    } catch {
-      showToast('Ошибка запуска теста', true);
+    } catch (err) {
+      showToast(err.message || 'Ошибка запуска теста', true);
     } finally {
       btn.textContent = oldText;
       btn.disabled = false;

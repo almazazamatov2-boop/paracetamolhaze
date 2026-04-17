@@ -4,10 +4,13 @@ import { Redis } from '@upstash/redis';
 const redis = process.env.KV_REST_API_URL ? new Redis({
   url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN!,
-}) : null;
+}) : (process.env.UPSTASH_REDIS_REST_URL ? new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+}) : null);
 
 export async function POST(req: NextRequest) {
-  if (!redis) return NextResponse.json({ ok: false, error: 'DB unconfigured' });
+  if (!redis) return NextResponse.json({ ok: false, error: 'Database unconfigured' });
   const body = await req.text();
   const signature = req.headers.get('x-hub-signature-sha256');
   const messageId = req.headers.get('messenger-message-id');
