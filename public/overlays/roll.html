@@ -142,8 +142,8 @@
         }
 
         #reward-icon {
-            width: 150px; /* Much bigger icon */
-            height: 150px;
+            width: 200px; /* Even bigger */
+            height: 200px;
             background: transparent;
             display: flex;
             align-items: center;
@@ -205,6 +205,15 @@
     </div>
 
     <script>
+        // === ТАЙМИНГИ (в миллисекундах) ===
+        const TIME_IN     = 600;  // Появление
+        const TIME_WAIT   = 1000; // Пауза перед роллом
+        const ROLL_SPEED  = 80;   // Скорость смены цифр
+        const ROLL_COUNT  = 40;   // Сколько раз сменится цифра (~3.2 сек)
+        const TIME_STAY   = 5000; // Сколько висит результат
+        const TIME_OUT    = 600;  // Уход панели
+        // ==================================
+
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
         let isRunning = false;
@@ -264,41 +273,38 @@
             
             // Sequence Start
             setTimeout(() => {
-                p.classList.add('active'); // IN Animation (0.6s)
+                p.classList.add('active'); // IN
                 
-                // WAIT (1.0s)
+                // WAIT
                 setTimeout(() => {
-                    // ROLL Animation (~3s)
+                    // ROLL
                     let count = 0;
                     const roll = setInterval(() => {
                         const r = Math.floor(Math.random() * 99 + 1);
                         vRand.textContent = r.toString().padStart(2, '0');
                         count++;
-                        if (count > 38) {
+                        if (count > ROLL_COUNT) {
                             clearInterval(roll);
                             
-                            // Result logic
-                            // If test, we can force a win sometimes
                             let resultNum = data.isTest ? (Math.random() > 0.5 ? data.userChoice : Math.floor(Math.random() * 99 + 1)) : Math.floor(Math.random() * 99 + 1);
-                            
                             vRand.textContent = resultNum.toString().padStart(2, '0');
 
                             if (parseInt(vRand.textContent) === parseInt(vUser.textContent)) {
-                                vRand.style.color = "#22c55e"; // Green for win
-                                bWin.classList.add('active'); // WIN (shows for 5s)
+                                vRand.style.color = "#22c55e"; 
+                                bWin.classList.add('active');
                             } else {
-                                vRand.style.color = "#ef4444"; // Red for lose
+                                vRand.style.color = "#ef4444";
                             }
 
-                            // STAY (5.0s)
+                            // STAY
                             setTimeout(() => {
-                                p.classList.add('exit'); // OUT Animation (0.6s)
+                                p.classList.add('exit'); // OUT
                                 p.classList.remove('active');
-                                setTimeout(() => { isRunning = false; }, 1000);
-                            }, 5000);
+                                setTimeout(() => { isRunning = false; }, TIME_OUT);
+                            }, TIME_STAY);
                         }
-                    }, 80);
-                }, 1000);
+                    }, ROLL_SPEED);
+                }, TIME_WAIT);
             }, 100);
         }
 
