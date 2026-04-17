@@ -138,18 +138,17 @@
         }
 
         #reward-icon {
-            width: 110px;
-            height: 110px;
-            background: #7c3aed;
+            width: 130px;
+            height: 130px;
+            background: transparent; /* Removed background */
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            box-shadow: 0 0 30px rgba(124,58,237,0.3);
         }
 
-        #reward-icon img { width: 90%; height: 90%; object-fit: contain; }
+        #reward-icon img { width: 100%; height: 100%; object-fit: contain; }
 
         /* WIN Effect */
         #win-badge {
@@ -262,6 +261,7 @@
             // Set Data
             nick.textContent = data.userName;
             bgNick.textContent = data.userName;
+            if (data.userAvatar) document.getElementById('avatar').src = data.userAvatar;
             vUser.textContent = data.userChoice.toString().padStart(2, '0');
             vRand.textContent = "00";
             vRand.style.color = "white";

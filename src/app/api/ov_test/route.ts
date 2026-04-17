@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
 
   const userId = authData.data[0].id;
   const userName = authData.data[0].display_name;
+  const userAvatar = authData.data[0].profile_image_url;
 
   const settings: any = await redis.hgetall(`overlay:settings:${userId}`) || {};
   const userChoice = Math.floor(Math.random() * ((settings.max_val || 100) - (settings.min_val || 1) + 1)) + (settings.min_val || 1);
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
   const payload = {
     triggerId: Math.random().toString(36).substring(7),
     userName,
+    userAvatar,
     userChoice,
     timestamp: Date.now(),
     isTest: true
