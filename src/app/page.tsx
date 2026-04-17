@@ -37,11 +37,10 @@ const PROJECTS = [
     color: '#ff4500',
   },
   {
-    title: 'РОЛЛ',
-    desc: 'оверлей рулетка с балами twitch',
-    href: '/roz-old.html',
+    title: 'ФейтОверлей',
+    desc: 'Оверлеи с баллами твича',
+    href: '/overlays',
     color: '#ff4500',
-    disabled: true,
   },
   {
     title: 'ФЕЙССВАП',

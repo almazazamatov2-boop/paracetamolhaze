@@ -6,6 +6,18 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   reactStrictMode: false,
+  async rewrites() {
+    return [
+      {
+        source: '/overlays',
+        destination: '/overlays/index.html',
+      },
+      {
+        source: '/overlays/dashboard',
+        destination: '/overlays/dashboard.html',
+      },
+    ]
+  },
 };
 
 export default nextConfig;
