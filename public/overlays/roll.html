@@ -2,9 +2,26 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Fate Roll Overlay</title>
+    <title>Fate Overlay</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@900&family=Martian+Mono:wght@800&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --panel-top: 40px;
+            --panel-radius: 18px;
+            --panel-bg-color: #101014;
+            --white: #ffffff;
+            --num-color: #ffffff;
+            --muted: rgba(255, 255, 255, 0.78);
+            --green: #28d17c;
+            --red: #ff4d4d;
+            
+            --name-size: 58px;
+            --title-size: 32px;
+            --num-size: 108px;
+            --vs-size: 66px;
+            --label-bg: rgba(0, 0, 0, 0.45);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             width: 1620px;
@@ -12,221 +29,222 @@
             overflow: hidden;
             background: transparent;
             font-family: 'Inter', sans-serif;
-            color: white; /* Default White */
         }
 
-        #panel {
+        #wrap {
             position: absolute;
-            top: 20px;
-            left: 10px;
+            left: 50%;
+            top: var(--panel-top);
             width: 1600px;
-            height: 250px;
-            background: #101014;
+            height: 220px;
+            transform: translate(-50%, -280px);
+            opacity: 0;
+            border-radius: var(--panel-radius);
+            background-color: var(--panel-bg-color);
             background-size: cover;
             background-position: center;
-            border-radius: 12px;
+            box-shadow: 0 14px 45px rgba(0, 0, 0, .45);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 80px;
-            opacity: 0;
-            transform: translateY(-300px);
-            transition: all 0.6s cubic-bezier(0.19, 1, 0.22, 1);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            border: 1px solid rgba(255,255,255,0.05);
+            padding: 20px 60px;
+            transition: transform 650ms cubic-bezier(0.19, 1, 0.22, 1), opacity 260ms ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        #panel.active { transform: translateY(0); opacity: 1; }
-        #panel.exit { transform: translateY(300px); opacity: 0; }
+        #wrap.show { transform: translate(-50%, 0); opacity: 1; }
+        #wrap.hide { transform: translate(-50%, -280px); opacity: 0; }
 
-        #bg-nick {
-            position: absolute;
-            inset: 0;
+        /* Left Side (Avatar + Nick) */
+        #left {
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 280px;
-            font-weight: 900;
-            color: rgba(255, 255, 255, 0.03); 
-            text-transform: uppercase;
-            white-space: nowrap;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .content {
-            position: relative;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-        }
-
-        .user-block {
-            display: flex;
-            align-items: center;
-            gap: 30px;
+            gap: 20px;
             min-width: 450px;
         }
 
         #avatar {
-            width: 110px;
-            height: 110px;
-            border-radius: 12px;
+            width: 100px;
+            height: 100px;
+            border-radius: 14px;
             background: #222;
             object-fit: cover;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
         }
 
-        #user-nick {
-            font-size: 54px; /* Enlarged */
+        #user {
+            font-size: var(--name-size);
             font-weight: 900;
+            color: var(--white);
+            text-shadow: 0 6px 24px rgba(0,0,0,.65);
             text-transform: uppercase;
-            letter-spacing: -2px;
-            color: #ffffff; /* Forced White */
         }
 
-        .score-block {
+        /* Center (Numbers) */
+        #center {
             display: flex;
             align-items: center;
-            gap: 50px;
-            text-align: center;
+            gap: 40px;
+            transition: transform 0.2s;
         }
 
-        .col { display: flex; flex-direction: column; align-items: center; }
+        .col { text-align: center; }
+        .labelWrap {
+            display: inline-block;
+            background: var(--label-bg);
+            border-radius: 10px;
+            padding: 6px 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,.25);
+            margin-bottom: 8px;
+        }
+
         .label {
-            font-size: 14px;
+            font-size: 20px;
             font-weight: 800;
-            color: rgba(255,255,255,0.5);
+            color: var(--muted);
             text-transform: uppercase;
-            margin-bottom: -5px;
-            background: rgba(0,0,0,0.4);
-            padding: 4px 14px;
-            border-radius: 4px;
-            letter-spacing: 1px;
+            line-height: 1;
         }
 
-        .val {
-            font-size: 150px; /* Bigger numbers */
+        .num {
+            font-size: var(--num-size);
             font-weight: 900;
             font-family: 'Martian Mono', monospace;
-            color: #ffffff; /* Forced White */
-            text-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            color: var(--num-color);
+            line-height: 1;
+            min-width: 180px;
+            text-shadow: 0 10px 28px rgba(0,0,0,.75);
         }
 
-        .vs {
-            font-size: 50px;
+        #vs {
+            font-size: var(--vs-size);
             font-weight: 900;
-            color: rgba(255,255,255,0.1);
+            color: var(--white);
+            opacity: .15;
         }
 
-        .reward-block {
+        /* Right Side (Reward) */
+        #right {
             display: flex;
             align-items: center;
-            gap: 30px;
+            gap: 20px;
             min-width: 450px;
             justify-content: flex-end;
-        }
-
-        #reward-info {
             text-align: right;
-            line-height: 1.1;
         }
 
-        #reward-name {
-            font-size: 54px; /* Same as Nickname size */
+        #rewardTitle {
+            font-size: var(--title-size);
             font-weight: 900;
+            color: var(--white);
+            line-height: 1.1;
+            text-shadow: 0 6px 24px rgba(0,0,0,.65);
             text-transform: uppercase;
-            color: #ffffff;
-            letter-spacing: -2px;
         }
 
-        #reward-icon {
-            width: 200px; /* Even bigger */
-            height: 200px;
-            background: transparent;
+        #rewardImg {
+            width: 140px;
+            height: 140px;
+            padding: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
         }
+        #rewardImg img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(0,0,0,.5)); }
 
-        #reward-icon img { width: 100%; height: 100%; object-fit: contain; }
-
-        #win-badge {
+        /* Badge Overlay */
+        #badge {
             position: absolute;
-            bottom: -35px;
-            right: 120px;
-            background: #22c55e;
-            padding: 12px 40px;
-            font-size: 38px;
+            right: 40px;
+            bottom: -20px;
+            font-size: 32px;
             font-weight: 900;
-            border-radius: 8px;
-            transform: scale(0);
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 15px 40px rgba(34,197,94,0.5);
-            color: white;
+            padding: 10px 30px;
+            border-radius: 999px;
+            opacity: 0;
+            transform: scale(.8);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 100;
         }
-        #win-badge.active { transform: scale(1); }
+        #badge.show { opacity: 1; transform: scale(1) translateY(-30px); }
+        #badge.win { background: rgba(40,209,124,.2); color: var(--green); border: 1px solid rgba(40,209,124,.4); box-shadow: 0 10px 30px rgba(40,209,124,0.3); }
+        #badge.lose { background: rgba(255,77,77,.15); color: var(--red); border: 1px solid rgba(255,77,77,.3); }
+
+        /* Animations */
+        .rollFlash { animation: flash .1s linear infinite; }
+        @keyframes flash { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+
+        .shake { animation: shake .4s ease-in-out; }
+        @keyframes shake {
+            0%, 100% { transform: translate(0, 0); }
+            20% { transform: translate(-10px, 0); }
+            40% { transform: translate(10px, 0); }
+            60% { transform: translate(-7px, 0); }
+            80% { transform: translate(7px, 0); }
+        }
 
     </style>
 </head>
 <body>
-    <div id="panel">
-        <div id="bg-nick">USER</div>
-        
-        <div class="content">
-            <div class="user-block">
-                <img src="" id="avatar">
-                <div id="user-nick">PLAYER</div>
-            </div>
+    <div id="wrap">
+        <div id="left">
+            <img src="" id="avatar">
+            <div id="user">VIEWER</div>
+        </div>
 
-            <div class="score-block">
-                <div class="col">
-                    <span class="label">Число зрителя</span>
-                    <span class="val" id="val-user">00</span>
-                </div>
-                <div class="vs">VS</div>
-                <div class="col">
-                    <span class="label">Число рандома</span>
-                    <span class="val" id="val-random">00</span>
-                </div>
+        <div id="center">
+            <div class="col">
+                <div class="labelWrap"><div class="label">Число зрителя</div></div>
+                <div class="num" id="pickNum">00</div>
             </div>
-
-            <div class="reward-block">
-                <div id="reward-info">
-                    <div id="reward-name">REWARD</div>
-                </div>
-                <div id="reward-icon">🎁</div>
+            <div id="vs">VS</div>
+            <div class="col">
+                <div class="labelWrap"><div class="label">Число рандома</div></div>
+                <div class="num" id="rollNum">00</div>
             </div>
         </div>
 
-        <div id="win-badge">ПОБЕДА!</div>
+        <div id="right">
+            <div id="rewardTitle">REWARD</div>
+            <div id="rewardImg"></div>
+        </div>
+
+        <div id="badge"></div>
     </div>
 
+    <!-- Audio Placeholders -->
+    <audio id="sIn" preload="auto"></audio>
+    <audio id="sRoll" preload="auto"></audio>
+    <audio id="sWin" preload="auto"></audio>
+    <audio id="sLose" preload="auto"></audio>
+    <audio id="sOut" preload="auto"></audio>
+
     <script>
-        // === ТАЙМИНГИ (в миллисекундах) ===
-        const TIME_IN     = 600;  // Появление
-        const TIME_WAIT   = 1000; // Пауза перед роллом
-        const ROLL_SPEED  = 80;   // Скорость смены цифр
-        const ROLL_COUNT  = 40;   // Сколько раз сменится цифра (~3.2 сек)
-        const TIME_STAY   = 5000; // Сколько висит результат
-        const TIME_OUT    = 600;  // Уход панели
-        // ==================================
+        // === ТАЙМИНГИ (согласно запросу) ===
+        const T_IN    = 650;
+        const T_STAND = 1000;
+        const T_ROLL  = 3000;
+        const T_AFTER = 1000;
+        const T_OUT   = 650;
+        // ===================================
 
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
         let isRunning = false;
         let lastTriggerId = null;
-        let assets = {};
 
         async function loadAssets() {
             if (!userId) return;
             try {
                 const res = await fetch(`/api/ov_upload?userId=${userId}`);
-                assets = await res.json();
-                if (assets.panel_bg) document.getElementById('panel').style.backgroundImage = `url(${assets.panel_bg})`;
-                if (assets.reward_img) document.getElementById('reward-icon').innerHTML = `<img src="${assets.reward_img}">`;
+                const assets = await res.json();
+                if (assets.panel_bg) document.getElementById('wrap').style.backgroundImage = `url(${assets.panel_bg})`;
+                if (assets.reward_img) document.getElementById('rewardImg').innerHTML = `<img src="${assets.reward_img}">`;
+                if (assets.s_in) document.getElementById('sIn').src = assets.s_in;
+                if (assets.s_roll) document.getElementById('sRoll').src = assets.s_roll;
+                if (assets.s_win) document.getElementById('sWin').src = assets.s_win;
+                if (assets.s_lose) document.getElementById('sLose').src = assets.s_lose;
+                if (assets.s_out) document.getElementById('sOut').src = assets.s_out;
             } catch (e) {}
         }
 
@@ -235,8 +253,7 @@
             try {
                 const res = await fetch(`/api/ov_settings?userId=${userId}`);
                 const settings = await res.json();
-                // We keep static white values but can overwrite if user really wants later
-                if (settings.reward_name) document.getElementById('reward-name').textContent = settings.reward_name;
+                if (settings.reward_name) document.getElementById('rewardTitle').textContent = settings.reward_name;
             } catch (e) {}
         }
 
@@ -247,65 +264,80 @@
                 const data = await res.json();
                 if (data && data.triggerId && data.triggerId !== lastTriggerId) {
                     lastTriggerId = data.triggerId;
-                    runGame(data);
+                    animate(data);
                 }
             } catch (e) {}
         }
 
-        function runGame(data) {
+        function play(id) {
+            const a = document.getElementById(id);
+            if (a && a.src) { a.currentTime = 0; a.play().catch(e => {}); }
+        }
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        async function animate(data) {
             isRunning = true;
-            const p = document.getElementById('panel');
-            const vUser = document.getElementById('val-user');
-            const vRand = document.getElementById('val-random');
-            const bWin = document.getElementById('win-badge');
-            const nick = document.getElementById('user-nick');
-            const bgNick = document.getElementById('bg-nick');
+            const wrap = document.getElementById('wrap');
+            const userEl = document.getElementById('user');
+            const avatarEl = document.getElementById('avatar');
+            const pickEl = document.getElementById('pickNum');
+            const rollEl = document.getElementById('rollNum');
+            const badge = document.getElementById('badge');
+            const center = document.getElementById('center');
+
+            // Reset
+            badge.className = "";
+            badge.textContent = "";
+            center.classList.remove('shake');
+            rollEl.classList.remove('rollFlash');
+            rollEl.style.color = "var(--white)";
 
             // Set Data
-            nick.textContent = data.userName;
-            bgNick.textContent = data.userName;
-            if (data.userAvatar) document.getElementById('avatar').src = data.userAvatar;
-            vUser.textContent = data.userChoice.toString().padStart(2, '0');
-            vRand.textContent = "00";
-            vRand.style.color = "white";
-            bWin.classList.remove('active');
-            p.classList.remove('exit');
-            
-            // Sequence Start
-            setTimeout(() => {
-                p.classList.add('active'); // IN
-                
-                // WAIT
-                setTimeout(() => {
-                    // ROLL
-                    let count = 0;
-                    const roll = setInterval(() => {
-                        const r = Math.floor(Math.random() * 99 + 1);
-                        vRand.textContent = r.toString().padStart(2, '0');
-                        count++;
-                        if (count > ROLL_COUNT) {
-                            clearInterval(roll);
-                            
-                            let resultNum = data.isTest ? (Math.random() > 0.5 ? data.userChoice : Math.floor(Math.random() * 99 + 1)) : Math.floor(Math.random() * 99 + 1);
-                            vRand.textContent = resultNum.toString().padStart(2, '0');
+            userEl.textContent = data.userName;
+            if (data.userAvatar) avatarEl.src = data.userAvatar;
+            pickEl.textContent = data.userChoice.toString().padStart(2, '0');
+            rollEl.textContent = "00";
 
-                            if (parseInt(vRand.textContent) === parseInt(vUser.textContent)) {
-                                vRand.style.color = "#22c55e"; 
-                                bWin.classList.add('active');
-                            } else {
-                                vRand.style.color = "#ef4444";
-                            }
+            // 1. IN
+            wrap.classList.remove('hide');
+            wrap.classList.add('show');
+            play('sIn');
+            await sleep(T_IN);
 
-                            // STAY
-                            setTimeout(() => {
-                                p.classList.add('exit'); // OUT
-                                p.classList.remove('active');
-                                setTimeout(() => { isRunning = false; }, TIME_OUT);
-                            }, TIME_STAY);
-                        }
-                    }, ROLL_SPEED);
-                }, TIME_WAIT);
-            }, 100);
+            // 2. STAND
+            await sleep(T_STAND);
+
+            // 3. ROLL
+            play('sRoll');
+            rollEl.classList.add('rollFlash');
+            const startRoll = Date.now();
+            while (Date.now() - startRoll < T_ROLL) {
+                rollEl.textContent = Math.floor(Math.random() * 99 + 1).toString().padStart(2, '0');
+                await sleep(60);
+            }
+            rollEl.classList.remove('rollFlash');
+
+            // Set Result
+            let resultNum = data.isTest ? (Math.random() > 0.5 ? data.userChoice : Math.floor(Math.random() * 99 + 1)) : Math.floor(Math.random() * 99 + 1);
+            rollEl.textContent = resultNum.toString().padStart(2, '0');
+
+            const isWin = parseInt(rollEl.textContent) === parseInt(pickEl.textContent);
+            badge.textContent = isWin ? "ПОБЕДА!" : "ПРОИГРЫШ";
+            badge.classList.add('show', isWin ? 'win' : 'lose');
+            rollEl.style.color = isWin ? "var(--green)" : "var(--red)";
+            if (isWin) play('sWin'); else { play('sLose'); center.classList.add('shake'); }
+
+            // 4. AFTER (Stay)
+            await sleep(T_AFTER);
+
+            // 5. OUT
+            play('sOut');
+            wrap.classList.remove('show');
+            wrap.classList.add('hide');
+            await sleep(T_OUT);
+
+            isRunning = false;
         }
 
         if (userId) {
