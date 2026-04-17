@@ -505,7 +505,11 @@
         async function init() {
             try {
                 const res = await fetch('/api/auth_me');
-                if (!res.ok) { window.location.href = '/auth/twitch'; return; }
+                if (!res.ok) { 
+                    const text = await res.text();
+                    document.getElementById('preloader').innerHTML = `<div style="color:var(--red); text-align:center; padding:20px;">Ошибка авторизации: ${res.status}<br><br>Попробуйте зайти через главную страницу или проверьте интернет.</div>`;
+                    return; 
+                }
                 currentUser = await res.json();
                 
                 document.getElementById('user-name-display').textContent = currentUser.display_name;
