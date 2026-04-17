@@ -951,39 +951,52 @@
       return;
     }
 
-    const formData = new FormData();
-    formData.append('asset', fileInput.files[0]);
-    formData.append('key', key);
+    const file = fileInput.files[0];
+    const reader = new FileReader();
 
     btn.textContent = '...';
     btn.disabled = true;
 
-    try {
-      const res = await fetch('/api/overlays/upload', { method: 'POST', body: formData });
-      let result;
-      const contentType = res.headers.get('content-type');
-      if (contentType && contentType.includes('application/json')) {
-        result = await res.json();
-      } else {
-        const text = await res.text();
-        throw new Error(`Server returned HTML (likely 404 or 500). Snippet: ${text.substring(0, 50)}...`);
-      }
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result;
+        const res = await fetch('/api/overlays/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ asset: base64, key: key })
+        });
+        
+        let result;
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          result = await res.json();
+        } else {
+          const text = await res.text();
+          throw new Error(`Server returned HTML (likely 404 or 500). Snippet: ${text.substring(0, 50)}...`);
+        }
 
-      if (res.ok) {
-        statusEl.textContent = '✓ Загружено';
-        statusEl.className = 'asset-status';
-        showToast('Файл загружен');
-      } else {
-        throw new Error(result.error || 'Ошибка сервера');
+        if (res.ok) {
+          statusEl.textContent = '✓ Загружено';
+          statusEl.className = 'asset-status';
+          showToast('Файл загружен');
+        } else {
+          throw new Error(result.error || 'Ошибка сервера');
+        }
+      } catch (err) {
+        statusEl.textContent = '✗ Ошибка';
+        statusEl.style.color = 'var(--red)';
+        showToast(err.message || 'Ошибка загрузки', true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Загрузить';
       }
-    } catch (err) {
-      statusEl.textContent = '✗ Ошибка';
-      statusEl.style.color = 'var(--red)';
-      showToast(err.message || 'Ошибка загрузки', true);
-    } finally {
+    };
+    reader.onerror = () => {
+      showToast('Ошибка чтения файла', true);
       btn.disabled = false;
       btn.textContent = 'Загрузить';
-    }
+    };
+    reader.readAsDataURL(file);
   }
 
   // Trigger Test — opens popup with overlay preview
