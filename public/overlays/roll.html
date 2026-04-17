@@ -15,10 +15,10 @@
             --green: #28d17c;
             --red: #ff4d4d;
             
-            --name-size: 58px;
-            --title-size: 32px;
-            --num-size: 108px;
-            --vs-size: 66px;
+            --name-size: 50px;
+            --title-size: 30px;
+            --num-size: 100px;
+            --vs-size: 54px;
             --label-bg: rgba(0, 0, 0, 0.45);
         }
 
@@ -29,6 +29,7 @@
             overflow: hidden;
             background: transparent;
             font-family: 'Inter', sans-serif;
+            color: white;
         }
 
         #wrap {
@@ -36,7 +37,7 @@
             left: 50%;
             top: var(--panel-top);
             width: 1600px;
-            height: 220px;
+            height: 210px;
             transform: translate(-50%, -280px);
             opacity: 0;
             border-radius: var(--panel-radius);
@@ -47,7 +48,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 20px 60px;
+            padding: 0 40px;
             transition: transform 650ms cubic-bezier(0.19, 1, 0.22, 1), opacity 260ms ease;
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
@@ -55,51 +56,50 @@
         #wrap.show { transform: translate(-50%, 0); opacity: 1; }
         #wrap.hide { transform: translate(-50%, -280px); opacity: 0; }
 
-        /* Left Side (Avatar + Nick) */
-        #left {
+        /* Nick and Avatar at way left */
+        #left-side {
             display: flex;
             align-items: center;
             gap: 20px;
-            min-width: 450px;
-        }
-
-        #avatar {
-            width: 100px;
-            height: 100px;
-            border-radius: 14px;
-            background: #222;
-            object-fit: cover;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            flex: 1;
         }
 
         #user {
             font-size: var(--name-size);
             font-weight: 900;
             color: var(--white);
-            text-shadow: 0 6px 24px rgba(0,0,0,.65);
+            text-shadow: 0 6px 20px rgba(0,0,0,.6);
             text-transform: uppercase;
         }
 
-        /* Center (Numbers) */
-        #center {
+        #avatar {
+            width: 110px;
+            height: 110px;
+            border-radius: 12px;
+            background: #222;
+            object-fit: cover;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
+        }
+
+        /* Center Section (Label + Numbers) */
+        #center-side {
             display: flex;
             align-items: center;
-            gap: 40px;
-            transition: transform 0.2s;
+            gap: 30px;
+            justify-content: center;
+            flex: 2;
         }
 
         .col { text-align: center; }
         .labelWrap {
             display: inline-block;
             background: var(--label-bg);
-            border-radius: 10px;
-            padding: 6px 16px;
-            box-shadow: 0 8px 20px rgba(0,0,0,.25);
-            margin-bottom: 8px;
+            border-radius: 8px;
+            padding: 4px 12px;
+            margin-bottom: 6px;
         }
-
         .label {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 800;
             color: var(--muted);
             text-transform: uppercase;
@@ -112,88 +112,82 @@
             font-family: 'Martian Mono', monospace;
             color: var(--num-color);
             line-height: 1;
-            min-width: 180px;
-            text-shadow: 0 10px 28px rgba(0,0,0,.75);
+            min-width: 160px;
+            text-shadow: 0 8px 24px rgba(0,0,0,.7);
         }
 
         #vs {
             font-size: var(--vs-size);
             font-weight: 900;
             color: var(--white);
-            opacity: 0.85; /* Much more visible */
-            text-shadow: 0 10px 28px rgba(0,0,0,0.8);
+            opacity: 1; /* Forced opaque */
+            text-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
 
-        /* Right Side (Reward) */
-        #right {
+        /* Right Section (Reward) */
+        #right-side {
             display: flex;
             align-items: center;
             gap: 20px;
-            min-width: 480px; /* Increased min-width */
             justify-content: flex-end;
-            text-align: right;
+            flex: 1.5;
         }
 
         #rewardTitle {
             font-size: var(--title-size);
             font-weight: 900;
             color: var(--white);
-            line-height: 1.1;
-            text-shadow: 0 6px 24px rgba(0,0,0,.65);
+            text-align: center; /* Centered as requested */
             text-transform: uppercase;
+            max-width: 300px;
+            line-height: 1.1;
         }
 
         #rewardImg {
-            width: 180px; /* Even bigger icon */
-            height: 180px;
-            padding: 5px;
+            width: 150px;
+            height: 150px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        #rewardImg img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 12px 18px rgba(0,0,0,.5)); }
+        #rewardImg img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4)); }
 
-        /* Badge Overlay */
         #badge {
             position: absolute;
-            right: 40px;
-            bottom: -20px;
+            right: 150px;
+            bottom: -25px;
             font-size: 32px;
             font-weight: 900;
-            padding: 10px 30px;
-            border-radius: 999px;
+            padding: 8px 30px;
+            border-radius: 99px;
             opacity: 0;
             transform: scale(.8);
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 100;
+            transition: all 0.3s;
+            z-index: 50;
         }
-        #badge.show { opacity: 1; transform: scale(1) translateY(-30px); }
-        #badge.win { background: rgba(40,209,124,.2); color: var(--green); border: 1px solid rgba(40,209,124,.4); box-shadow: 0 10px 30px rgba(40,209,124,0.3); }
-        #badge.lose { background: rgba(255,77,77,.15); color: var(--red); border: 1px solid rgba(255,77,77,.3); }
+        #badge.show { opacity: 1; transform: scale(1) translateY(-15px); }
+        #badge.win { background: var(--green); color: white; box-shadow: 0 8px 20px rgba(40,209,124,0.4); }
+        #badge.lose { background: var(--red); color: white; }
 
-        /* Animations */
         .rollFlash { animation: flash .1s linear infinite; }
         @keyframes flash { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
-
         .shake { animation: shake .4s ease-in-out; }
         @keyframes shake {
             0%, 100% { transform: translate(0, 0); }
-            20% { transform: translate(-10px, 0); }
-            40% { transform: translate(10px, 0); }
-            60% { transform: translate(-7px, 0); }
-            80% { transform: translate(7px, 0); }
+            25% { transform: translate(-10px, 0); }
+            75% { transform: translate(10px, 0); }
         }
 
     </style>
 </head>
 <body>
     <div id="wrap">
-        <div id="left">
+        <div id="left-side">
+            <div id="user">PLAYER</div>
             <img src="" id="avatar">
-            <div id="user">VIEWER</div>
         </div>
 
-        <div id="center">
+        <div id="center-side">
             <div class="col">
                 <div class="labelWrap"><div class="label">Число зрителя</div></div>
                 <div class="num" id="pickNum">00</div>
@@ -205,15 +199,14 @@
             </div>
         </div>
 
-        <div id="right">
-            <div id="rewardTitle">REWARD</div>
+        <div id="right-side">
+            <div id="rewardTitle">REWARD NAME</div>
             <div id="rewardImg"></div>
         </div>
 
         <div id="badge"></div>
     </div>
 
-    <!-- Audio Placeholders -->
     <audio id="sIn" preload="auto"></audio>
     <audio id="sRoll" preload="auto"></audio>
     <audio id="sWin" preload="auto"></audio>
@@ -221,13 +214,11 @@
     <audio id="sOut" preload="auto"></audio>
 
     <script>
-        // === ТАЙМИНГИ (согласно запросу) ===
         const T_IN    = 650;
         const T_STAND = 1000;
         const T_ROLL  = 3000;
         const T_AFTER = 1000;
         const T_OUT   = 650;
-        // ===================================
 
         const urlParams = new URLSearchParams(window.location.search);
         const userId = urlParams.get('id');
@@ -241,11 +232,9 @@
                 const assets = await res.json();
                 if (assets.panel_bg) document.getElementById('wrap').style.backgroundImage = `url(${assets.panel_bg})`;
                 if (assets.reward_img) document.getElementById('rewardImg').innerHTML = `<img src="${assets.reward_img}">`;
-                if (assets.s_in) document.getElementById('sIn').src = assets.s_in;
-                if (assets.s_roll) document.getElementById('sRoll').src = assets.s_roll;
-                if (assets.s_win) document.getElementById('sWin').src = assets.s_win;
-                if (assets.s_lose) document.getElementById('sLose').src = assets.s_lose;
-                if (assets.s_out) document.getElementById('sOut').src = assets.s_out;
+                ['s_in', 's_roll', 's_win', 's_lose', 's_out'].forEach(k => {
+                   if (assets[k]) document.getElementById(k.replace('_','')).src = assets[k];
+                });
             } catch (e) {}
         }
 
@@ -285,31 +274,26 @@
             const pickEl = document.getElementById('pickNum');
             const rollEl = document.getElementById('rollNum');
             const badge = document.getElementById('badge');
-            const center = document.getElementById('center');
+            const centerSide = document.getElementById('center-side');
 
-            // Reset
             badge.className = "";
             badge.textContent = "";
-            center.classList.remove('shake');
+            centerSide.classList.remove('shake');
             rollEl.classList.remove('rollFlash');
             rollEl.style.color = "var(--white)";
 
-            // Set Data
             userEl.textContent = data.userName;
             if (data.userAvatar) avatarEl.src = data.userAvatar;
             pickEl.textContent = data.userChoice.toString().padStart(2, '0');
             rollEl.textContent = "00";
 
-            // 1. IN
             wrap.classList.remove('hide');
             wrap.classList.add('show');
             play('sIn');
             await sleep(T_IN);
 
-            // 2. STAND
             await sleep(T_STAND);
 
-            // 3. ROLL
             play('sRoll');
             rollEl.classList.add('rollFlash');
             const startRoll = Date.now();
@@ -319,7 +303,6 @@
             }
             rollEl.classList.remove('rollFlash');
 
-            // Set Result
             let resultNum = data.isTest ? (Math.random() > 0.5 ? data.userChoice : Math.floor(Math.random() * 99 + 1)) : Math.floor(Math.random() * 99 + 1);
             rollEl.textContent = resultNum.toString().padStart(2, '0');
 
@@ -327,12 +310,10 @@
             badge.textContent = isWin ? "ПОБЕДА!" : "ПРОИГРЫШ";
             badge.classList.add('show', isWin ? 'win' : 'lose');
             rollEl.style.color = isWin ? "var(--green)" : "var(--red)";
-            if (isWin) play('sWin'); else { play('sLose'); center.classList.add('shake'); }
+            if (isWin) play('sWin'); else { play('sLose'); centerSide.classList.add('shake'); }
 
-            // 4. AFTER (Stay)
             await sleep(T_AFTER);
 
-            // 5. OUT
             play('sOut');
             wrap.classList.remove('show');
             wrap.classList.add('hide');
