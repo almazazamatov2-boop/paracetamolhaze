@@ -631,13 +631,11 @@
             <div class="obs-url" id="obs-url">Загрузка...</div>
             <button class="btn-copy" onclick="copyUrl()">URL</button>
             <button class="btn-copy" style="background:#22c55e" onclick="triggerTest(this)">ТЕСТ</button>
-            <a href="#" class="btn-test" id="obs-test-btn" target="_blank">OBS ↗</a>
           </div>
           <div class="obs-hint">
             В OBS: <strong>Источники → + → Браузер</strong> &nbsp;·&nbsp;
             Ширина: <strong>1600</strong> &nbsp;·&nbsp;
-            Высота: <strong>210</strong> &nbsp;·&nbsp;
-            ✓ <strong>Прозрачный фон</strong>
+            Высота: <strong>250</strong>
           </div>
         </div>
       </div>
@@ -979,15 +977,24 @@
     }
   }
 
-  // Trigger Local Test
+  // Trigger Test — opens popup with overlay preview
   async function triggerTest(btn) {
+    const obsUrl = document.getElementById('obs-url').textContent.trim();
+    if (obsUrl === 'Загрузка...') { showToast('Подождите загрузки...', true); return; }
     const oldText = btn.textContent;
     btn.textContent = '...';
     btn.disabled = true;
     try {
       const res = await fetch('/api/overlays/trigger/test', { method: 'POST' });
-      if (res.ok) showToast('Тест запущен!');
-      else throw new Error();
+      if (!res.ok) throw new Error();
+      // Open overlay in a small popup
+      const popup = window.open(
+        obsUrl,
+        'overlay_test',
+        'width=1620,height=290,toolbar=no,menubar=no,scrollbars=no,resizable=no'
+      );
+      showToast('Тест запущен!');
+      setTimeout(() => { if (popup) popup.close(); }, 15000);
     } catch {
       showToast('Ошибка запуска теста', true);
     } finally {
@@ -1053,7 +1060,6 @@
       const siteUrl = window.location.origin;
       const obsPath = `${siteUrl}/overlays/roll?id=${user.id}`;
       document.getElementById('obs-url').textContent = obsPath;
-      document.getElementById('obs-test-btn').href = obsPath;
 
       // Load existing settings
       const settingsRes = await fetch(`/api/overlays/settings?userId=${user.id}`);

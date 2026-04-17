@@ -7,7 +7,7 @@
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background: transparent; font-family: 'Martian Mono', monospace; }
         .overlay-container {
-            width: 1600px; height: 210px;
+            width: 1600px; height: 250px;
             background: #101014; border-radius: 18px;
             position: absolute; top: -500px; left: 50%;
             transform: translateX(-50%);
@@ -92,12 +92,15 @@
             } catch (e) {}
         }
 
+        let lastTriggerId = null;
+
         async function checkTrigger() {
             if (isRunning) return;
             try {
                 const res = await fetch(`/api/overlays/trigger?userId=${userId}`);
                 const data = await res.json();
-                if (data && data.triggerId) {
+                if (data && data.triggerId && data.triggerId !== lastTriggerId) {
+                    lastTriggerId = data.triggerId;
                     runGame(data);
                 }
             } catch (e) {}
