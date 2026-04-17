@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { Redis } from '@upstash/redis';
 
-const redis = new Redis({
-  url: process.env.KV_REST_API_URL!,
+const redis = process.env.KV_REST_API_URL ? new Redis({
+  url: process.env.KV_REST_API_URL,
   token: process.env.KV_REST_API_TOKEN!,
-});
+}) : null;
 
 export async function POST(req: NextRequest) {
+  if (!redis) return NextResponse.json({ ok: false, error: 'DB unconfigured' });
   const body = await req.text();
   const signature = req.headers.get('x-hub-signature-sha256');
   const messageId = req.headers.get('messenger-message-id');
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       const userChoice = match ? parseInt(match[0]) : null;
 
       if (userChoice !== null && userChoice >= (settings.min_val || 1) && userChoice <= (settings.max_val || 100)) {
-        const triggerId = crypto.randomUUID();
+        const triggerId = globalThis.crypto.randomUUID ? globalThis.crypto.randomUUID() : Math.random().toString(36);
         const payload = {
           triggerId,
           userName,
