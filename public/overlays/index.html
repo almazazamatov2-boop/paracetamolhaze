@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>FATE OVERLAYS — Оверлеи для стримов</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Martian+Mono:wght@300;400;500&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Martian+Mono:wght@400;700;900&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -17,8 +17,9 @@
       --accent:   #7c3aed;
       --accent2:  #a855f7;
       --text:     #e8e8e8;
-      --muted:    #888;
+      --muted:    #818181;
       --green:    #22c55e;
+      --red:      #ef4444;
     }
 
     html { scroll-behavior: smooth; }
@@ -82,9 +83,9 @@
 
     /* HERO */
     .hero {
-      padding: 120px 24px 80px;
+      padding: 100px 24px 80px;
       text-align: center;
-      max-width: 1000px;
+      max-width: 1200px;
       margin: 0 auto;
     }
 
@@ -99,265 +100,205 @@
       font-size: 11px;
       font-weight: 600;
       color: var(--accent2);
-      margin-bottom: 32px;
+      margin-bottom: 24px;
       letter-spacing: 0.02em;
     }
 
     h1 {
       font-size: clamp(40px, 6vw, 84px);
-      font-weight: 900;
-      line-height: 1.1;
-      letter-spacing: -0.02em;
+      font-weight: 950;
+      line-height: .95;
+      letter-spacing: -0.04em;
       margin-bottom: 32px;
-    }
-    h1 span {
-      background: linear-gradient(135deg, #fff 30%, var(--accent2));
+      background: linear-gradient(135deg, #fff 10%, var(--accent2) 90%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-    }
-    h1 em {
-      font-style: normal;
-      color: var(--accent2);
+      text-transform: uppercase;
     }
 
     .hero-desc {
       font-size: 18px;
       line-height: 1.6;
       color: var(--muted);
-      max-width: 700px;
+      max-width: 800px;
       margin: 0 auto 48px;
+      font-weight: 400;
     }
 
-    /* DEMO SECTION */
-    .section-demo {
-      max-width: 1200px;
-      margin: 0 auto 100px;
-      padding: 0 24px;
-      display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 24px;
-    }
-
-    .demo-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 32px;
-      position: relative;
-    }
-
-    .demo-card-title {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 14px;
-      font-weight: 700;
-      margin-bottom: 32px;
-    }
-    .demo-card-title svg { width: 18px; color: var(--accent2); }
-
-    .demo-form { display: flex; flex-direction: column; gap: 24px; }
-
-    .field { display: flex; flex-direction: column; gap: 10px; }
-    .field-label { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
-    
-    .field input[type="text"] {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      padding: 12px 16px;
-      border-radius: 8px;
-      color: #fff;
-      font-family: inherit;
-    }
-
-    .range-group { position: relative; padding-top: 10px; }
-    .range-values { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
-    input[type="range"] {
-      width: 100%;
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      appearance: none;
-      outline: none;
-    }
-    input[type="range"]::-webkit-slider-thumb {
-      appearance: none;
-      width: 16px; height: 16px;
-      background: var(--accent2);
-      border-radius: 50%;
-      cursor: pointer;
-      box-shadow: 0 0 10px var(--accent);
-    }
-
-    .demo-stats {
-      margin-top: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-    .stat-item {
-      display: flex;
-      justify-content: space-between;
-      font-size: 13px;
-    }
-    .stat-item span:first-child { color: var(--muted); }
-    .stat-item span:last-child { font-weight: 700; }
-
-    .btn-spin {
-      margin-top: 16px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      padding: 16px;
-      border-radius: 100px;
-      font-weight: 700;
-      font-size: 14px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      transition: all .2s;
-    }
-    .btn-spin:hover { background: var(--accent2); transform: scale(1.02); }
-    .btn-spin:active { transform: scale(0.98); }
-
-    /* PREVIEW PANEL */
-    .preview-panel {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .preview-head {
-      padding: 24px 32px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    .overlay-viewport {
-      flex: 1;
-      background: #000;
-      position: relative;
-      min-height: 300px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-image: radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
-    }
-
-    /* THE ACTUAL OVERLAY MOCKUP */
-    .mock-overlay {
-      width: 100%;
-      height: 120px;
-      background: rgba(26, 26, 46, 0.95);
-      border-top: 2px solid var(--accent2);
-      border-bottom: 2px solid var(--accent2);
-      display: flex;
-      align-items: center;
-      padding: 0 60px;
-      gap: 40px;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-    }
-    .mock-overlay.active { opacity: 1; transform: translateY(0); }
-
-    .mock-user-img { width: 60px; height: 60px; border-radius: 8px; background: #333; }
-    .mock-info { flex: 1; }
-    .mock-user-name { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 4px; }
-    .mock-action { font-size: 12px; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.1em; }
-    
-    .mock-result {
-      font-size: 64px;
-      font-weight: 900;
-      color: #fff;
-      font-family: 'Martian Mono', monospace;
-      min-width: 120px;
-      text-align: right;
-    }
-
-    .preview-footer {
-      padding: 24px 32px;
-      background: rgba(255,255,255,0.02);
-      font-size: 12px;
-      line-height: 1.8;
-      color: var(--muted);
-    }
-    .preview-footer ol { padding-left: 20px; }
-    .preview-footer li { margin-bottom: 4px; }
-
-    /* OVERLAYS SECTION (CLEANED) */
+    /* OVERLAYS DETAILED SECTION */
     .section-overlays {
       max-width: 1200px;
       margin: 0 auto 100px;
       padding: 0 24px;
     }
-    .section-title { font-size: 24px; font-weight: 900; margin-bottom: 32px; display: flex; justify-content: space-between; align-items: baseline; }
-    .section-title span { font-size: 12px; color: var(--muted); font-weight: 400; }
 
-    .grid-overlays {
+    .overlay-block {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 24px;
-    }
-
-    .card-overlay {
+      gap: 32px;
+      align-items: start;
+      margin-bottom: 64px;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 40px;
+      border-radius: 20px;
+      padding: 48px;
+      position: relative;
+    }
+
+    .overlay-info { padding-right: 20px; }
+    
+    .status-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent2);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    .status-tag .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 8px currentColor; }
+
+    .overlay-title { font-size: 64px; font-weight: 950; line-height: 1; margin-bottom: 20px; text-transform: uppercase; }
+    .overlay-desc { font-size: 15px; line-height: 1.7; color: var(--muted); margin-bottom: 32px; }
+
+    .overlay-features {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    .overlay-features li {
+      font-size: 11px;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .btn-action {
+      display: inline-flex;
+      background: #fff;
+      color: #000;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-weight: 700;
       text-decoration: none;
-      color: inherit;
-      transition: all .3s;
+      font-size: 14px;
+      transition: all .2s;
+    }
+    .btn-action:hover { background: var(--accent2); color: #fff; }
+
+    /* PREVIEW CONTAINER */
+    .overlay-preview-container {
+      background: #000;
+      border-radius: 12px;
+      aspect-ratio: 16/7;
       position: relative;
       overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+      background-image: radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
     }
-    .card-overlay:hover { border-color: var(--accent2); transform: translateY(-4px); }
-    .card-overlay.soon { opacity: 0.5; cursor: default; }
 
-    .card-label { font-size: 10px; font-weight: 700; color: var(--accent2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-    .card-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); }
+    /* ACTUAL OVERLAY MOCKUP (1:1 design, scaled down) */
+    .real-overlay-mock {
+      width: 1600px;
+      height: 210px;
+      background: rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border-top: 3px solid var(--accent2);
+      border-bottom: 3px solid var(--accent2);
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.35); /* Scale to fit container */
+      display: grid;
+      grid-template-columns: 280px 1fr 280px;
+      align-items: center;
+      padding: 0 80px;
+      font-family: 'Martian Mono', monospace;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.5);
+      animation: mockFloat 4s ease-in-out infinite;
+    }
 
-    .card-title { font-size: 48px; font-weight: 900; line-height: 1; margin-bottom: 16px; }
-    .card-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
-    
-    .card-tags { display: flex; gap: 8px; }
-    .card-tag { font-size: 10px; padding: 4px 10px; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; }
+    @keyframes mockFloat {
+      0%, 100% { transform: translate(-50%, -50%) scale(0.35); }
+      50% { transform: translate(-50%, -48%) scale(0.35); }
+    }
+
+    .mock-user { display: flex; align-items: center; gap: 24px; }
+    .mock-avatar { width: 80px; height: 80px; border-radius: 8px; background: #333; }
+    .mock-nick { font-size: 32px; font-weight: 900; color: #fff; text-transform: uppercase; }
+
+    .mock-center {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 40px;
+      text-align: center;
+    }
+    .mock-col-title { font-size: 14px; color: var(--accent2); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.1em; }
+    .mock-col-val { font-size: 84px; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+    .mock-vs { font-size: 48px; font-weight: 900; color: rgba(255,255,255,0.1); }
+
+    .mock-reward { display: flex; align-items: center; justify-content: flex-end; gap: 24px; }
+    .mock-reward-title { font-size: 18px; font-weight: 700; color: #fff; text-align: right; line-height: 1.2; text-transform: uppercase; }
+    .mock-reward-img { width: 80px; height: 80px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 32px; }
+
+    /* WIN BADGE */
+    .mock-badge {
+      position: absolute;
+      bottom: -60px; right: 80px;
+      background: var(--green);
+      color: #fff;
+      padding: 12px 32px;
+      font-size: 24px;
+      font-weight: 950;
+      border-radius: 4px;
+      transform: scale(0);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .mock-badge.active { transform: scale(1); }
 
     /* FOOTER */
     footer {
       border-top: 1px solid var(--border);
-      padding: 48px 24px;
-      text-align: center;
-      font-size: 12px;
-      color: var(--muted);
+      padding: 64px 24px;
+      background: #000;
     }
     .footer-content {
       max-width: 1200px;
       margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
     }
-    .footer-left { display: flex; align-items: center; gap: 16px; }
-    .dev-link { color: #fff; text-decoration: none; font-weight: 700; transition: color .2s; }
-    .dev-link:hover { color: var(--accent2); }
+    .footer-center {
+      text-align: center;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+    .footer-center strong { color: #fff; }
+    .footer-center a { color: var(--muted); text-decoration: none; transition: color .2s; }
+    .footer-center a:hover { color: #fff; }
 
-    .icon-twitch { width: 16px; height: 16px; fill: currentColor; }
+    .footer-right {
+      text-align: right;
+      font-size: 12px;
+      color: #444;
+    }
 
-    @media (max-width: 900px) {
-      .section-demo { grid-template-columns: 1fr; }
-      .grid-overlays { grid-template-columns: 1fr; }
-      .footer-content { flex-direction: column; gap: 24px; }
-      header { padding: 20px 24px; }
+    @media (max-width: 1000px) {
+      .overlay-block { grid-template-columns: 1fr; padding: 32px; }
+      .footer-content { grid-template-columns: 1fr; gap: 24px; text-align: center; }
+      .footer-right { text-align: center; }
     }
   </style>
 </head>
@@ -367,7 +308,7 @@
   <header>
     <a href="/" class="logo">FATE<span>.</span>OVERLAYS</a>
     <a href="/auth/twitch" class="btn-twitch">
-      <svg class="icon-twitch" viewBox="0 0 24 24"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
       Войти через Twitch
     </a>
   </header>
@@ -376,130 +317,94 @@
   <div class="hero">
     <div class="hero-badge">
       <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      Twitch Channel Points Overlay
+      Premium Twitch Stream Tools
     </div>
-    <h1>Привлекай <span>аудиторию</span><br>мини-игрой на стриме</h1>
+    <h1>Привлекай аудиторию<br>мини-игрой на стриме</h1>
     <p class="hero-desc">
-      Overlayroll — профессиональный оверлей для Twitch стримеров. Зрители активируют награду за Channel Points, выбирают число и испытывают удачу прямо на стриме с плавными анимациями.
+      Оверлеи для стримеров. Зрители активируют награду за Channel Points, выбирают число и испытывают удачу прямо на стриме.
     </p>
   </div>
 
-  <!-- DEMO SECTION -->
-  <section class="section-demo">
+  <!-- OVERLAYS DETAILED SECTION -->
+  <section class="section-overlays">
     
-    <div class="demo-card">
-      <div class="demo-card-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M9 20v-10M15 20v-2M12 4v4M18 4v4M6 4v4"/></svg>
-        Настройки демо
+    <!-- OVERLAY: ROLL -->
+    <div class="overlay-block">
+      <div class="overlay-info">
+        <div class="status-tag"><span class="dot"></span>доступен сейчас</div>
+        <h2 class="overlay-title">РОЛЛ</h2>
+        <p class="overlay-desc">
+          Популярная мини-игра «Угадай число». Зритель покупает попытку за баллы канала, выбирает число и система крутит рандом. При совпадении — яркая анимация победы.
+        </p>
+        <ul class="overlay-features">
+          <li>Channel Points</li>
+          <li>Custom Audio</li>
+          <li>Glass Background</li>
+          <li>1600x210</li>
+        </ul>
+        <a href="/overlays/dashboard" class="btn-action">Настроить сейчас</a>
       </div>
-      <div class="demo-form">
-        <div class="field">
-          <label class="field-label">Имя зрителя</label>
-          <input type="text" id="demo-username" value="StreamViewer" maxlength="15">
-        </div>
-        <div class="field">
-          <div class="range-values">
-            <span class="field-label">Выбранное число</span>
-            <span id="range-val" style="font-weight: 700; color: #fff;">50</span>
+      
+      <div class="overlay-preview-container">
+        <!-- REAL OVERLAY MOCKUP -->
+        <div class="real-overlay-mock">
+          <div class="mock-user">
+            <div class="mock-avatar"></div>
+            <div class="mock-nick">Viewer</div>
           </div>
-          <div class="range-group">
-            <input type="range" id="demo-range" min="1" max="100" value="50" oninput="updateRange(this.value)">
-            <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: var(--muted);">
-              <span>1</span>
-              <span>100</span>
+          
+          <div class="mock-center">
+            <div class="mock-col">
+              <div class="mock-col-title">ЧИСЛО ЗРИТЕЛЯ</div>
+              <div class="mock-col-val" id="mock-choice">50</div>
+            </div>
+            <div class="mock-vs">VS</div>
+            <div class="mock-col">
+              <div class="mock-col-title">ЧИСЛО РАНДОМА</div>
+              <div class="mock-col-val" id="mock-random">00</div>
             </div>
           </div>
+
+          <div class="mock-reward">
+            <div class="mock-reward-title">RANDOM SKIN<br>CS2</div>
+            <div class="mock-reward-img">🔫</div>
+          </div>
+
+          <div class="mock-badge" id="mock-win-badge">WIN!</div>
         </div>
-        <div class="demo-stats">
-          <div class="stat-item">
-            <span>Диапазон</span>
-            <span>1 — 100</span>
-          </div>
-          <div class="stat-item">
-            <span>Вероятность</span>
-            <span>1%</span>
-          </div>
-          <div class="stat-item">
-            <span>Тип оверлея</span>
-            <span style="color: var(--accent2); background: rgba(168,85,247,0.1); padding: 2px 8px; border-radius: 4px;">Fate Roll</span>
-          </div>
-        </div>
-        <button class="btn-spin" onclick="runDemo()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.85.83 6.72 2.24"/><path d="M21 3v9h-9"/><path d="M16 8l5 4"/></svg>
-          Крутить
-        </button>
       </div>
     </div>
 
-    <div class="preview-panel">
-      <div class="preview-head">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-        Превью оверлея
+    <!-- OVERLAY: SLOT (SOON) -->
+    <div class="overlay-block" style="opacity: 0.6;">
+      <div class="overlay-info">
+        <div class="status-tag" style="color: #666;"><span class="dot" style="background: #666; box-shadow: none;"></span>скоро</div>
+        <h2 class="overlay-title">СЛОТЫ</h2>
+        <p class="overlay-desc">
+          Классический игровой автомат на вашем стриме. Три барабана, кастомные символы и поддержка комбинаций. Идеально для удержания зрителей.
+        </p>
+        <ul class="overlay-features">
+          <li>Triple Reels</li>
+          <li>Custom Icons</li>
+          <li>Jackpot Effect</li>
+        </ul>
+        <span class="btn-action" style="background: #222; color: #555; cursor: default;">В разработке</span>
       </div>
-      <div class="overlay-viewport">
-        <div class="mock-overlay" id="mock-overlay">
-          <div class="mock-user-img" id="mock-img"></div>
-          <div class="mock-info">
-            <div class="mock-user-name" id="display-name">StreamViewer</div>
-            <div class="mock-action">ВЫБРАЛ ЧИСЛО <span id="display-choice">50</span></div>
-          </div>
-          <div class="mock-result" id="display-result">00</div>
-        </div>
-      </div>
-      <div class="preview-footer">
-        <ol>
-          <li>1. Зритель активирует награду за Channel Points на Twitch</li>
-          <li>2. Оверлей появляется на стриме с панелью зрителя</li>
-          <li>3. Число крутится — совпадение с выбором = победа!</li>
-        </ol>
+      <div class="overlay-preview-container" style="background: #111;">
+        <div style="font-size: 14px; color: #333; font-weight: 700;">PREVIEW UNAVAILABLE</div>
       </div>
     </div>
 
-  </section>
-
-  <!-- OVERLAYS GRID -->
-  <section class="section-overlays" id="overlays">
-    <div class="section-title">
-      ДРУГИЕ ОВЕРЛЕИ
-      <span>1 ДОСТУПЕН · 1 СКОРО</span>
-    </div>
-    <div class="grid-overlays">
-      
-      <a href="/auth/twitch" class="card-overlay">
-        <div class="card-label"><span class="dot"></span>LIVE</div>
-        <div class="card-title">РОЛЛ</div>
-        <div class="card-desc">
-          Рулетка с Channel Points. Зритель тратит баллы — на экране разворачивается анимация рандома. Кастомные звуки, цвета и картинки.
-        </div>
-        <div class="card-tags">
-          <span class="card-tag">Channel Points</span>
-          <span class="card-tag">OBS</span>
-          <span class="card-tag">1600×210</span>
-        </div>
-      </a>
-
-      <div class="card-overlay soon">
-        <div class="card-label">СКОРО</div>
-        <div class="card-title">СЛОТ</div>
-        <div class="card-desc">
-          Классические игровые барабаны прямо в стриме. Три символа, анимация вращения, комбо для победы.
-        </div>
-        <div class="card-tags">
-          <span class="card-tag">Channel Points</span>
-          <span class="card-tag">OBS</span>
-        </div>
-      </div>
-
-    </div>
   </section>
 
   <!-- FOOTER -->
   <footer>
     <div class="footer-content">
-      <div class="footer-left">
-        <div>Powered by <strong>FATE.OVERLAYS</strong></div>
-        <div style="opacity: 0.3">|</div>
-        <div>dev: <a href="https://t.me/almazHAZE" target="_blank" class="dev-link">@almazHAZE</a></div>
+      <div class="footer-left"></div>
+      <div class="footer-center">
+        Powered by <strong>FATE.OVERLAYS</strong>
+        <span style="margin: 0 12px; opacity: 0.2;">|</span>
+        <a href="https://t.me/paracetamolhaze" target="_blank">dev</a>
       </div>
       <div class="footer-right">
         © 2026 All rights reserved
@@ -508,56 +413,32 @@
   </footer>
 
   <script>
-    function updateRange(val) {
-      document.getElementById('range-val').textContent = val;
-    }
-
-    let isSpinning = false;
-    function runDemo() {
-      if (isSpinning) return;
-      isSpinning = true;
-
-      const overlay = document.getElementById('mock-overlay');
-      const nameDisp = document.getElementById('display-name');
-      const choiceDisp = document.getElementById('display-choice');
-      const resultDisp = document.getElementById('display-result');
+    // Mock Overlay Animation Loop for "Roll"
+    function animateMock() {
+      const randomEl = document.getElementById('mock-random');
+      const badge = document.getElementById('mock-win-badge');
+      const choice = 50;
       
-      const username = document.getElementById('demo-username').value || 'StreamViewer';
-      const choice = document.getElementById('demo-range').value;
-
-      // Reset
-      overlay.classList.remove('active');
-      resultDisp.textContent = '00';
-      resultDisp.style.color = '#fff';
-
-      setTimeout(() => {
-        nameDisp.textContent = username;
-        choiceDisp.textContent = choice;
-        overlay.classList.add('active');
-
-        // Animation "Spinning"
-        let counter = 0;
-        const interval = setInterval(() => {
-          resultDisp.textContent = Math.floor(Math.random() * 100 + 1).toString().padStart(2, '0');
-          counter++;
-          if (counter > 20) {
-            clearInterval(interval);
-            const final = Math.floor(Math.random() * 100 + 1);
-            resultDisp.textContent = final.toString().padStart(2, '0');
-            
-            if (final == choice) {
-              resultDisp.style.color = '#22c55e';
-              resultDisp.style.textShadow = '0 0 20px #22c55e';
-            }
-            
-            setTimeout(() => {
-              overlay.classList.remove('active');
-              isSpinning = false;
-            }, 3000);
-          }
-        }, 50);
-      }, 300);
+      let count = 0;
+      const interval = setInterval(() => {
+        randomEl.textContent = Math.floor(Math.random() * 99 + 1).toString().padStart(2, '0');
+        count++;
+        if (count > 30) {
+          clearInterval(interval);
+          randomEl.textContent = choice.toString();
+          randomEl.style.color = '#22c55e';
+          badge.classList.add('active');
+          
+          setTimeout(() => {
+            randomEl.style.color = '#fff';
+            badge.classList.remove('active');
+            setTimeout(animateMock, 2000);
+          }, 3000);
+        }
+      }, 50);
     }
+    
+    window.onload = animateMock;
   </script>
 
 </body>
