@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FATE OVERLAYS</title>
+  <title>FATE OVERLAYS — Оверлеи для стримов</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Martian+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Martian+Mono:wght@300;400;500&family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --bg:       #080808;
       --surface:  #111111;
+      --surface2: #1a1a1a;
       --border:   #1e1e1e;
       --accent:   #7c3aed;
       --accent2:  #a855f7;
       --text:     #e8e8e8;
-      --muted:    #555;
+      --muted:    #888;
       --green:    #22c55e;
     }
 
@@ -25,7 +26,7 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Martian Mono', monospace;
+      font-family: 'Inter', sans-serif;
       min-height: 100vh;
       overflow-x: hidden;
     }
@@ -45,34 +46,22 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 28px 48px;
-      border-bottom: 1px solid var(--border);
+      padding: 24px 48px;
       position: sticky; top: 0;
-      background: rgba(8,8,8,.92);
-      backdrop-filter: blur(12px);
+      background: rgba(8,8,8,.8);
+      backdrop-filter: blur(20px);
       z-index: 100;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
     }
 
     .logo {
       font-family: 'Bebas Neue', sans-serif;
-      font-size: 26px;
-      letter-spacing: .12em;
+      font-size: 24px;
+      letter-spacing: .1em;
       color: var(--text);
       text-decoration: none;
     }
     .logo span { color: var(--accent2); }
-
-    nav { display: flex; gap: 32px; align-items: center; }
-
-    nav a {
-      font-size: 11px;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-decoration: none;
-      transition: color .2s;
-    }
-    nav a:hover { color: var(--text); }
 
     .btn-twitch {
       display: inline-flex;
@@ -80,334 +69,295 @@
       gap: 8px;
       background: var(--accent);
       color: #fff;
-      font-family: 'Martian Mono', monospace;
       font-size: 11px;
-      letter-spacing: .12em;
+      font-weight: 700;
+      letter-spacing: .05em;
       text-transform: uppercase;
       padding: 10px 20px;
-      border: none;
-      cursor: pointer;
+      border-radius: 4px;
       text-decoration: none;
-      transition: background .2s, transform .15s;
+      transition: all .2s;
     }
     .btn-twitch:hover { background: var(--accent2); transform: translateY(-1px); }
 
     /* HERO */
     .hero {
-      padding: 100px 48px 80px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 64px;
-      align-items: end;
-      border-bottom: 1px solid var(--border);
-      max-width: 1400px;
+      padding: 120px 24px 80px;
+      text-align: center;
+      max-width: 1000px;
       margin: 0 auto;
     }
 
-    .hero-left {}
-
-    .hero-label {
-      font-size: 11px;
-      letter-spacing: .2em;
-      text-transform: uppercase;
-      color: var(--accent2);
-      margin-bottom: 24px;
-      display: flex;
+    .hero-badge {
+      display: inline-flex;
       align-items: center;
-      gap: 10px;
-    }
-    .hero-label::before {
-      content: '';
-      display: block;
-      width: 24px; height: 1px;
-      background: var(--accent2);
+      gap: 8px;
+      background: rgba(124, 58, 237, 0.1);
+      border: 1px solid rgba(124, 58, 237, 0.2);
+      padding: 8px 16px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent2);
+      margin-bottom: 32px;
+      letter-spacing: 0.02em;
     }
 
     h1 {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: clamp(72px, 8vw, 120px);
-      line-height: .92;
-      letter-spacing: .04em;
-      color: var(--text);
+      font-size: clamp(40px, 6vw, 84px);
+      font-weight: 900;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+    }
+    h1 span {
+      background: linear-gradient(135deg, #fff 30%, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
     h1 em {
       font-style: normal;
-      color: transparent;
-      -webkit-text-stroke: 1px var(--accent2);
+      color: var(--accent2);
     }
 
     .hero-desc {
-      margin-top: 32px;
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--muted);
+      max-width: 700px;
+      margin: 0 auto 48px;
+    }
+
+    /* DEMO SECTION */
+    .section-demo {
+      max-width: 1200px;
+      margin: 0 auto 100px;
+      padding: 0 24px;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+    }
+
+    .demo-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 32px;
+      position: relative;
+    }
+
+    .demo-card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 32px;
+    }
+    .demo-card-title svg { width: 18px; color: var(--accent2); }
+
+    .demo-form { display: flex; flex-direction: column; gap: 24px; }
+
+    .field { display: flex; flex-direction: column; gap: 10px; }
+    .field-label { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.05em; }
+    
+    .field input[type="text"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 8px;
+      color: #fff;
+      font-family: inherit;
+    }
+
+    .range-group { position: relative; padding-top: 10px; }
+    .range-values { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      appearance: none;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      appearance: none;
+      width: 16px; height: 16px;
+      background: var(--accent2);
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .demo-stats {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+    .stat-item span:first-child { color: var(--muted); }
+    .stat-item span:last-child { font-weight: 700; }
+
+    .btn-spin {
+      margin-top: 16px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 16px;
+      border-radius: 100px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all .2s;
+    }
+    .btn-spin:hover { background: var(--accent2); transform: scale(1.02); }
+    .btn-spin:active { transform: scale(0.98); }
+
+    /* PREVIEW PANEL */
+    .preview-panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .preview-head {
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .overlay-viewport {
+      flex: 1;
+      background: #000;
+      position: relative;
+      min-height: 300px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: radial-gradient(circle at 50% 50%, #111 0%, #000 100%);
+    }
+
+    /* THE ACTUAL OVERLAY MOCKUP */
+    .mock-overlay {
+      width: 100%;
+      height: 120px;
+      background: rgba(26, 26, 46, 0.95);
+      border-top: 2px solid var(--accent2);
+      border-bottom: 2px solid var(--accent2);
+      display: flex;
+      align-items: center;
+      padding: 0 60px;
+      gap: 40px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+    }
+    .mock-overlay.active { opacity: 1; transform: translateY(0); }
+
+    .mock-user-img { width: 60px; height: 60px; border-radius: 8px; background: #333; }
+    .mock-info { flex: 1; }
+    .mock-user-name { font-size: 24px; font-weight: 900; color: #fff; margin-bottom: 4px; }
+    .mock-action { font-size: 12px; color: var(--accent2); text-transform: uppercase; letter-spacing: 0.1em; }
+    
+    .mock-result {
+      font-size: 64px;
+      font-weight: 900;
+      color: #fff;
+      font-family: 'Martian Mono', monospace;
+      min-width: 120px;
+      text-align: right;
+    }
+
+    .preview-footer {
+      padding: 24px 32px;
+      background: rgba(255,255,255,0.02);
       font-size: 12px;
       line-height: 1.8;
       color: var(--muted);
-      max-width: 400px;
     }
+    .preview-footer ol { padding-left: 20px; }
+    .preview-footer li { margin-bottom: 4px; }
 
-    .hero-actions {
-      margin-top: 48px;
-      display: flex;
-      gap: 16px;
-      align-items: center;
+    /* OVERLAYS SECTION (CLEANED) */
+    .section-overlays {
+      max-width: 1200px;
+      margin: 0 auto 100px;
+      padding: 0 24px;
     }
+    .section-title { font-size: 24px; font-weight: 900; margin-bottom: 32px; display: flex; justify-content: space-between; align-items: baseline; }
+    .section-title span { font-size: 12px; color: var(--muted); font-weight: 400; }
 
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: var(--accent);
-      color: #fff;
-      font-family: 'Martian Mono', monospace;
-      font-size: 12px;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      padding: 14px 28px;
-      border: none;
-      cursor: pointer;
-      text-decoration: none;
-      transition: all .2s;
-    }
-    .btn-primary:hover { background: var(--accent2); }
-
-    .btn-ghost {
-      font-size: 11px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-decoration: none;
-      transition: color .2s;
-    }
-    .btn-ghost:hover { color: var(--text); }
-
-    .hero-right {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      align-self: center;
-    }
-
-    .stat-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      padding: 16px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .stat-row:first-child { border-top: 1px solid var(--border); }
-    .stat-label { font-size: 11px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
-    .stat-value {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 36px;
-      letter-spacing: .06em;
-      color: var(--accent2);
-    }
-
-    /* SECTION HEADER */
-    .section {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 80px 48px;
-    }
-
-    .section-head {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      margin-bottom: 48px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .section-title {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 48px;
-      letter-spacing: .08em;
-    }
-
-    .section-meta {
-      font-size: 11px;
-      letter-spacing: .14em;
-      color: var(--muted);
-      text-transform: uppercase;
-    }
-
-    /* OVERLAY GRID */
-    .overlays-grid {
+    .grid-overlays {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 1px;
-      background: var(--border);
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
     }
 
-    .overlay-card {
-      background: var(--bg);
+    .card-overlay {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
       padding: 40px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
       text-decoration: none;
       color: inherit;
-      transition: background .2s;
+      transition: all .3s;
       position: relative;
       overflow: hidden;
     }
-    .overlay-card:hover { background: var(--surface); }
-    .overlay-card::after {
-      content: '';
-      position: absolute;
-      bottom: 0; left: 0;
-      width: 0; height: 2px;
-      background: var(--accent);
-      transition: width .3s;
-    }
-    .overlay-card:hover::after { width: 100%; }
+    .card-overlay:hover { border-color: var(--accent2); transform: translateY(-4px); }
+    .card-overlay.soon { opacity: 0.5; cursor: default; }
 
-    .card-code {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 72px;
-      line-height: 1;
-      letter-spacing: .04em;
-      color: var(--text);
-    }
+    .card-label { font-size: 10px; font-weight: 700; color: var(--accent2); margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+    .card-label .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); }
 
-    .card-name {
-      font-size: 11px;
-      letter-spacing: .2em;
-      text-transform: uppercase;
-      color: var(--accent2);
-    }
-
-    .card-desc {
-      font-size: 12px;
-      line-height: 1.7;
-      color: var(--muted);
-      flex: 1;
-    }
-
-    .card-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-top: 8px;
-    }
-
-    .tag {
-      font-size: 10px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      padding: 4px 10px;
-      border: 1px solid var(--border);
-      color: var(--muted);
-    }
-
-    .card-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 10px;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-    }
-    .dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-    }
-    .dot-live { background: var(--green); box-shadow: 0 0 8px var(--green); }
-    .dot-soon { background: var(--muted); }
-
-    .overlay-card-soon {
-      opacity: .45;
-      cursor: default;
-      pointer-events: none;
-    }
-
-    /* HOW IT WORKS */
-    .steps-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1px;
-      background: var(--border);
-    }
-
-    .step {
-      background: var(--bg);
-      padding: 40px;
-    }
-
-    .step-num {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 80px;
-      line-height: 1;
-      color: var(--border);
-    }
-
-    .step-title {
-      font-size: 13px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--text);
-      margin: 16px 0 12px;
-    }
-
-    .step-text {
-      font-size: 11px;
-      line-height: 1.8;
-      color: var(--muted);
-    }
+    .card-title { font-size: 48px; font-weight: 900; line-height: 1; margin-bottom: 16px; }
+    .card-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+    
+    .card-tags { display: flex; gap: 8px; }
+    .card-tag { font-size: 10px; padding: 4px 10px; border: 1px solid var(--border); color: var(--muted); border-radius: 4px; }
 
     /* FOOTER */
     footer {
       border-top: 1px solid var(--border);
-      padding: 32px 48px;
+      padding: 48px 24px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .footer-content {
+      max-width: 1200px;
+      margin: 0 auto;
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
     }
+    .footer-left { display: flex; align-items: center; gap: 16px; }
+    .dev-link { color: #fff; text-decoration: none; font-weight: 700; transition: color .2s; }
+    .dev-link:hover { color: var(--accent2); }
 
-    .footer-logo {
-      font-family: 'Bebas Neue', sans-serif;
-      font-size: 20px;
-      letter-spacing: .12em;
-      color: var(--muted);
-    }
-
-    .footer-links {
-      display: flex;
-      gap: 24px;
-    }
-    .footer-links a {
-      font-size: 11px;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      text-decoration: none;
-      transition: color .2s;
-    }
-    .footer-links a:hover { color: var(--text); }
-
-    /* TWITCH ICON SVG */
     .icon-twitch { width: 16px; height: 16px; fill: currentColor; }
 
-    /* ANIMS */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(20px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .hero-left > * {
-      animation: fadeUp .6s ease both;
-    }
-    .hero-label { animation-delay: .05s; }
-    h1           { animation-delay: .15s; }
-    .hero-desc   { animation-delay: .25s; }
-    .hero-actions { animation-delay: .35s; }
-
     @media (max-width: 900px) {
+      .section-demo { grid-template-columns: 1fr; }
+      .grid-overlays { grid-template-columns: 1fr; }
+      .footer-content { flex-direction: column; gap: 24px; }
       header { padding: 20px 24px; }
-      .hero { grid-template-columns: 1fr; padding: 64px 24px 48px; gap: 40px; }
-      .section { padding: 48px 24px; }
-      .steps-grid { grid-template-columns: 1fr 1fr; }
-      footer { flex-direction: column; gap: 16px; text-align: center; }
-      nav { display: none; }
     }
   </style>
 </head>
@@ -416,11 +366,6 @@
   <!-- HEADER -->
   <header>
     <a href="/" class="logo">FATE<span>.</span>OVERLAYS</a>
-    <nav>
-      <a href="#overlays">Оверлеи</a>
-      <a href="#how">Как это работает</a>
-      <a href="https://github.com/almazazamatov2-boop/overlayroll" target="_blank">GitHub</a>
-    </nav>
     <a href="/auth/twitch" class="btn-twitch">
       <svg class="icon-twitch" viewBox="0 0 24 24"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
       Войти через Twitch
@@ -429,150 +374,191 @@
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-left">
-      <div class="hero-label">Twitch Stream Tools</div>
-      <h1>FATE<br><em>OVER</em><br>LAYS</h1>
-      <p class="hero-desc">
-        Оверлеи для Channel Points нового поколения.<br>
-        Подключи за 2 минуты — без кода, без настройки сервера.
-      </p>
-      <div class="hero-actions">
-        <a href="/auth/twitch" class="btn-primary">
-          <svg class="icon-twitch" viewBox="0 0 24 24"><path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z"/></svg>
-          Начать бесплатно
-        </a>
-        <a href="#overlays" class="btn-ghost">Смотреть оверлеи →</a>
-      </div>
+    <div class="hero-badge">
+      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      Twitch Channel Points Overlay
     </div>
-
-    <div class="hero-right">
-      <div class="stat-row">
-        <span class="stat-label">Оверлеев</span>
-        <span class="stat-value">01</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Поддержка Twitch</span>
-        <span class="stat-value">100%</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Кастомизация</span>
-        <span class="stat-value">∞</span>
-      </div>
-      <div class="stat-row">
-        <span class="stat-label">Стоимость</span>
-        <span class="stat-value">FREE</span>
-      </div>
-    </div>
+    <h1>Привлекай <span>аудиторию</span><br>мини-игрой на стриме</h1>
+    <p class="hero-desc">
+      Overlayroll — профессиональный оверлей для Twitch стримеров. Зрители активируют награду за Channel Points, выбирают число и испытывают удачу прямо на стриме с плавными анимациями.
+    </p>
   </div>
 
-  <!-- OVERLAYS -->
-  <section class="section" id="overlays">
-    <div class="section-head">
-      <h2 class="section-title">ОВЕРЛЕИ</h2>
-      <span class="section-meta">1 доступен · 3 скоро</span>
+  <!-- DEMO SECTION -->
+  <section class="section-demo">
+    
+    <div class="demo-card">
+      <div class="demo-card-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20v-6M9 20v-10M15 20v-2M12 4v4M18 4v4M6 4v4"/></svg>
+        Настройки демо
+      </div>
+      <div class="demo-form">
+        <div class="field">
+          <label class="field-label">Имя зрителя</label>
+          <input type="text" id="demo-username" value="StreamViewer" maxlength="15">
+        </div>
+        <div class="field">
+          <div class="range-values">
+            <span class="field-label">Выбранное число</span>
+            <span id="range-val" style="font-weight: 700; color: #fff;">50</span>
+          </div>
+          <div class="range-group">
+            <input type="range" id="demo-range" min="1" max="100" value="50" oninput="updateRange(this.value)">
+            <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 10px; color: var(--muted);">
+              <span>1</span>
+              <span>100</span>
+            </div>
+          </div>
+        </div>
+        <div class="demo-stats">
+          <div class="stat-item">
+            <span>Диапазон</span>
+            <span>1 — 100</span>
+          </div>
+          <div class="stat-item">
+            <span>Вероятность</span>
+            <span>1%</span>
+          </div>
+          <div class="stat-item">
+            <span>Тип оверлея</span>
+            <span style="color: var(--accent2); background: rgba(168,85,247,0.1); padding: 2px 8px; border-radius: 4px;">Fate Roll</span>
+          </div>
+        </div>
+        <button class="btn-spin" onclick="runDemo()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.85.83 6.72 2.24"/><path d="M21 3v9h-9"/><path d="M16 8l5 4"/></svg>
+          Крутить
+        </button>
+      </div>
     </div>
 
-    <div class="overlays-grid">
+    <div class="preview-panel">
+      <div class="preview-head">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Превью оверлея
+      </div>
+      <div class="overlay-viewport">
+        <div class="mock-overlay" id="mock-overlay">
+          <div class="mock-user-img" id="mock-img"></div>
+          <div class="mock-info">
+            <div class="mock-user-name" id="display-name">StreamViewer</div>
+            <div class="mock-action">ВЫБРАЛ ЧИСЛО <span id="display-choice">50</span></div>
+          </div>
+          <div class="mock-result" id="display-result">00</div>
+        </div>
+      </div>
+      <div class="preview-footer">
+        <ol>
+          <li>1. Зритель активирует награду за Channel Points на Twitch</li>
+          <li>2. Оверлей появляется на стриме с панелью зрителя</li>
+          <li>3. Число крутится — совпадение с выбором = победа!</li>
+        </ol>
+      </div>
+    </div>
 
-      <!-- РОЛЛ — доступен -->
-      <a href="/auth/twitch" class="overlay-card">
-        <div class="card-status"><span class="dot dot-live"></span>LIVE</div>
-        <div class="card-code">РОЛЛ</div>
-        <div class="card-name">Fate Roll Overlay</div>
+  </section>
+
+  <!-- OVERLAYS GRID -->
+  <section class="section-overlays" id="overlays">
+    <div class="section-title">
+      ДРУГИЕ ОВЕРЛЕИ
+      <span>1 ДОСТУПЕН · 1 СКОРО</span>
+    </div>
+    <div class="grid-overlays">
+      
+      <a href="/auth/twitch" class="card-overlay">
+        <div class="card-label"><span class="dot"></span>LIVE</div>
+        <div class="card-title">РОЛЛ</div>
         <div class="card-desc">
-          Рулетка с Channel Points. Зритель тратит баллы — на экране разворачивается анимация рандома с числом от X до Y. Кастомные звуки, цвета и картинки.
+          Рулетка с Channel Points. Зритель тратит баллы — на экране разворачивается анимация рандома. Кастомные звуки, цвета и картинки.
         </div>
         <div class="card-tags">
-          <span class="tag">Channel Points</span>
-          <span class="tag">OBS</span>
-          <span class="tag">1600×210</span>
+          <span class="card-tag">Channel Points</span>
+          <span class="card-tag">OBS</span>
+          <span class="card-tag">1600×210</span>
         </div>
       </a>
 
-      <!-- СЛОТ — скоро -->
-      <div class="overlay-card overlay-card-soon">
-        <div class="card-status"><span class="dot dot-soon"></span>СКОРО</div>
-        <div class="card-code">СЛОТ</div>
-        <div class="card-name">Slot Machine Overlay</div>
+      <div class="card-overlay soon">
+        <div class="card-label">СКОРО</div>
+        <div class="card-title">СЛОТ</div>
         <div class="card-desc">
           Классические игровые барабаны прямо в стриме. Три символа, анимация вращения, комбо для победы.
         </div>
         <div class="card-tags">
-          <span class="tag">Channel Points</span>
-          <span class="tag">OBS</span>
+          <span class="card-tag">Channel Points</span>
+          <span class="card-tag">OBS</span>
         </div>
       </div>
 
-      <!-- ГОЛОС — скоро -->
-      <div class="overlay-card overlay-card-soon">
-        <div class="card-status"><span class="dot dot-soon"></span>СКОРО</div>
-        <div class="card-code">ГОЛОС</div>
-        <div class="card-name">Vote Overlay</div>
-        <div class="card-desc">
-          Голосование в реальном времени через команды в чате. Прогресс-бары, таймер, автоподсчёт.
-        </div>
-        <div class="card-tags">
-          <span class="tag">Chat Commands</span>
-          <span class="tag">OBS</span>
-        </div>
-      </div>
-
-      <!-- ОЧЕРЕДЬ — скоро -->
-      <div class="overlay-card overlay-card-soon">
-        <div class="card-status"><span class="dot dot-soon"></span>СКОРО</div>
-        <div class="card-code">ОЧЕРЬ</div>
-        <div class="card-name">Queue Overlay</div>
-        <div class="card-desc">
-          Очередь на игру с подписчиками. Управление через Channel Points, красивая анимация входа/выхода.
-        </div>
-        <div class="card-tags">
-          <span class="tag">Channel Points</span>
-          <span class="tag">OBS</span>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- HOW IT WORKS -->
-  <section class="section" id="how" style="padding-top:0">
-    <div class="section-head">
-      <h2 class="section-title">КАК ПОДКЛЮЧИТЬ</h2>
-      <span class="section-meta">~2 минуты</span>
-    </div>
-
-    <div class="steps-grid">
-      <div class="step">
-        <div class="step-num">01</div>
-        <div class="step-title">Войти через Twitch</div>
-        <div class="step-text">Авторизация в один клик. Никаких паролей и регистраций вручную.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">02</div>
-        <div class="step-title">Настроить оверлей</div>
-        <div class="step-text">Выбери диапазон чисел, цвета, загрузи свои картинки и звуки.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">03</div>
-        <div class="step-title">Скопировать URL</div>
-        <div class="step-text">Один уникальный URL для OBS Browser Source. 1600×210, прозрачный фон.</div>
-      </div>
-      <div class="step">
-        <div class="step-num">04</div>
-        <div class="step-title">Создать награду</div>
-        <div class="step-text">В Twitch Dashboard создай Channel Point награду с точным названием из дашборда.</div>
-      </div>
     </div>
   </section>
 
   <!-- FOOTER -->
   <footer>
-    <div class="footer-logo">FATE.OVERLAYS</div>
-    <div class="footer-links">
-      <a href="https://github.com/almazazamatov2-boop/overlayroll" target="_blank">GitHub</a>
-      <a href="https://twitch.tv" target="_blank">Twitch Dev</a>
+    <div class="footer-content">
+      <div class="footer-left">
+        <div>Powered by <strong>FATE.OVERLAYS</strong></div>
+        <div style="opacity: 0.3">|</div>
+        <div>dev: <a href="https://t.me/almazHAZE" target="_blank" class="dev-link">@almazHAZE</a></div>
+      </div>
+      <div class="footer-right">
+        © 2026 All rights reserved
+      </div>
     </div>
   </footer>
+
+  <script>
+    function updateRange(val) {
+      document.getElementById('range-val').textContent = val;
+    }
+
+    let isSpinning = false;
+    function runDemo() {
+      if (isSpinning) return;
+      isSpinning = true;
+
+      const overlay = document.getElementById('mock-overlay');
+      const nameDisp = document.getElementById('display-name');
+      const choiceDisp = document.getElementById('display-choice');
+      const resultDisp = document.getElementById('display-result');
+      
+      const username = document.getElementById('demo-username').value || 'StreamViewer';
+      const choice = document.getElementById('demo-range').value;
+
+      // Reset
+      overlay.classList.remove('active');
+      resultDisp.textContent = '00';
+      resultDisp.style.color = '#fff';
+
+      setTimeout(() => {
+        nameDisp.textContent = username;
+        choiceDisp.textContent = choice;
+        overlay.classList.add('active');
+
+        // Animation "Spinning"
+        let counter = 0;
+        const interval = setInterval(() => {
+          resultDisp.textContent = Math.floor(Math.random() * 100 + 1).toString().padStart(2, '0');
+          counter++;
+          if (counter > 20) {
+            clearInterval(interval);
+            const final = Math.floor(Math.random() * 100 + 1);
+            resultDisp.textContent = final.toString().padStart(2, '0');
+            
+            if (final == choice) {
+              resultDisp.style.color = '#22c55e';
+              resultDisp.style.textShadow = '0 0 20px #22c55e';
+            }
+            
+            setTimeout(() => {
+              overlay.classList.remove('active');
+              isSpinning = false;
+            }, 3000);
+          }
+        }, 50);
+      }, 300);
+    }
+  </script>
 
 </body>
 </html>
