@@ -565,13 +565,11 @@
     </div>
 
     <div class="sidebar-user">
-      <div class="user-avatar">
-        <!-- Если есть avatar: <img src="<%= user.avatar %>" alt=""> -->
-        <!-- Замените на шаблонный тег -->
-        R
+      <div class="user-avatar" id="user-avatar-container">
+        ?
       </div>
       <div class="user-info">
-        <div class="user-name">r1ch_crazy</div>
+        <div class="user-name" id="user-name-display">Загрузка...</div>
         <div class="user-status">
           <span class="dot"></span>
           Доступ активен
@@ -1011,6 +1009,31 @@
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 2800);
   }
+
+  // Load User Data
+  async function loadUser() {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) throw new Error('Unauthorized');
+      
+      const user = await res.json();
+      document.getElementById('user-name-display').textContent = user.display_name;
+      const avatarContainer = document.getElementById('user-avatar-container');
+      avatarContainer.innerHTML = `<img src="${user.profile_image_url}" alt="${user.display_name}">`;
+      
+      // Update OBS URL for this user if needed
+      // const obsUrl = document.getElementById('obs-url');
+      // obsUrl.textContent = `https://overlayroll-production.up.railway.app/overlay/${user.id}`;
+      
+    } catch (err) {
+      console.error('Auth error:', err);
+      window.location.href = '/overlays';
+    }
+  }
+
+  window.onload = () => {
+    loadUser();
+  };
 </script>
 </body>
 </html>
