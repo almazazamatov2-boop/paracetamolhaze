@@ -46,7 +46,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { score, pumps, maxCombo, avgSpeed, duration } = body;
 
-    console.log('Saving game for user:', user.login, 'score:', score);
+    // Ensure user exists specifically in the Supabase game_67_users table
+    // (In case they logged in before the sync logic was added)
+    await supabase.from('game_67_users').upsert({
+      twitch_id: user.twitch_id,
+      username: user.username,
+      login: user.login,
+      image: user.image
+    }, { onConflict: 'twitch_id' });
+
+    console.log('Saving game record for:', user.login);
 
     const { data: record, error } = await supabase
       .from('game_67_records')
