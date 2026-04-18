@@ -73,7 +73,7 @@ export default function KinokadrPage() {
     setLeaderboard([]); // Placeholder
   };
 
-  const twitchLogin = () => signIn('twitch', { callbackUrl: '/kinokadr' });
+  const twitchLogin = () => signIn('kinokadr');
 
   // Demo data fallback
   const DEMO_MOVIES: KinokadrMovie[] = [
@@ -135,7 +135,7 @@ export default function KinokadrPage() {
       <header className="relative z-10 w-full border-b border-white/[0.06] backdrop-blur-md">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2 group cursor-pointer" onClick={() => setScreen('home')}>
-            <span className="text-3xl font-black italic tracking-tighter bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent group-hover:from-cyan-300 group-hover:to-blue-400 transition-all">КИНОКАДР</span>
+            <span className="text-3xl font-black italic tracking-tighter bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent group-hover:from-cyan-300 group-hover:to-blue-400 transition-all pr-2">КИНОКАДР</span>
           </div>
 
           <div className="hidden sm:flex items-center gap-2">

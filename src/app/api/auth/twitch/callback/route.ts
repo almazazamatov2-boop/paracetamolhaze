@@ -108,7 +108,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Determine target redirect
-    const target = source === '67' ? `${baseUrl}/67` : `${baseUrl}/overlays/dashboard`;
+    const target = source === '67' 
+      ? `${baseUrl}/67` 
+      : source === 'kinokadr' 
+        ? `${baseUrl}/kinokadr` 
+        : `${baseUrl}/overlays/dashboard`;
     const res = NextResponse.redirect(target);
     res.cookies.set('twitch_token', data.access_token, {
       httpOnly: true,
