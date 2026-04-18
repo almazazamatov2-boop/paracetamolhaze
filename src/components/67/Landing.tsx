@@ -72,7 +72,7 @@ export function Landing() {
                   Профиль
                 </Button>
                 <div className="w-px h-5 bg-white/10 mx-1" />
-                <Button variant="ghost" className="text-neutral-400 hover:text-white hover:bg-white/[0.04] rounded-lg" onClick={() => signOut()}>
+                <Button variant="ghost" className="text-neutral-400 hover:text-white hover:bg-white/[0.04] rounded-lg" onClick={() => openModal('profile')}>
                   <img
                     src={(session.user as any).image || ''}
                     alt=""

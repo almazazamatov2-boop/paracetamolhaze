@@ -58,7 +58,7 @@ export const signIn = () => {
 
 export const signOut = () => {
   document.cookie = 'twitch_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  window.location.href = '/';
+  window.location.href = '/67';
 };
 
 // Backwards compatibility shim for useSession-like usage

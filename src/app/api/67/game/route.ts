@@ -46,6 +46,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { score, pumps, maxCombo, avgSpeed, duration } = body;
 
+    console.log('Saving game for user:', user.login, 'score:', score);
+
     const { data: record, error } = await supabase
       .from('game_67_records')
       .insert({
@@ -59,7 +61,12 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Record insert failed:', error);
+      throw error;
+    }
+
+    console.log('Record saved successfully:', record.id);
 
     return NextResponse.json({ success: true, record });
   } catch (error) {
