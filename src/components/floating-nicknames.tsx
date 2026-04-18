@@ -152,9 +152,9 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseleave', onMouseLeave);
 
-    const REPEL_RADIUS = 300; // Increased radius
-    const REPEL_FORCE = 300;   // Increased force
-    const LERP = 0.12;         // Increased LERP for snappier retreat
+    const REPEL_RADIUS = 400; // Even larger radius
+    const REPEL_FORCE = 450;   // Stronger force
+    const LERP = 0.1;         // Slightly smoother lerp
 
     const loop = () => {
       const mouse = mouseRef.current;
@@ -174,22 +174,23 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
         const screenX = (p.baseX / 100) * rect.width + driftX;
         const screenY = (p.baseY / 100) * rect.height + driftY;
         
-        const dx = (screenX + p.currentRepelX) - mx;
-        const dy = (screenY + p.currentRepelY) - my;
+        // Use the untranslated position for distance calculation to avoid feedback loops
+        const dx = screenX - mx;
+        const dy = screenY - my;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         let targetRX = 0;
         let targetRY = 0;
 
-        if (dist < REPEL_RADIUS && dist > 0.1) {
-          // Stronger repulsion when closer
+        if (dist < REPEL_RADIUS && dist > 1) {
+          // Stronger repulsion when closer, using a quadratic falloff for a 'pop' effect
           const ratio = 1 - dist / REPEL_RADIUS;
-          const strength = ratio * REPEL_FORCE;
+          const strength = ratio * ratio * REPEL_FORCE;
           targetRX = (dx / dist) * strength;
           targetRY = (dy / dist) * strength;
         }
 
-        // Apply snappier lerp
+        // Apply lerp
         p.currentRepelX += (targetRX - p.currentRepelX) * LERP;
         p.currentRepelY += (targetRY - p.currentRepelY) * LERP;
 

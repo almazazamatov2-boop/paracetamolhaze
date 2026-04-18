@@ -11,65 +11,59 @@ const DEFAULT_NICKS = [
   'evelone2004'
 ];
 
-const ONLINE_PROJECTS = [
+const PROJECTS = [
   {
     title: 'РОЗ',
     desc: 'Розыгрыши в чате твича',
     href: '/roz',
-    color: '#ff4500',
   },
   {
     title: 'КИНО',
     desc: 'Онлайн просмотр фильмов и таймингов',
     href: '/kino',
-    color: '#ff4500',
   },
   {
     title: 'ЧЕК',
     desc: 'Просмотр подписок пользователя twitch',
     href: '/check',
-    color: '#ff4500',
   },
   {
     title: 'ЛОТОМАЛЬ',
     desc: 'Многопользовательская игра в Лото',
     href: '/lotomal',
-    color: '#ff4500',
   },
   {
     title: 'ФейтОверлей',
     desc: 'Оверлеи с баллами твича',
     href: '/overlays',
-    color: '#ff4500',
   },
   {
     title: '67',
     desc: '67 на скорость',
     href: '/67',
-    color: '#ff4500',
   },
-]
-
-const INACTIVE_PROJECTS = [
   {
     title: 'СекТрек',
     desc: 'Угадай трек за секунду',
     href: '#',
-    color: '#555',
     disabled: true,
   },
   {
     title: 'КиноКадр',
     desc: 'Угадай фильм по кадру',
     href: '#',
-    color: '#555',
+    disabled: true,
+  },
+  {
+    title: 'Покер',
+    desc: 'С вебкамерами',
+    href: '#',
     disabled: true,
   },
   {
     title: 'ПАСТА',
     desc: 'Генерация и поиск паст',
     href: '#',
-    color: '#555',
     disabled: true,
   },
 ]
@@ -157,36 +151,17 @@ export default function Home() {
           </span>
         </div>
 
-        {/* Online Projects */}
+        {/* Projects */}
         <div className="paracetamol-projects-section">
           <div className="paracetamol-projects-title">ОНЛАЙН ПРОЕКТЫ</div>
           <div className="paracetamol-projects-grid">
-            {ONLINE_PROJECTS.map((project) => (
+            {PROJECTS.map((project) => (
               <a
                 key={project.title}
-                href={project.href}
-                className="paracetamol-project-card"
+                href={project.disabled ? undefined : project.href}
+                className={`paracetamol-project-card ${project.disabled ? 'is-disabled' : ''}`}
                 onMouseMove={handleCardMouseMove}
                 onMouseLeave={handleCardMouseLeave}
-              >
-                <div className="paracetamol-project-title">{project.title}</div>
-                {project.desc && <div className="paracetamol-project-desc">{project.desc}</div>}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* Inactive Projects */}
-        <div className="paracetamol-projects-section" style={{ marginTop: '3rem' }}>
-          <div className="paracetamol-projects-title" style={{ opacity: 0.5 }}>НЕАКТИВНЫЕ ПРОЕКТЫ</div>
-          <div className="paracetamol-projects-grid">
-            {INACTIVE_PROJECTS.map((project) => (
-              <a
-                key={project.title}
-                className="paracetamol-project-card is-disabled"
-                onMouseMove={handleCardMouseMove}
-                onMouseLeave={handleCardMouseLeave}
-                style={{ opacity: 0.4 }}
               >
                 <div className="paracetamol-project-title">{project.title}</div>
                 {project.desc && <div className="paracetamol-project-desc">{project.desc}</div>}
