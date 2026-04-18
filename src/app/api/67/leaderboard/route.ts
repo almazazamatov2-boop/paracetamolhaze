@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     // Fetch records with user info
     const { data: records, error } = await supabase
       .from('game_67_records')
-      .select('score, pumps, max_combo, duration, created_at, user:game_67_users(username, login, image)')
+      .select('score, pumps, max_combo, duration, created_at, user:game_67_users!game_67_records_user_id_fkey(username, login, image)')
       .order('score', { ascending: false })
       .limit(200); // Fetch more to group by user manually if needed, or use a view
 

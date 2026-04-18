@@ -47,20 +47,24 @@ export async function POST(request: NextRequest) {
     const { score, pumps, maxCombo, avgSpeed, duration } = body;
 
     // Ensure user exists specifically in the Supabase game_67_users table
-    // (In case they logged in before the sync logic was added)
-    await supabase.from('game_67_users').upsert({
+    const { data: dbUser, error: syncError } = await supabase.from('game_67_users').upsert({
       twitch_id: user.twitch_id,
       username: user.username,
       login: user.login,
       image: user.image
-    }, { onConflict: 'twitch_id' });
+    }, { onConflict: 'twitch_id' }).select().single();
 
-    console.log('Saving game record for:', user.login);
+    if (syncError || !dbUser) {
+      console.error('User sync failed:', syncError);
+      throw new Error('User sync failed');
+    }
+
+    console.log('Saving game record for internally identified user:', dbUser.id);
 
     const { data: record, error } = await supabase
       .from('game_67_records')
       .insert({
-        user_id: user.twitch_id,
+        user_id: dbUser.id, // Using the internal UUID
         score: Math.round(score),
         pumps: Math.round(pumps),
         max_combo: Math.round(maxCombo) || 0,
