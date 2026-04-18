@@ -176,8 +176,17 @@ function KinokadrContent() {
         .select('*')
         .eq('mode', mode)
         .order('score', { ascending: false })
-        .limit(20);
-      setLeaderboard(data || []);
+        .limit(500);
+      
+      const seen = new Set();
+      const unique = (data || []).filter(item => {
+        const id = item.user_id;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      }).slice(0, 100);
+
+      setLeaderboard(unique);
     } catch (e) {}
   };
 
