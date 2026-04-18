@@ -54,11 +54,17 @@ interface Star {
 }
 
 const COLORS = [
-  { text: '#a78bfa', glow: '0 0 12px #a78bfa66' },
-  { text: '#c084fc', glow: '0 0 12px #c084fc66' },
-  { text: '#818cf8', glow: '0 0 12px #818cf866' },
-  { text: '#94a3b8', glow: '0 0 12px #94a3b844' },
-  { text: '#6366f1', glow: '0 0 12px #6366f166' },
+  { text: '#f87171', glow: '0 0 12px #f8717166' }, // Red
+  { text: '#fb923c', glow: '0 0 12px #fb923c66' }, // Orange
+  { text: '#fbbf24', glow: '0 0 12px #fbbf2466' }, // Yellow
+  { text: '#4ade80', glow: '0 0 12px #4ade8066' }, // Green
+  { text: '#2dd4bf', glow: '0 0 12px #2dd4bf66' }, // Teal
+  { text: '#60a5fa', glow: '0 0 12px #60a5fa66' }, // Blue
+  { text: '#818cf8', glow: '0 0 12px #818cf866' }, // Indigo
+  { text: '#c084fc', glow: '0 0 12px #c084fc66' }, // Purple
+  { text: '#f472b6', glow: '0 0 12px #f472b666' }, // Pink
+  { text: '#fb7185', glow: '0 0 12px #fb718566' }, // Rose
+  { text: '#a78bfa', glow: '0 0 12px #a78bfa66' }, // Violet
 ];
 
 function generateParticles(nicknames: string[]): ParticleState[] {
