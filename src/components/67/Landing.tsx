@@ -132,7 +132,7 @@ export function Landing() {
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
             <p className="text-xl sm:text-2xl font-light text-neutral-300">Испытай свою скорость!</p>
-            <p className="text-sm text-neutral-500 mt-2">Согни руки в локтях и двигай как бегун. Чем быстрее — тем больше очков.</p>
+            <p className="text-sm text-neutral-500 mt-2">Разреши доступ к камере. подними руки так чтобы их было видно</p>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
@@ -223,8 +223,8 @@ export function Landing() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { icon: LogIn, title: 'Twitch', desc: 'Войди через Twitch — так результат попадёт в рейтинг' },
-              { icon: Camera, title: 'Камера', desc: 'Разреши доступ к камере. Стой так, чтобы было видно руки и плечи' },
-              { icon: Zap, title: 'Двигай!', desc: 'Согни руки в локтях и двигай вверх-вниз как бегун. Чем быстрее — тем больше очков' },
+              { icon: Camera, title: 'Камера', desc: 'Разреши доступ к камере. подними руки так чтобы их было видно' },
+              { icon: Zap, title: 'Двигай!', desc: '676767676767676767' },
             ].map((step, i) => (
               <motion.div key={step.title} className="text-center p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]" initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}>
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500/10 to-red-500/10 border border-orange-500/20 flex items-center justify-center mx-auto mb-3">
