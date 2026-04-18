@@ -63,7 +63,7 @@ const COLORS = [
 
 function generateParticles(nicknames: string[]): ParticleState[] {
   if (nicknames.length === 0) return [];
-  const count = 80;
+  const count = 200;
   const particles: ParticleState[] = [];
 
   for (let i = 0; i < count; i++) {
@@ -254,7 +254,7 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
               color: p.color,
               opacity: p.opacity,
               textShadow: p.glowColor,
-              fontFamily: "'Inter', sans-serif",
+              fontFamily: "'Waffle Soft', sans-serif",
               letterSpacing: '0.05em',
               willChange: 'transform',
             }}
