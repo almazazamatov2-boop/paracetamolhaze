@@ -198,7 +198,7 @@
     .overlay-preview-container {
       background: #000;
       border-radius: 12px;
-      aspect-ratio: 16/7;
+      aspect-ratio: 16/8;
       position: relative;
       overflow: hidden;
       display: flex;
@@ -216,7 +216,7 @@
       border-radius: 18px;
       position: absolute;
       top: 50%; left: 50%;
-      transform: translate(-50%, -280px) scale(0.35);
+      transform: translate(-50%, -280px) scale(0.24);
       opacity: 0;
       display: flex;
       align-items: center;
@@ -227,8 +227,8 @@
       transition: all 0.65s cubic-bezier(0.19, 1, 0.22, 1);
       border: 1px solid rgba(255, 255, 255, 0.05);
     }
-    .real-overlay-mock.active { transform: translate(-50%, -50%) scale(0.35); opacity: 1; }
-    .real-overlay-mock.exit { transform: translate(-50%, 280px) scale(0.35); opacity: 0; }
+    .real-overlay-mock.active { transform: translate(-50%, -50%) scale(0.24); opacity: 1; }
+    .real-overlay-mock.exit { transform: translate(-50%, 280px) scale(0.24); opacity: 0; }
 
     .mock-left { display: flex; align-items: center; gap: 20px; flex: 1; }
     .mock-nick { font-size: 50px; font-weight: 900; color: #fff; text-transform: uppercase; }
