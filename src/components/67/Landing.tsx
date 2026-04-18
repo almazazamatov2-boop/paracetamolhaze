@@ -49,17 +49,17 @@ export function Landing() {
   const twitchLogin = () => signIn('twitch', { callbackUrl: '/' });
 
   return (
-    <div className="min-h-screen flex flex-col relative">
+    <div className="h-screen flex flex-col relative overflow-hidden bg-black text-white">
       <AnimatedBg />
 
       {/* Header */}
       <header className="relative z-10 w-full border-b border-white/[0.06]">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+          <div className="flex items-center gap-2 group cursor-pointer" onClick={() => window.location.href = '/'}>
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform">
               <Zap className="w-4 h-4 text-white" />
             </div>
-            <span className="text-lg font-bold tracking-tight">67</span>
+            <span className="text-2xl font-black italic tracking-tighter bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent group-hover:from-orange-300 group-hover:to-red-400 transition-all">67</span>
           </div>
 
           <div className="hidden sm:flex items-center gap-2">
@@ -123,8 +123,8 @@ export function Landing() {
       </header>
 
       {/* Hero */}
-      <section className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-16 sm:py-24">
-        <motion.div className="text-center space-y-8 max-w-lg" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
+      <section className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-6 sm:py-8">
+        <motion.div className="text-center space-y-6 max-w-lg" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
           <motion.div className="inline-flex flex-col items-center" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}>
             <h1 className="text-8xl sm:text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none">67</h1>
             <div className="mt-1 h-1 w-24 rounded-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500" />
@@ -132,12 +132,12 @@ export function Landing() {
 
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
             <p className="text-xl sm:text-2xl font-light text-neutral-300">Испытай свою скорость!</p>
-            <p className="text-sm text-neutral-500 mt-2">Разреши доступ к камере. подними руки так чтобы их было видно</p>
+            <p className="text-sm text-neutral-500 mt-1 max-w-sm mx-auto">Разреши доступ к камере. подними руки так чтобы их было видно</p>
           </motion.div>
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
             <Button
-              className="h-16 px-12 text-lg font-semibold rounded-2xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white shadow-2xl shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+              className="h-14 px-12 text-lg font-semibold rounded-2xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white shadow-2xl shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
               onClick={play}
             >
               <Zap className="w-5 h-5 mr-2" />
@@ -146,7 +146,7 @@ export function Landing() {
           </motion.div>
 
           {!session && (
-            <motion.p className="text-xs text-neutral-600" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
+            <motion.p className="text-[10px] text-neutral-600" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
               Результат сохраняется и идёт в рейтинг при входе через Twitch
             </motion.p>
           )}
@@ -154,68 +154,62 @@ export function Landing() {
       </section>
 
       {/* TOP */}
-      <section className="relative z-10 max-w-5xl mx-auto w-full px-4 pb-12">
+      <section className="relative z-10 max-w-5xl mx-auto w-full px-4 pb-4">
         <motion.div
-          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-6"
+          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-4 sm:p-5"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <div className="flex items-center gap-2 mb-5">
-            <Trophy className="w-5 h-5 text-yellow-500" />
-            <h2 className="text-lg font-bold">ТОП ИГРОКОВ</h2>
+          <div className="flex items-center gap-2 mb-4">
+            <Trophy className="w-4 h-4 text-yellow-500" />
+            <h2 className="text-base font-bold">ТОП ИГРОКОВ</h2>
           </div>
 
           {top.length === 0 ? (
-            <p className="text-neutral-500 text-sm text-center py-8">Пока нет результатов. Стань первым!</p>
+            <p className="text-neutral-500 text-xs text-center py-4">Пока нет результатов. Стань первым!</p>
           ) : (
-            <div className="space-y-2">
-              {top.map((p, i) => (
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              {top.slice(0, 5).map((p, i) => (
                 <motion.div
                   key={p.login}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-                  initial={{ opacity: 0, x: -10 }}
-                  whileInView={{ opacity: 1, x: 0 }}
+                  className="flex flex-row sm:flex-col items-center gap-3 sm:gap-2 px-3 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-colors"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.05 }}
                 >
-                  <div className="w-8 flex items-center justify-center flex-shrink-0">
-                    {p.rank === 1 ? <Crown className="w-5 h-5 text-yellow-500" /> :
-                     p.rank === 2 ? <Medal className="w-5 h-5 text-neutral-400" /> :
-                     p.rank === 3 ? <Medal className="w-5 h-5 text-amber-700" /> :
-                     <span className="text-sm text-neutral-500 font-medium">{p.rank}</span>}
+                  <div className="w-6 flex items-center justify-center flex-shrink-0">
+                    {p.rank === 1 ? <Crown className="w-4 h-4 text-yellow-500" /> :
+                     p.rank === 2 ? <Medal className="w-4 h-4 text-neutral-400" /> :
+                     p.rank === 3 ? <Medal className="w-4 h-4 text-amber-700" /> :
+                     <span className="text-xs text-neutral-500 font-medium">{p.rank}</span>}
                   </div>
                   {p.image ? (
-                    <img src={p.image} alt="" className="w-8 h-8 rounded-full border border-white/10" referrerPolicy="no-referrer" />
+                    <img src={p.image} alt="" className="w-7 h-7 rounded-full border border-white/10" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-xs text-neutral-500 font-bold">
+                    <div className="w-7 h-7 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-[10px] text-neutral-500 font-bold">
                       {p.username?.[0]?.toUpperCase()}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-neutral-200 truncate">{p.username}</p>
-                    <p className="text-xs text-neutral-600">{p.gamesPlayed} игр</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-bold text-white">{p.bestScore}</p>
-                    <p className="text-[10px] text-neutral-600">очков</p>
+                  <div className="flex-1 sm:text-center min-w-0">
+                    <p className="text-xs font-medium text-neutral-200 truncate">{p.username}</p>
+                    <p className="text-[10px] text-neutral-600">{p.bestScore} очков</p>
                   </div>
                 </motion.div>
               ))}
             </div>
           )}
 
-          <button className="w-full mt-3 flex items-center justify-center gap-1 text-sm text-neutral-500 hover:text-neutral-300 py-2 transition-colors" onClick={() => openModal('leaderboard')}>
-            Весь рейтинг <ChevronRight className="w-4 h-4" />
+          <button className="w-full mt-2 flex items-center justify-center gap-1 text-[10px] text-neutral-600 hover:text-neutral-400 py-1 transition-colors" onClick={() => openModal('leaderboard')}>
+            Весь рейтинг <ChevronRight className="w-3 h-3" />
           </button>
         </motion.div>
       </section>
 
-
-
-      <footer className="relative z-10 border-t border-white/[0.04] py-8 text-center flex flex-col items-center gap-1">
-        <p className="text-[13px] font-bold text-neutral-400 uppercase tracking-widest">67 на скорость</p>
-        <p className="text-[11px] text-neutral-600">Powered by <a href="https://t.me/paracetamolhaze" className="text-orange-500 font-bold hover:text-orange-400 transition-colors">PARACETAMOLHAZE</a></p>
+      <footer className="relative z-10 border-t border-white/[0.04] py-3 text-center flex flex-col items-center gap-1">
+        <p className="text-[11px] font-bold text-neutral-400 uppercase tracking-widest">67 на скорость</p>
+        <p className="text-[9px] text-neutral-600 tracking-tight">Powered by <a href="https://t.me/paracetamolhaze" className="text-orange-500 font-bold hover:text-orange-400 transition-colors">PARACETAMOLHAZE</a></p>
       </footer>
     </div>
   );
