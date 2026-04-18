@@ -572,10 +572,10 @@ export default function Home() {
       </main>
 
       {/* ─── Footer ─── */}
-      <footer className="mt-auto border-t border-[#1e1e1e]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <p className="text-center text-sm text-gray-500">&copy; 2026 РОЗ</p>
-        </div>
+      <footer className="mt-auto border-t border-[#1e1e1e] py-8 text-center flex flex-col items-center gap-1">
+        <p className="text-[13px] font-bold text-gray-400 uppercase tracking-widest">РОЗ</p>
+        <p className="text-[11px] text-gray-600">Powered by <span className="text-purple-500 font-bold">PARACETAMOLHAZE</span></p>
+        <a href="https://t.me/paracetamolhaze" className="text-[10px] text-gray-700 hover:text-white transition-colors">PARACETAMOLHAZE кликабельный!</a>
       </footer>
 
       {/* ─── Roulette Modal ─── */}

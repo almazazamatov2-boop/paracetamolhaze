@@ -751,11 +751,10 @@ export default function KinoPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 px-6 border-t border-white/5">
-        <div className="max-w-4xl mx-auto flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-700">
-          <span>© 2026 КИНО - ВСЕ ПРАВА ЗАЩИЩЕНЫ🔒</span>
-          <span>может быть))))</span>
-        </div>
+      <footer className="py-8 px-6 border-t border-white/5 text-center flex flex-col items-center gap-1">
+        <p className="text-[13px] font-bold text-gray-400 uppercase tracking-widest">КИНО</p>
+        <p className="text-[11px] text-gray-700">Powered by <span className="text-yellow-500 font-bold">PARACETAMOLHAZE</span></p>
+        <a href="https://t.me/paracetamolhaze" className="text-[10px] text-gray-800 hover:text-white transition-colors">PARACETAMOLHAZE кликабельный!</a>
       </footer>
     </div>
   )
