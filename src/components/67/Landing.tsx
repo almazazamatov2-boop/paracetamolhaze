@@ -13,9 +13,9 @@ import { Button } from '@/components/67/ui/button';
 function AnimatedBg() {
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-orange-600/[0.07] blur-[120px] animate-float-slow" />
-      <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-red-600/[0.06] blur-[140px] animate-float-slow-reverse" />
-      <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full bg-orange-500/[0.04] blur-[100px] animate-float-slow" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-600/[0.07] blur-[120px] animate-float-slow" />
+      <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-purple-600/[0.06] blur-[140px] animate-float-slow-reverse" />
+      <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full bg-blue-500/[0.04] blur-[100px] animate-float-slow" />
     </div>
   );
 }
@@ -64,7 +64,7 @@ function CountdownTimer({ period }: { period: string }) {
   if (period === 'all') return null;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[10px] font-black uppercase tracking-tighter text-orange-400">
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-[10px] font-black uppercase tracking-tighter text-cyan-400">
       <Clock className="w-3 h-3" /> Сброс через: {timeLeft}
     </div>
   );
@@ -122,15 +122,23 @@ export function Landing() {
           
           {/* Left: Hero & Menu */}
           <div className="lg:col-span-12 xl:col-span-5 space-y-12">
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h1 className="text-[10rem] font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none italic drop-shadow-2xl">
                 67
               </h1>
+              <div className="space-y-2 max-w-sm">
+                <p className="text-2xl font-black italic uppercase tracking-tighter text-cyan-400">Reaction Test</p>
+                <p className="text-neutral-400 font-medium leading-relaxed">
+                  Проверь свою ловкость на максимум. 
+                  Интерактивная игра с использованием камеры: 
+                  управляй процессом движениями рук и устанавливай новые рекорды в реальном времени.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-4 max-w-sm">
               <Button
-                className="w-full h-24 text-4xl font-black tracking-[0.2em] rounded-[2.5rem] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white shadow-2xl shadow-red-500/30 hover:shadow-red-500/50 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
+                className="w-full h-24 text-4xl font-black tracking-[0.2em] rounded-[2.5rem] bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:from-cyan-400 hover:via-blue-500 hover:to-purple-500 text-white shadow-2xl shadow-cyan-500/30 hover:shadow-cyan-500/50 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
                 onClick={play}
               >
                 ИГРАТЬ
@@ -143,7 +151,7 @@ export function Landing() {
              <div className="flex flex-col gap-6 mb-8">
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shadow-inner">
+                      <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-500 shadow-inner">
                          <Trophy className="w-6 h-6 shadow-glow" />
                       </div>
                       <h2 className="text-3xl font-black uppercase italic tracking-tighter">Рейтинг</h2>
@@ -160,7 +168,7 @@ export function Landing() {
                       <button 
                         key={t.id} 
                         onClick={() => setPeriod(t.id)} 
-                        className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${period === t.id ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'text-neutral-500 hover:text-neutral-300'}`}
+                        className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${period === t.id ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/20' : 'text-neutral-500 hover:text-neutral-300'}`}
                       >
                         {t.label}
                       </button>
@@ -172,14 +180,14 @@ export function Landing() {
                 <AnimatePresence mode="wait">
                   {isLoading ? (
                     <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full gap-4">
-                       <RefreshCw className="w-10 h-10 text-orange-500 animate-spin" />
+                       <RefreshCw className="w-10 h-10 text-cyan-500 animate-spin" />
                        <span className="text-[10px] font-black uppercase text-neutral-500">Загрузка...</span>
                     </motion.div>
                   ) : lbEntries.length > 0 ? (
                     <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
                        {lbEntries.map((p, i) => (
                           <div key={p.login} className="flex items-center gap-5 p-5 rounded-3xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all group">
-                             <div className={`w-10 text-2xl font-black italic ${i < 3 ? 'text-orange-500' : 'text-neutral-700'}`}>#{i+1}</div>
+                             <div className={`w-10 text-2xl font-black italic ${i < 3 ? 'text-cyan-400' : 'text-neutral-700'}`}>#{i+1}</div>
                              <img src={p.image || ''} className="w-14 h-14 rounded-2xl border border-white/10 shadow-lg group-hover:scale-110 transition-transform" alt="" referrerPolicy="no-referrer" />
                              <div className="flex-1 min-w-0">
                                 <p className="text-lg font-black tracking-tight truncate">{p.username}</p>
@@ -188,7 +196,7 @@ export function Landing() {
                                 </p>
                              </div>
                              <div className="text-right">
-                                <p className={`text-4xl font-black italic leading-none ${i < 3 ? 'text-orange-500' : 'text-white/60'}`}>{p.bestScore}</p>
+                                <p className={`text-4xl font-black italic leading-none ${i < 3 ? 'text-cyan-400' : 'text-white/60'}`}>{p.bestScore}</p>
                              </div>
                           </div>
                        ))}
@@ -213,7 +221,7 @@ export function Landing() {
             className="group flex items-center gap-2"
           >
             <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">Powered by</span>
-            <span className="text-xs font-black italic tracking-tighter bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent group-hover:from-orange-300 group-hover:to-red-400 transition-all">PARACETAMOLHAZE</span>
+            <span className="text-xs font-black italic tracking-tighter bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent group-hover:from-cyan-300 group-hover:to-blue-400 transition-all">PARACETAMOLHAZE</span>
           </a>
         </div>
       </footer>
