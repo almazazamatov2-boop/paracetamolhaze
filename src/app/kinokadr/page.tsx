@@ -629,7 +629,25 @@ function KinokadrContent() {
                  <Button className="w-full h-16 rounded-[1.5rem] bg-cyan-500 text-black font-black hover:bg-cyan-400 shadow-lg shadow-cyan-500/20" onClick={() => startNewGame(state.mode)}>
                    ИГРАТЬ СНОВА <RefreshCw className="w-5 h-5 ml-2" />
                  </Button>
-                 <Button variant="ghost" className="w-full h-14 rounded-[1.5rem] border border-white/10 hover:bg-white/5" onClick={() => setScreen('home')}>
+                 
+                 <Button 
+                   variant="ghost" 
+                   className="w-full h-16 rounded-[1.5rem] bg-white/5 border border-white/10 text-white font-black hover:bg-white/10" 
+                   onClick={() => {
+                     const text = `Я смог набрать ${state.totalScore} в игре УГАДАЙ КАДР! А сколько ты сможешь?`;
+                     const url = window.location.href;
+                     if (navigator.share) {
+                       navigator.share({ title: 'Угадай Кадр', text, url }).catch(() => {});
+                     } else {
+                       navigator.clipboard.writeText(`${text}\n${url}`);
+                       alert('Ссылка скопирована!');
+                     }
+                   }}
+                 >
+                   ПОДЕЛИТЬСЯ <Share2 className="w-5 h-5 ml-2 text-cyan-400" />
+                 </Button>
+
+                 <Button variant="ghost" className="w-full h-14 rounded-[1.5rem] border border-white/10 hover:bg-white/5 text-neutral-500" onClick={() => setScreen('home')}>
                    ВЕРНУТЬСЯ В МЕНЮ
                  </Button>
               </div>
