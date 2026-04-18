@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useSession, signIn, signOut } from '@/lib/67/authHook';
 import { useAppStore } from '@/lib/67/store';
 import {
   Zap, Trophy, ChevronRight, Camera, Crown, Medal, Menu, X, LogIn,
+  RefreshCw, Clock, Sparkles, Timer as TimerIcon
 } from 'lucide-react';
 import { Button } from '@/components/67/ui/button';
 
@@ -26,21 +27,63 @@ interface TopEntry {
   image?: string | null;
   bestScore: number;
   maxCombo: number;
-  gamesPlayed: number;
+}
+
+function CountdownTimer({ period }: { period: string }) {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    if (period === 'all') return;
+
+    const update = () => {
+      const now = new Date();
+      let target = new Date();
+      
+      if (period === 'day') {
+        target.setUTCHours(24, 0, 0, 0);
+      } else {
+        const day = now.getUTCDay();
+        const diff = (8 - day) % 7 || 7;
+        target.setUTCDate(now.getUTCDate() + diff);
+        target.setUTCHours(0, 0, 0, 0);
+      }
+
+      const diff = target.getTime() - now.getTime();
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const s = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setTimeLeft(`${h}ч ${m}м ${s}с`);
+    };
+
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [period]);
+
+  if (period === 'all') return null;
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[10px] font-black uppercase tracking-tighter text-orange-400">
+      <Clock className="w-3 h-3" /> Сброс через: {timeLeft}
+    </div>
+  );
 }
 
 export function Landing() {
   const { data: session } = useSession();
   const { openModal, startNewGame } = useAppStore();
-  const [top, setTop] = useState<TopEntry[]>([]);
-  const [menu, setMenu] = useState(false);
+  const [lbEntries, setLbEntries] = useState<TopEntry[]>([]);
+  const [period, setPeriod] = useState('all');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    fetch('/api/67/leaderboard?limit=5')
+    setIsLoading(true);
+    fetch(`/api/67/leaderboard?limit=100&period=${period}`)
       .then((r) => r.json())
-      .then((d) => { if (d.success) setTop(d.leaderboard); })
-      .catch(() => {});
-  }, []);
+      .then((d) => { if (d.success) setLbEntries(d.leaderboard); })
+      .finally(() => setIsLoading(false));
+  }, [period]);
 
   const play = () => {
     if (!session) { openModal('auth'); } else { startNewGame(); }
@@ -49,167 +92,142 @@ export function Landing() {
   const twitchLogin = () => signIn('twitch', { callbackUrl: '/' });
 
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden bg-black text-white">
+    <div className="h-screen flex flex-col relative overflow-hidden bg-[#050505] text-white">
       <AnimatedBg />
 
       {/* Header */}
-      <header className="relative z-10 w-full border-b border-white/[0.06]">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+      <header className="relative z-50 w-full border-b border-white/[0.06] backdrop-blur-md bg-black/40">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 group cursor-pointer" onClick={() => window.location.href = '/'}>
-            <span className="text-3xl font-black italic tracking-tighter bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 bg-clip-text text-transparent group-hover:from-orange-300 group-hover:to-red-400 transition-all">67</span>
+            <span className="text-3xl font-black italic tracking-tighter bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 bg-clip-text text-transparent transform group-hover:scale-105 transition-all">67</span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-2">
-            {session ? (
-              <>
-                <Button variant="ghost" className="text-neutral-400 hover:text-white hover:bg-white/[0.04] rounded-lg" onClick={() => openModal('leaderboard')}>
-                  Рейтинг
+          <div className="flex items-center gap-3">
+             {session ? (
+                <button 
+                  onClick={() => openModal('profile')}
+                  className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
+                >
+                  <img src={(session.user as any).image} className="w-8 h-8 rounded-full border border-white/10 group-hover:scale-110 transition-transform shadow-xl" alt="" />
+                  <span className="text-xs font-bold">{session.user.name}</span>
+                </button>
+             ) : (
+                <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-xl h-11 px-6 text-sm font-bold shadow-lg shadow-purple-500/20" onClick={() => window.location.href = '/auth/twitch?source=67'}>
+                  <Zap className="w-4 h-4 mr-2" /> Twitch
                 </Button>
-                <Button variant="ghost" className="text-neutral-400 hover:text-white hover:bg-white/[0.04] rounded-lg" onClick={() => openModal('profile')}>
-                  Профиль
-                </Button>
-                <div className="w-px h-5 bg-white/10 mx-1" />
-                <Button variant="ghost" className="text-neutral-400 hover:text-white hover:bg-white/[0.04] rounded-lg" onClick={() => openModal('profile')}>
-                  <img
-                    src={(session.user as any).image || ''}
-                    alt=""
-                    className="w-6 h-6 rounded-full border border-white/10"
-                    referrerPolicy="no-referrer"
-                  />
-                  <span className="ml-2 text-sm max-w-[120px] truncate">{session.user?.name}</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button variant="ghost" className="text-neutral-400 hover:text-white hover:bg-white/[0.04] rounded-lg" onClick={() => openModal('leaderboard')}>
-                  Рейтинг
-                </Button>
-                <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-lg" onClick={() => window.location.href = '/auth/twitch?source=67'}>
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 mr-1.5 fill-current">
-                    <path d="M11.64 5.93h1.43v4.28h-1.43m3.93-4.28H17v4.28h-1.43M7 2L3.43 5.57v12.86h4.28V22l3.58-3.57h2.85L20.57 12V2m-1.43 9.29l-2.85 2.85h-2.86l-2.5 2.5v-2.5H7.71V3.43h11.43Z" />
-                  </svg>
-                  Twitch
-                </Button>
-              </>
-            )}
+             )}
           </div>
-
-          <button className="sm:hidden p-2 text-neutral-400 hover:text-white" onClick={() => setMenu(!menu)}>
-            {menu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
         </div>
-
-        {menu && (
-          <motion.div className="sm:hidden border-t border-white/[0.06] bg-black/80 backdrop-blur-xl" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
-            <div className="px-4 py-3 space-y-1">
-              {session ? (
-                <>
-                  <button className="w-full text-left px-3 py-2 text-sm text-neutral-300 rounded-lg hover:bg-white/[0.04]" onClick={() => { openModal('leaderboard'); setMenu(false); }}>Рейтинг</button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-neutral-300 rounded-lg hover:bg-white/[0.04]" onClick={() => { openModal('profile'); setMenu(false); }}>Профиль</button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-neutral-300 rounded-lg hover:bg-white/[0.04]" onClick={() => { signOut(); setMenu(false); }}>Выйти</button>
-                </>
-              ) : (
-                <>
-                  <button className="w-full text-left px-3 py-2 text-sm text-neutral-300 rounded-lg hover:bg-white/[0.04]" onClick={() => { openModal('leaderboard'); setMenu(false); }}>Рейтинг</button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-neutral-300 rounded-lg hover:bg-white/[0.04]" onClick={() => { twitchLogin(); setMenu(false); }}>Войти через Twitch</button>
-                </>
-              )}
-            </div>
-          </motion.div>
-        )}
       </header>
 
-      {/* Hero */}
-      <section className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-4 sm:py-6">
-        <motion.div className="text-center space-y-5 max-w-lg" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-          <motion.div className="inline-flex flex-col items-center" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}>
-            <h1 className="text-8xl sm:text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none">67</h1>
-            <div className="mt-1 h-1 w-24 rounded-full bg-gradient-to-r from-orange-500 via-red-500 to-pink-500" />
-          </motion.div>
+      {/* Main Content */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto">
+        <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-start py-10">
+          
+          {/* Left: Hero & Menu */}
+          <div className="lg:col-span-5 space-y-12">
+            <div className="space-y-4">
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="inline-block px-4 py-1.5 rounded-full bg-orange-500/10 border border-orange-500/20">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Project Alpha</span>
+              </motion.div>
+              <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none italic drop-shadow-2xl">
+                67 <br/>
+                <span className="text-4xl text-neutral-500">SPEED TEST</span>
+              </h1>
+              <p className="text-neutral-400 font-medium max-w-xs">Испытай свою реакцию. Используй камеру, чтобы ловить цифры руками.</p>
+            </div>
 
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="space-y-1">
-            <p className="text-xl sm:text-2xl font-light text-neutral-300">Испытай свою скорость!</p>
-            <p className="text-[13px] text-neutral-500 max-w-sm mx-auto">Разреши доступ к камере. подними руки так чтобы их было видно</p>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-            <Button
-              className="h-16 px-16 text-3xl font-black tracking-[0.2em] rounded-3xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white shadow-2xl shadow-red-500/30 hover:shadow-red-500/50 transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
-              onClick={play}
-            >
-              ИГРАТЬ
-            </Button>
-          </motion.div>
-
-          {!session && (
-            <motion.p className="text-[11px] text-neutral-600" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
-              Результат сохраняется и идёт в рейтинг при входе через Twitch
-            </motion.p>
-          )}
-        </motion.div>
-      </section>
-
-      {/* TOP */}
-      <section className="relative z-10 max-w-2xl mx-auto w-full px-4 pb-4">
-        <motion.div
-          className="rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-md p-5 sm:p-6"
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-        >
-          <div className="flex items-center gap-3 mb-5">
-            <Trophy className="w-5 h-5 text-yellow-500" />
-            <h2 className="text-xl font-bold tracking-tight">ТОП ИГРОКОВ</h2>
+            <div className="space-y-4">
+              <Button
+                className="w-full h-24 text-4xl font-black tracking-[0.2em] rounded-[2.5rem] bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white shadow-2xl shadow-red-500/30 hover:shadow-red-500/50 transition-all duration-300 hover:scale-[1.03] active:scale-[0.97]"
+                onClick={play}
+              >
+                ИГРАТЬ
+              </Button>
+              <p className="text-[10px] text-center text-neutral-600 uppercase font-black tracking-widest leading-none">
+                Результаты сохраняются при входе через Twitch
+              </p>
+            </div>
           </div>
 
-          {top.length === 0 ? (
-            <p className="text-neutral-500 text-sm text-center py-6">Пока нет результатов. Стань первым!</p>
-          ) : (
-            <div className="space-y-2">
-              {top.slice(0, 3).map((p, i) => (
-                <motion.div
-                  key={p.login}
-                  className="flex items-center gap-4 px-5 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.05] transition-all"
-                  initial={{ opacity: 0, x: -20 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
-                >
-                  <div className="w-8 flex items-center justify-center flex-shrink-0">
-                    {p.rank === 1 ? <Crown className="w-6 h-6 text-yellow-500" /> :
-                     p.rank === 2 ? <Medal className="w-6 h-6 text-neutral-400" /> :
-                     p.rank === 3 ? <Medal className="w-6 h-6 text-amber-700" /> :
-                     <span className="text-sm text-neutral-500 font-bold">{p.rank}</span>}
-                  </div>
-                  {p.image ? (
-                    <img src={p.image} alt="" className="w-10 h-10 rounded-full border-2 border-white/10" referrerPolicy="no-referrer" />
+          {/* Right: Leaderboard */}
+          <div className="lg:col-span-7 bg-[#0c0c0e]/50 backdrop-blur-xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[650px] shadow-2xl">
+             <div className="flex flex-col gap-6 mb-8">
+                <div className="flex items-center justify-between">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shadow-inner">
+                         <Trophy className="w-6 h-6 shadow-glow" />
+                      </div>
+                      <h2 className="text-3xl font-black uppercase italic tracking-tighter">Рейтинг</h2>
+                   </div>
+                   <CountdownTimer period={period} />
+                </div>
+
+                <div className="flex gap-1 bg-white/[0.03] p-1.5 rounded-2xl border border-white/[0.06]">
+                   {[
+                     { id: 'day', label: 'ЗА ДЕНЬ' },
+                     { id: 'week', label: 'ЗА НЕДЕЛЮ' },
+                     { id: 'all', label: 'ВЕСЬ ТОП' }
+                   ].map(t => (
+                      <button 
+                        key={t.id} 
+                        onClick={() => setPeriod(t.id)} 
+                        className={`flex-1 py-4 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${period === t.id ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20' : 'text-neutral-500 hover:text-neutral-300'}`}
+                      >
+                        {t.label}
+                      </button>
+                   ))}
+                </div>
+             </div>
+
+             <div className="flex-1 space-y-3 overflow-y-auto pr-3 custom-scrollbar">
+                <AnimatePresence mode="wait">
+                  {isLoading ? (
+                    <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full gap-4">
+                       <RefreshCw className="w-10 h-10 text-orange-500 animate-spin" />
+                       <span className="text-[10px] font-black uppercase text-neutral-500">Загрузка...</span>
+                    </motion.div>
+                  ) : lbEntries.length > 0 ? (
+                    <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                       {lbEntries.map((p, i) => (
+                          <div key={p.login} className="flex items-center gap-5 p-5 rounded-3xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all group">
+                             <div className={`w-10 text-2xl font-black italic ${i < 3 ? 'text-orange-500' : 'text-neutral-700'}`}>#{i+1}</div>
+                             <img src={p.image || ''} className="w-14 h-14 rounded-2xl border border-white/10 shadow-lg group-hover:scale-110 transition-transform" alt="" referrerPolicy="no-referrer" />
+                             <div className="flex-1 min-w-0">
+                                <p className="text-lg font-black tracking-tight truncate">{p.username}</p>
+                                <p className="text-[10px] text-neutral-500 uppercase font-black leading-none mt-1">
+                                   Рекорд: {p.bestScore} {p.maxCombo > 0 && `• Комбо x${p.maxCombo}`}
+                                </p>
+                             </div>
+                             <div className="text-right">
+                                <p className={`text-4xl font-black italic leading-none ${i < 3 ? 'text-orange-500' : 'text-white/60'}`}>{p.bestScore}</p>
+                             </div>
+                          </div>
+                       ))}
+                    </motion.div>
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-white/[0.06] border-2 border-white/10 flex items-center justify-center text-sm text-neutral-500 font-bold">
-                      {p.username?.[0]?.toUpperCase()}
-                    </div>
+                    <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center h-full opacity-20 uppercase font-black tracking-widest text-sm italic">
+                       Пусто...
+                    </motion.div>
                   )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-base font-bold text-neutral-100 truncate">{p.username}</p>
-                    <p className="text-xs text-neutral-500">Рекорд: {p.bestScore}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xl font-black text-white">{p.bestScore}</p>
-                    <p className="text-[10px] text-neutral-600 uppercase font-bold">очков</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          )}
+                </AnimatePresence>
+             </div>
+          </div>
+        </div>
+      </main>
 
-          <button className="w-full mt-4 flex items-center justify-center gap-2 text-sm font-semibold text-neutral-400 hover:text-white py-2 transition-all group" onClick={() => openModal('leaderboard')}>
-            Весь рейтинг <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </motion.div>
-      </section>
-
-      <footer className="relative z-10 border-t border-white/[0.04] py-3 text-center flex flex-col items-center gap-1">
-        <p className="text-[12px] font-bold text-neutral-400 uppercase tracking-widest">67 на скорость</p>
-        <p className="text-[10px] text-neutral-600 tracking-tight">Powered by <a href="https://t.me/paracetamolhaze" className="text-orange-500 font-bold hover:text-orange-400 transition-colors">PARACETAMOLHAZE</a></p>
+      <footer className="relative z-10 border-t border-white/[0.06] py-5 px-6 bg-black/50 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto flex items-center justify-center">
+          <a 
+            href="https://t.me/paracetamolhaze" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="group flex items-center gap-2"
+          >
+            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">Powered by</span>
+            <span className="text-xs font-black italic tracking-tighter bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent group-hover:from-orange-300 group-hover:to-red-400 transition-all">PARACETAMOLHAZE</span>
+          </a>
+        </div>
       </footer>
     </div>
   );
