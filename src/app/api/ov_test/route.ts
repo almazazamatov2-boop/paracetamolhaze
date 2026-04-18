@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
-
-const redis = process.env.KV_REST_API_URL ? new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-}) : null;
+import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
 
 export async function POST(req: NextRequest) {
-  if (!redis) return NextResponse.json({ error: 'DB error' }, { status: 500 });
   const token = req.cookies.get('twitch_token')?.value;
   if (!token) return NextResponse.json({ error: 'Auth error' }, { status: 401 });
 
@@ -24,8 +18,14 @@ export async function POST(req: NextRequest) {
   const userName = authData.data[0].display_name;
   const userAvatar = authData.data[0].profile_image_url;
 
-  const settings: any = await redis.hgetall(`overlay:settings:${userId}`) || {};
-  const userChoice = Math.floor(Math.random() * ((settings.max_val || 100) - (settings.min_val || 1) + 1)) + (settings.min_val || 1);
+  const { data: config } = await supabase
+    .from('overlay_configs')
+    .select('settings')
+    .eq('user_id', userId)
+    .single();
+
+  const settings: any = config?.settings || {};
+  const userChoice = Math.floor(Math.random() * ((Number(settings.max_val) || 100) - (Number(settings.min_val) || 1) + 1)) + (Number(settings.min_val) || 1);
 
   const payload = {
     triggerId: Math.random().toString(36).substring(7),
@@ -36,6 +36,14 @@ export async function POST(req: NextRequest) {
     isTest: true
   };
 
-  await redis.set(`overlay:trigger:${userId}`, JSON.stringify(payload), { ex: 60 });
+  const { error } = await supabase
+    .from('overlay_configs')
+    .upsert({ 
+      user_id: userId, 
+      trigger: payload,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+  if (error) return NextResponse.json({ error: 'Failed' }, { status: 500 });
   return NextResponse.json({ success: true, payload });
 }

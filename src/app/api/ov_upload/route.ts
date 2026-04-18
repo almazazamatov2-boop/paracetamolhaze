@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
-
-const redis = process.env.KV_REST_API_URL ? new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-}) : null;
+import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId');
   if (!userId) return NextResponse.json({});
-  const assets = await redis?.hgetall(`overlay:assets:${userId}`);
-  return NextResponse.json(assets || {});
+
+  const { data, error } = await supabase
+    .from('overlay_configs')
+    .select('assets')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) return NextResponse.json({});
+  return NextResponse.json(data.assets || {});
 }
 
 export async function POST(req: NextRequest) {
@@ -28,7 +30,29 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
 
   const { key, asset } = await req.json();
-  await redis?.hset(`overlay:assets:${userId}`, { [key]: asset });
+
+  // Fetch current assets to merge
+  const { data: current } = await supabase
+    .from('overlay_configs')
+    .select('assets')
+    .eq('user_id', userId)
+    .single();
+
+  const baseAssets = current?.assets || {};
+  const newAssets = { ...baseAssets, [key]: asset };
+
+  const { error } = await supabase
+    .from('overlay_configs')
+    .upsert({ 
+      user_id: userId, 
+      assets: newAssets,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error('Supabase error:', error);
+    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+  }
   
   return NextResponse.json({ success: true });
 }

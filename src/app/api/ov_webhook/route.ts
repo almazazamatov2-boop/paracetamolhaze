@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
-
-const redis = process.env.KV_REST_API_URL ? new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-}) : null;
+import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
 
@@ -44,7 +39,15 @@ export async function POST(req: NextRequest) {
     const userName = event.user_name;
     const userMessage = event.user_input || '';
 
-    const settings: any = await redis?.hgetall(`overlay:settings:${streamerId}`);
+    // Fetch streamer config
+    const { data: config } = await supabase
+      .from('overlay_configs')
+      .select('settings')
+      .eq('user_id', streamerId)
+      .single();
+
+    const settings: any = config?.settings || {};
+    
     if (settings?.reward_name === rewardName) {
       const match = userMessage.match(/\d+/);
       const userChoice = match ? parseInt(match[0]) : null;
@@ -61,7 +64,15 @@ export async function POST(req: NextRequest) {
           userChoice,
           timestamp: Date.now()
         };
-        await redis?.set(`overlay:trigger:${streamerId}`, JSON.stringify(payload), { ex: 30 });
+        
+        // Update trigger in Supabase
+        await supabase
+          .from('overlay_configs')
+          .upsert({ 
+            user_id: streamerId, 
+            trigger: payload,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'user_id' });
       }
     }
   }

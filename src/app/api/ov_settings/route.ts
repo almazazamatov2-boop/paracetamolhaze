@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
-
-const redis = process.env.KV_REST_API_URL ? new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-}) : null;
+import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId');
   if (!userId) return NextResponse.json({});
-  const settings = await redis?.hgetall(`overlay:settings:${userId}`);
-  return NextResponse.json(settings || {});
+
+  const { data, error } = await supabase
+    .from('overlay_configs')
+    .select('settings')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) return NextResponse.json({});
+  return NextResponse.json(data.settings || {});
 }
 
 export async function POST(req: NextRequest) {
@@ -28,6 +30,19 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
 
   const body = await req.json();
-  await redis?.hset(`overlay:settings:${userId}`, body);
+
+  const { error } = await supabase
+    .from('overlay_configs')
+    .upsert({ 
+      user_id: userId, 
+      settings: body,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error('Supabase error:', error);
+    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+  }
+
   return NextResponse.json({ success: true });
 }

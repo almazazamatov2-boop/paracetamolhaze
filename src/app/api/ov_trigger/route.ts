@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Redis } from '@upstash/redis';
-
-const redis = process.env.KV_REST_API_URL ? new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
-}) : null;
+import { supabase } from '@/lib/supabase';
 
 export const runtime = 'edge';
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId');
   if (!userId) return NextResponse.json({});
-  const trigger = await redis?.get(`overlay:trigger:${userId}`);
-  return NextResponse.json(trigger ? (typeof trigger === 'string' ? JSON.parse(trigger) : trigger) : null);
+
+  const { data, error } = await supabase
+    .from('overlay_configs')
+    .select('trigger')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data) return NextResponse.json(null);
+  return NextResponse.json(data.trigger || null);
 }
