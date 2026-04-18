@@ -240,8 +240,7 @@ export function Landing() {
 
       <footer className="relative z-10 border-t border-white/[0.04] py-8 text-center flex flex-col items-center gap-1">
         <p className="text-[13px] font-bold text-neutral-400 uppercase tracking-widest">67 на скорость</p>
-        <p className="text-[11px] text-neutral-600">Powered by <span className="text-orange-500 font-bold">PARACETAMOLHAZE</span></p>
-        <a href="https://t.me/paracetamolhaze" className="text-[10px] text-neutral-700 hover:text-white transition-colors">PARACETAMOLHAZE кликабельный!</a>
+        <p className="text-[11px] text-neutral-600">Powered by <a href="https://t.me/paracetamolhaze" className="text-orange-500 font-bold hover:text-orange-400 transition-colors">PARACETAMOLHAZE</a></p>
       </footer>
     </div>
   );
