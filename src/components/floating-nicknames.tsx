@@ -124,8 +124,8 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseleave', onMouseLeave);
 
-    const REPEL_RADIUS = 100;   // Slightly larger radius for 'pushing'
-    const PUSH_FORCE = 0.015;    // Force applied to velocity
+    const REPEL_RADIUS = 200;   // Larger radius for broader pushing
+    const PUSH_FORCE = 0.030;    // Doubled force for more impact
     const FRICTION = 0.96;       // Slows them down over time
     const MIN_DRIFT = 0.02;      // Minimum speed to keep them moving
     const MAX_SPEED = 0.25;      // Speed limit
