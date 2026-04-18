@@ -134,10 +134,9 @@ export function Landing() {
 
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
             <Button
-              className="h-14 px-12 text-lg font-semibold rounded-2xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white shadow-2xl shadow-red-500/25 hover:shadow-red-500/40 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+              className="h-16 px-16 text-3xl font-black tracking-[0.2em] rounded-3xl bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 hover:from-orange-400 hover:via-red-400 hover:to-pink-400 text-white shadow-2xl shadow-red-500/30 hover:shadow-red-500/50 transition-all duration-300 hover:scale-[1.05] active:scale-[0.95]"
               onClick={play}
             >
-              <Zap className="w-5 h-5 mr-2" />
               ИГРАТЬ
             </Button>
           </motion.div>
