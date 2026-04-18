@@ -314,7 +314,7 @@ function KinokadrContent() {
               className="w-full max-w-sm flex flex-col gap-5"
             >
               <div className="relative aspect-[2/3] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl group">
-                 {/* Loading/Ghosting Protection */}
+                 {/* Loading Protection */}
                  {isImageLoading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-30">
                        <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
@@ -329,14 +329,14 @@ function KinokadrContent() {
                    src={movies[currentIndex].image_url} 
                    className={`relative w-full h-full transition-all duration-700 ease-in-out ${
                      !state.guessed 
-                       ? `object-cover object-top scale-[1.25] ${BLUR_LEVELS[state.hintsUsed]}` 
+                       ? `object-cover object-top scale-100 ${BLUR_LEVELS[state.hintsUsed]}` 
                        : 'object-contain scale-100 blur-0 brightness-100'
                    }`}
                    alt=""
                  />
                  
                  {!state.guessed && (
-                    <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none z-10" />
+                    <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none z-10" />
                  )}
                  
                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
@@ -411,14 +411,14 @@ function KinokadrContent() {
                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${state.correct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                             {state.correct ? <Check className="w-6 h-6" /> : <X className="w-6 h-6" />}
                          </div>
-                         <div className="max-w-[150px]">
+                         <div className="flex-1 min-w-0">
                             <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${state.correct ? 'text-emerald-400' : 'text-rose-400'}`}>
                                {state.correct ? 'Верно!' : 'Не угадали'}
                             </p>
-                            <p className="text-lg font-black leading-tight truncate">{movies[currentIndex].title_ru}</p>
+                            <p className="text-lg font-black leading-tight">{movies[currentIndex].title_ru}</p>
                          </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right ml-4">
                          <p className="text-[9px] text-white/40 uppercase font-black tracking-widest">Баллы</p>
                          <p className="text-2xl font-black text-cyan-400 leading-none mt-1">+{state.score}</p>
                       </div>
