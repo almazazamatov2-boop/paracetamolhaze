@@ -28,8 +28,6 @@ interface ParticleState {
   glowColor: string;
   fontSize: number;
   fontWeight: number;
-  currentRepelX: number;
-  currentRepelY: number;
 }
 
 interface Star {
@@ -70,15 +68,13 @@ function generateParticles(nicknames: string[]): ParticleState[] {
       text: nicknames[Math.floor(Math.random() * nicknames.length)],
       baseX: Math.random() * 100,
       baseY: Math.random() * 100,
-      vx: (Math.random() - 0.5) * 0.05, // Slow drift
-      vy: (Math.random() - 0.5) * 0.05,
+      vx: (Math.random() - 0.5) * 0.04, // Initial slow drift
+      vy: (Math.random() - 0.5) * 0.04,
       opacity: Math.random() * 0.4 + 0.1,
       color: color.text,
       glowColor: color.glow,
       fontSize,
       fontWeight,
-      currentRepelX: 0,
-      currentRepelY: 0,
     });
   }
   return particles;
@@ -128,9 +124,11 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseleave', onMouseLeave);
 
-    const REPEL_RADIUS = 80;   // Requested radius
-    const REPEL_FORCE = 300;    // Balanced force
-    const LERP = 0.1;           // Smooth lerp
+    const REPEL_RADIUS = 100;   // Slightly larger radius for 'pushing'
+    const PUSH_FORCE = 0.015;    // Force applied to velocity
+    const FRICTION = 0.96;       // Slows them down over time
+    const MIN_DRIFT = 0.02;      // Minimum speed to keep them moving
+    const MAX_SPEED = 0.25;      // Speed limit
 
     const loop = () => {
       const mouse = mouseRef.current;
@@ -142,7 +140,40 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
         const elSpan = elRefs.current.get(p.id);
         if (!elSpan) continue;
 
-        // Move baseX/baseY for continuous floating
+        // Calculate absolute screen position
+        const screenX = (p.baseX / 100) * rect.width;
+        const screenY = (p.baseY / 100) * rect.height;
+        
+        const dx = screenX - mx;
+        const dy = screenY - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Apply mouse force to velocity
+        if (dist < REPEL_RADIUS && dist > 1) {
+          const ratio = 1 - dist / REPEL_RADIUS;
+          const strength = ratio * ratio * PUSH_FORCE;
+          p.vx += (dx / dist) * strength;
+          p.vy += (dy / dist) * strength;
+        }
+
+        // Apply friction
+        p.vx *= FRICTION;
+        p.vy *= FRICTION;
+
+        // Keep them from stopping entirely
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed < MIN_DRIFT) {
+          p.vx += (Math.random() - 0.5) * 0.005;
+          p.vy += (Math.random() - 0.5) * 0.005;
+        }
+        
+        // Cap speed
+        if (speed > MAX_SPEED) {
+          p.vx = (p.vx / speed) * MAX_SPEED;
+          p.vy = (p.vy / speed) * MAX_SPEED;
+        }
+
+        // Move position
         p.baseX += p.vx;
         p.baseY += p.vy;
 
@@ -152,32 +183,10 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
         if (p.baseY > 105) p.baseY = -5;
         if (p.baseY < -5) p.baseY = 105;
 
-        // Calculate absolute screen position
-        const screenX = (p.baseX / 100) * rect.width;
-        const screenY = (p.baseY / 100) * rect.height;
-        
-        const dx = screenX - mx;
-        const dy = screenY - my;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        let targetRX = 0;
-        let targetRY = 0;
-
-        if (dist < REPEL_RADIUS && dist > 1) {
-          const ratio = 1 - dist / REPEL_RADIUS;
-          const strength = ratio * ratio * REPEL_FORCE;
-          targetRX = (dx / dist) * strength;
-          targetRY = (dy / dist) * strength;
-        }
-
-        // Apply lerp
-        p.currentRepelX += (targetRX - p.currentRepelX) * LERP;
-        p.currentRepelY += (targetRY - p.currentRepelY) * LERP;
-
         // Position & Render
         elSpan.style.left = `${p.baseX}%`;
         elSpan.style.top = `${p.baseY}%`;
-        elSpan.style.transform = `translate(${p.currentRepelX}px, ${p.currentRepelY}px)`;
+        elSpan.style.transform = 'none';
       }
 
       animId = requestAnimationFrame(loop);
