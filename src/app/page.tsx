@@ -43,6 +43,12 @@ const PROJECTS = [
     color: '#ff4500',
   },
   {
+    title: '67',
+    desc: '67 на скорость',
+    href: '/67',
+    color: '#ff4500',
+  },
+  {
     title: 'ФЕЙССВАП',
     desc: 'Замена лица LIVE',
     href: '#',

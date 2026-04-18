@@ -4,6 +4,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
+  const source = searchParams.get('state'); // Twitch returns state as search param
   const baseUrl = request.nextUrl.origin;
 
   if (error) {
@@ -90,7 +91,20 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const res = NextResponse.redirect(`${baseUrl}/overlays/dashboard`);
+    // 4. Update/Create user in database for game 67
+    if (userData?.data?.[0]) {
+      const u = userData.data[0];
+      const { db } = await import('@/lib/67/db');
+      await db.user.upsert({
+        where: { twitchId: u.id },
+        update: { username: u.display_name, login: u.login, image: u.profile_image_url },
+        create: { twitchId: u.id, username: u.display_name, login: u.login, image: u.profile_image_url }
+      });
+    }
+
+    // Determine target redirect
+    const target = source === '67' ? `${baseUrl}/67` : `${baseUrl}/overlays/dashboard`;
+    const res = NextResponse.redirect(target);
     res.cookies.set('twitch_token', data.access_token, {
       httpOnly: true,
       secure: true,

@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,11 +11,28 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
+  id        String       @id @default(cuid())
+  email     String?      @unique
   name      String?
+  twitchId  String?      @unique
+  username  String?      @unique      // Twitch display_name
+  login     String?                   // Twitch login
+  image     String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  games     GameRecord[]
+}
+
+model GameRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  score     Int
+  pumps     Int
+  maxCombo  Int
+  avgSpeed  Float
+  duration  Int
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }
 
 model Post {

@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 
-  const twitchAuthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
+  const source = request.nextUrl.searchParams.get('source') || '';
+  const twitchAuthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${source}`;
 
   return NextResponse.redirect(twitchAuthUrl);
 }
