@@ -19,29 +19,17 @@ interface FloatingNicknamesProps {
 interface ParticleState {
   id: number;
   text: string;
-  baseX: number;
-  baseY: number;
+  baseX: number; // Current X in %
+  baseY: number; // Current Y in %
+  vx: number;    // Velocity X
+  vy: number;    // Velocity Y
   opacity: number;
   color: string;
   glowColor: string;
   fontSize: number;
   fontWeight: number;
-  freqX1: number;
-  freqY1: number;
-  freqX2: number;
-  freqY2: number;
-  ampX1: number;
-  ampY1: number;
-  ampX2: number;
-  ampY2: number;
-  phaseX1: number;
-  phaseY1: number;
-  phaseX2: number;
-  phaseY2: number;
   currentRepelX: number;
   currentRepelY: number;
-  rotation: number;
-  rotationSpeed: number;
 }
 
 interface Star {
@@ -82,27 +70,15 @@ function generateParticles(nicknames: string[]): ParticleState[] {
       text: nicknames[Math.floor(Math.random() * nicknames.length)],
       baseX: Math.random() * 100,
       baseY: Math.random() * 100,
+      vx: (Math.random() - 0.5) * 0.05, // Slow drift
+      vy: (Math.random() - 0.5) * 0.05,
       opacity: Math.random() * 0.4 + 0.1,
       color: color.text,
       glowColor: color.glow,
       fontSize,
       fontWeight,
-      freqX1: Math.random() * 0.15 + 0.05,
-      freqY1: Math.random() * 0.12 + 0.04,
-      freqX2: Math.random() * 0.2 + 0.08,
-      freqY2: Math.random() * 0.18 + 0.07,
-      ampX1: Math.random() * 80 + 30,
-      ampY1: Math.random() * 50 + 20,
-      ampX2: Math.random() * 40 + 15,
-      ampY2: Math.random() * 30 + 10,
-      phaseX1: Math.random() * Math.PI * 2,
-      phaseY1: Math.random() * Math.PI * 2,
-      phaseX2: Math.random() * Math.PI * 2,
-      phaseY2: Math.random() * Math.PI * 2,
       currentRepelX: 0,
       currentRepelY: 0,
-      rotation: Math.random() * 360,
-      rotationSpeed: (Math.random() - 0.5) * 0.2,
     });
   }
   return particles;
@@ -152,29 +128,34 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseleave', onMouseLeave);
 
-    const REPEL_RADIUS = 30;  // Radius matching a standard cursor size
-    const REPEL_FORCE = 600;   // High force for immediate push at close range
-    const LERP = 0.15;         // Snappier lerp for immediate reaction
+    const REPEL_RADIUS = 80;   // Requested radius
+    const REPEL_FORCE = 300;    // Balanced force
+    const LERP = 0.1;           // Smooth lerp
 
     const loop = () => {
       const mouse = mouseRef.current;
       const rect = el.getBoundingClientRect();
       const mx = mouse.x - rect.left;
       const my = mouse.y - rect.top;
-      const time = performance.now() / 1000;
 
       for (const p of particlesRef.current) {
         const elSpan = elRefs.current.get(p.id);
         if (!elSpan) continue;
 
-        // Space drifting effect
-        const driftX = Math.sin(time * p.freqX1 + p.phaseX1) * p.ampX1 + Math.sin(time * p.freqX2 + p.phaseX2) * p.ampX2;
-        const driftY = Math.sin(time * p.freqY1 + p.phaseY1) * p.ampY1 + Math.cos(time * p.freqY2 + p.phaseY2) * p.ampY2;
+        // Move baseX/baseY for continuous floating
+        p.baseX += p.vx;
+        p.baseY += p.vy;
 
-        const screenX = (p.baseX / 100) * rect.width + driftX;
-        const screenY = (p.baseY / 100) * rect.height + driftY;
+        // Wrap around screen
+        if (p.baseX > 105) p.baseX = -5;
+        if (p.baseX < -5) p.baseX = 105;
+        if (p.baseY > 105) p.baseY = -5;
+        if (p.baseY < -5) p.baseY = 105;
+
+        // Calculate absolute screen position
+        const screenX = (p.baseX / 100) * rect.width;
+        const screenY = (p.baseY / 100) * rect.height;
         
-        // Use the untranslated position for distance calculation to avoid feedback loops
         const dx = screenX - mx;
         const dy = screenY - my;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -183,7 +164,6 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
         let targetRY = 0;
 
         if (dist < REPEL_RADIUS && dist > 1) {
-          // Stronger repulsion when closer, using a quadratic falloff for a 'pop' effect
           const ratio = 1 - dist / REPEL_RADIUS;
           const strength = ratio * ratio * REPEL_FORCE;
           targetRX = (dx / dist) * strength;
@@ -194,10 +174,10 @@ export default function FloatingNicknames({ nicknames }: FloatingNicknamesProps)
         p.currentRepelX += (targetRX - p.currentRepelX) * LERP;
         p.currentRepelY += (targetRY - p.currentRepelY) * LERP;
 
-        // Floating rotation
-        p.rotation += p.rotationSpeed;
-
-        elSpan.style.transform = `translate(${driftX + p.currentRepelX}px, ${driftY + p.currentRepelY}px)`;
+        // Position & Render
+        elSpan.style.left = `${p.baseX}%`;
+        elSpan.style.top = `${p.baseY}%`;
+        elSpan.style.transform = `translate(${p.currentRepelX}px, ${p.currentRepelY}px)`;
       }
 
       animId = requestAnimationFrame(loop);
