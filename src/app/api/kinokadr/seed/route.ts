@@ -11,12 +11,13 @@ export async function GET(req: NextRequest) {
   const cat = searchParams.get('cat') || 'films';
 
   try {
-    // Если указано TOP_250_TV_SHOWS, принудительно ставим категорию series
     const isTopSeries = type === 'TOP_250_TV_SHOWS';
-    
     let url = `${BASE}/v2.2/films/top?type=${type}&page=${page}`;
     
-    if (cat === 'series' && !isTopSeries) {
+    // Если Топ Сериалов - используем фильтрованный поиск вместо топа
+    if (isTopSeries) {
+      url = `${BASE}/v2.2/films?order=RATING&type=TV_SERIES&ratingFrom=8&ratingTo=10&page=${page}`;
+    } else if (cat === 'series') {
       url = `${BASE}/v2.2/films?order=NUM_VOTE&type=TV_SERIES&page=${page}`;
     }
 
@@ -40,8 +41,8 @@ export async function GET(req: NextRequest) {
         title: item.nameEn || item.nameRu || 'Unknown',
         title_ru: item.nameRu || item.nameEn || 'Без названия',
         image_url: item.posterUrl,
-        type: (item.type === 'TV_SERIES' || cat === 'series' || isTopSeries) ? 'series' : 'movie',
-        category: item.genres?.[0]?.genre || 'Кино',
+        type: (item.type === 'TV_SERIES' || item.type === 'TV_SHOW' || cat === 'series' || isTopSeries) ? 'series' : 'movie',
+        category: (item.genres && item.genres[0]) ? item.genres[0].genre : 'Кино',
         year: parseInt(item.year) || null
       };
 
@@ -51,13 +52,12 @@ export async function GET(req: NextRequest) {
 
       results.push({ 
         title: movieData.title_ru, 
-        status: error ? 'error' : 'success',
-        error: error?.message 
+        status: error ? 'error' : 'success'
       });
     }
 
     return NextResponse.json({
-      message: `Processed page ${page} of ${isTopSeries ? 'Top 250 Series' : type}`,
+      message: `Processed page ${page} of ${isTopSeries ? 'Best Series' : type}`,
       count: results.length,
       results
     });
