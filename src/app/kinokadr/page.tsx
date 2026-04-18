@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Film, Tv, Lightbulb, SkipForward, Trophy, Home, ChevronRight, 
   Search, X, Check, Sparkles, Clapperboard, Eye, Crown, LogIn, 
-  Zap, Medal, Menu, User, Inbox, RefreshCw
+  Zap, Medal, Menu, User, Inbox, RefreshCw, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/67/ui/button'; 
 import { AuthProvider, useSession, signIn } from '@/lib/67/authHook'; 
@@ -44,7 +44,7 @@ function AnimatedBg() {
   );
 }
 
-const BLUR_LEVELS = ['blur-xl brightness-[0.35]', 'blur-lg brightness-[0.5]', 'blur-sm brightness-[0.75]', 'blur-0 brightness-100'];
+const BLUR_LEVELS = ['blur-2xl brightness-[0.3]', 'blur-xl brightness-[0.45]', 'blur-md brightness-[0.6]', 'blur-0 brightness-100'];
 const SCORE_FOR_HINTS = [5, 3, 2, 1];
 
 function KinokadrContent() {
@@ -53,6 +53,7 @@ function KinokadrContent() {
   const [movies, setMovies] = useState<KinokadrMovie[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [guessInput, setGuessInput] = useState('');
+  const [isImageLoading, setIsImageLoading] = useState(true);
   const [state, setState] = useState<KinokadrState>({ 
     hintsUsed: 0, 
     guessed: false, 
@@ -105,10 +106,10 @@ function KinokadrContent() {
     try {
       const { data } = await supabase
         .from('kinokadr_scores')
-        .select('*, user:user_id(*)')
+        .select('*')
         .eq('mode', mode)
         .order('score', { ascending: false })
-        .limit(10);
+        .limit(20);
       setLeaderboard(data || []);
     } catch (e) {}
   };
@@ -146,6 +147,7 @@ function KinokadrContent() {
     fetchMovies(mode);
     setScreen('game');
     setCurrentIndex(0);
+    setIsImageLoading(true);
     setState({ 
       hintsUsed: 0, 
       guessed: false, 
@@ -191,21 +193,24 @@ function KinokadrContent() {
 
   const nextMovie = () => {
     if (state.round < 10 && currentIndex < movies.length - 1) {
+      setIsImageLoading(true);
       setCurrentIndex(prev => prev + 1);
       setState(prev => ({ ...prev, hintsUsed: 0, guessed: false, correct: false, score: 0, round: prev.round + 1 }));
       setGuessInput('');
     } else {
       setScreen('result');
       if (session?.user) {
-        saveFinalScore((session.user as any).id, state.totalScore + (state.correct ? state.score : 0), state.mode);
+        saveFinalScore(session.user, state.totalScore, state.mode);
       }
     }
   };
 
-  const saveFinalScore = async (userId: string, points: number, mode: string) => {
+  const saveFinalScore = async (user: any, points: number, mode: string) => {
     try {
       await supabase.from('kinokadr_scores').insert({
-        user_id: userId,
+        user_id: user.id || user.name,
+        username: user.name,
+        avatar: user.image,
         score: points,
         mode: mode,
       });
@@ -280,7 +285,7 @@ function KinokadrContent() {
             >
               <div className="space-y-0 -mt-20">
                 <h1 className="text-7xl sm:text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none uppercase select-none">
-                  Угадай <br/> Кадр
+                  Угадай <br/> Арт
                 </h1>
               </div>
 
@@ -293,7 +298,7 @@ function KinokadrContent() {
                     <div className="text-left flex-1">
                       <h3 className="text-xl font-black tracking-tight uppercase">{m === 'combo' ? 'КОМБО' : m === 'movie' ? 'ФИЛЬМЫ' : 'СЕРИАЛЫ'}</h3>
                       <p className="text-xs text-neutral-500 font-medium">
-                        {m === 'combo' ? 'Фильмы и сериалы из IMDb Top' : m === 'movie' ? 'Лучшее полнометражное кино' : 'Хиты мировых сериалов'}
+                        {m === 'combo' ? 'Постеры кино и сериалов' : m === 'movie' ? 'Только полнометражное кино' : 'Хиты мировых сериалов'}
                       </p>
                     </div>
                     <ChevronRight className="w-5 h-5 text-neutral-500 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
@@ -308,31 +313,34 @@ function KinokadrContent() {
               key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
               className="w-full max-w-sm flex flex-col gap-5"
             >
-              {/* Vertical Image Container (Aspect 2/3) */}
               <div className="relative aspect-[2/3] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl group">
-                 {/* Blurred Background */}
+                 {/* Loading/Ghosting Protection */}
+                 {isImageLoading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-md z-30">
+                       <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
+                    </div>
+                 )}
+
                  <img src={movies[currentIndex].image_url} className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-30 scale-110" alt="" />
                  
-                 {/* Main Image */}
                  <motion.img 
                    layout
+                   onLoad={() => setIsImageLoading(false)}
                    src={movies[currentIndex].image_url} 
                    className={`relative w-full h-full transition-all duration-700 ease-in-out ${
                      !state.guessed 
-                       ? `object-cover object-top scale-[1.2] ${BLUR_LEVELS[state.hintsUsed]}` 
+                       ? `object-cover object-top scale-[1.25] ${BLUR_LEVELS[state.hintsUsed]}` 
                        : 'object-contain scale-100 blur-0 brightness-100'
                    }`}
                    alt=""
                  />
                  
-                 {/* Anti-Cheat Gradient */}
                  {!state.guessed && (
                     <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black via-black/40 to-transparent pointer-events-none z-10" />
                  )}
                  
                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
                  
-                 {/* Labels */}
                  <div className="absolute top-5 left-5 z-20">
                     <span className="px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest flex items-center h-7 shadow-lg">
                       {movies[currentIndex].type === 'movie' ? 'Фильм' : 'Сериал'}
@@ -366,7 +374,6 @@ function KinokadrContent() {
                       />
                    </div>
 
-                   {/* Autocomplete */}
                    <AnimatePresence>
                      {showSuggestions && suggestions.length > 0 && (
                        <motion.div 
@@ -455,7 +462,6 @@ function KinokadrContent() {
             </motion.div>
           )}
 
-          {/* Leaderboard skipped for brevity but would be similar styling... */}
           {screen === 'leaderboard' && (
              <motion.div key="leaderboard" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md space-y-6">
                 <div className="flex items-center gap-3">
@@ -472,19 +478,21 @@ function KinokadrContent() {
                 </div>
 
                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                   {leaderboard.map((p, i) => (
+                   {leaderboard.length > 0 ? leaderboard.map((p, i) => (
                       <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all">
                          <div className="w-6 text-xl font-black italic text-neutral-700">#{i+1}</div>
-                         <img src={p.user?.image || p.avatar} className="w-10 h-10 rounded-full border border-white/10" alt="" />
+                         <img src={p.avatar} className="w-10 h-10 rounded-full border border-white/10" alt="" />
                          <div className="flex-1 min-w-0">
-                            <p className="font-bold truncate">{p.user?.username || p.name}</p>
-                            <p className="text-[9px] text-neutral-500 uppercase font-black uppercase leading-none mt-1">{p.mode}</p>
+                            <p className="font-bold truncate">{p.username}</p>
+                            <p className="text-[9px] text-neutral-500 uppercase font-black leading-none mt-1">{p.mode}</p>
                          </div>
                          <div className="text-right">
                             <p className="text-2xl font-black italic text-cyan-400 leading-none">{p.score}</p>
                          </div>
                       </div>
-                   ))}
+                   )) : (
+                      <div className="py-20 text-center text-neutral-500 font-bold uppercase text-xs tracking-widest">Рейтинг пуст</div>
+                   )}
                 </div>
 
                 <Button className="w-full h-14 rounded-2xl bg-white/[0.05] border border-white/10" onClick={() => setScreen('home')}>
