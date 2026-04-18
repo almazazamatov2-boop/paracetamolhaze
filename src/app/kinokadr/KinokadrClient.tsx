@@ -630,25 +630,6 @@ function KinokadrContent() {
                    ИГРАТЬ СНОВА <RefreshCw className="w-5 h-5 ml-2" />
                  </Button>
 
-                 <Button 
-                   variant="ghost" 
-                   className="w-full h-16 rounded-[1.5rem] bg-white/5 border border-white/10 text-white font-black hover:bg-white/10" 
-                   onClick={() => {
-                     const text = `Я смог набрать ${state.totalScore}! А сколько ты сможешь?`;
-                     const baseUrl = window.location.origin + window.location.pathname;
-                     const shareUrl = `${baseUrl}?score=${state.totalScore}&user=${encodeURIComponent(session?.user?.name || 'Игрок')}`;
-                     
-                     if (navigator.share) {
-                       navigator.share({ title: 'Угадай Кадр', text, url: shareUrl }).catch(() => {});
-                     } else {
-                       navigator.clipboard.writeText(`${text}\nИграй здесь: ${shareUrl}`);
-                       alert('Ссылка скопирована!');
-                     }
-                   }}
-                 >
-                   ПОДЕЛИТЬСЯ <Share2 className="w-5 h-5 ml-2 text-cyan-400" />
-                 </Button>
-
                  <Button variant="ghost" className="w-full h-14 rounded-[1.5rem] border border-white/10 hover:bg-white/5 text-neutral-500" onClick={() => setScreen('home')}>
                    ВЕРНУТЬСЯ В МЕНЮ
                  </Button>

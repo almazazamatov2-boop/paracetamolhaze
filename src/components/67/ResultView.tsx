@@ -3,7 +3,7 @@
 import { useAppStore } from '@/lib/67/store';
 import { useSession } from '@/lib/67/authHook';
 import { motion } from 'framer-motion';
-import { Trophy, RotateCcw, Share2, Crown, Medal, Zap, Home, Send } from 'lucide-react';
+import { Trophy, RotateCcw, Crown, Medal, Home } from 'lucide-react';
 import { Button } from '@/components/67/ui/button';
 
 export function ResultView() {
@@ -12,24 +12,6 @@ export function ResultView() {
 
   const rank = lastGameResult?.rank || 0;
   const playerName = session?.user?.name || null;
-
-  const handleShare = () => {
-    const text = `Я смог набрать ${pumps}, а сколько сможешь ты?`;
-    const baseUrl = window.location.origin + window.location.pathname;
-    const shareUrl = `${baseUrl}?score=${pumps}&user=${encodeURIComponent(session?.user?.name || 'Игрок')}`;
-    const fullMessage = `${text}\nИграй в 67: ${shareUrl}`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: 'Project 67',
-        text: text,
-        url: shareUrl,
-      }).catch(() => {});
-    } else {
-      navigator.clipboard.writeText(fullMessage);
-      alert('Текст скопирован в буфер обмена!');
-    }
-  };
 
   return (
     <motion.div
@@ -71,20 +53,12 @@ export function ResultView() {
         )}
 
         <div className="grid grid-cols-1 gap-4 pt-4">
-           <div className="grid grid-cols-2 gap-4">
-              <Button 
-                className="h-20 text-xl font-black italic rounded-3xl bg-white text-black hover:bg-neutral-200 shadow-xl transition-all hover:scale-[1.03] active:scale-[0.97]" 
-                onClick={startNewGame}
-              >
-                <RotateCcw className="w-6 h-6 mr-2" /> ЕЩЕ РАЗ
-              </Button>
-              <Button 
-                className="h-20 text-xl font-black italic rounded-3xl bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 text-white shadow-xl shadow-cyan-500/20 hover:scale-[1.03] active:scale-[0.97] transition-all" 
-                onClick={handleShare}
-              >
-                <Share2 className="w-6 h-6 mr-2" /> ПОДЕЛИТЬСЯ
-              </Button>
-           </div>
+           <Button 
+             className="h-20 text-3xl font-black italic rounded-[2rem] bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 text-white shadow-2xl shadow-cyan-500/20 hover:scale-[1.03] active:scale-[0.97] transition-all" 
+             onClick={startNewGame}
+           >
+              <RotateCcw className="w-8 h-8 mr-4" /> ЕЩЕ РАЗ
+           </Button>
            
            <div className="grid grid-cols-2 gap-4">
               <Button variant="ghost" className="h-16 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/5 font-bold text-neutral-400" onClick={() => setView('landing')}>
