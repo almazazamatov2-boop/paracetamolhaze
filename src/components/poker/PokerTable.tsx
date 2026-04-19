@@ -62,6 +62,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const [currentTurn, setCurrentTurn] = useState<string | null>(null)
   const [currentBet, setCurrentBet] = useState(0)
   const [joinedPlayers, setJoinedPlayers] = useState<any[]>([])
+  const iceCandidateQueues = useRef<Record<string, RTCIceCandidateInit[]>>({})
 
   // --- TOGGLE HANDLERS ---
   const toggleMic = () => {
@@ -222,7 +223,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
     const createPeerConnection = (targetId: string, isInitiator: boolean) => {
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' },
+            { urls: 'stun:stun.services.mozilla.com' }
+        ]
       })
 
       if (localStream) {
@@ -298,19 +304,34 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         }
 
         if (offer) {
-          pc.setRemoteDescription(new RTCSessionDescription(offer))
-          pc.createAnswer().then(ans => {
-            pc.setLocalDescription(ans)
-            channel.send({
-                type: 'broadcast',
-                event: 'signal',
-                payload: { to: from, from: user.id || user.display_name, answer: ans }
+          pc.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+            pc.createAnswer().then(ans => {
+                pc.setLocalDescription(ans)
+                channel.send({
+                    type: 'broadcast',
+                    event: 'signal',
+                    payload: { to: from, from: user.id || user.display_name, answer: ans }
+                })
             })
+            // Process queued candidates
+            const queue = iceCandidateQueues.current[from] || []
+            queue.forEach(cand => pc.addIceCandidate(new RTCIceCandidate(cand)))
+            delete iceCandidateQueues.current[from]
           })
         } else if (answer) {
-          pc.setRemoteDescription(new RTCSessionDescription(answer))
+          pc.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
+             // Process queued candidates
+             const queue = iceCandidateQueues.current[from] || []
+             queue.forEach(cand => pc.addIceCandidate(new RTCIceCandidate(cand)))
+             delete iceCandidateQueues.current[from]
+          })
         } else if (iceCandidate) {
-          pc.addIceCandidate(new RTCIceCandidate(iceCandidate))
+          if (pc.remoteDescription) {
+            pc.addIceCandidate(new RTCIceCandidate(iceCandidate))
+          } else {
+            if (!iceCandidateQueues.current[from]) iceCandidateQueues.current[from] = []
+            iceCandidateQueues.current[from].push(iceCandidate)
+          }
         }
       })
       .on('broadcast', { event: 'game_logic' }, (payload) => {
@@ -699,6 +720,7 @@ function LocalVideo({ stream }: { stream: MediaStream | null }) {
     useEffect(() => {
         if (videoRef.current && stream) {
             videoRef.current.srcObject = stream
+            videoRef.current.play().catch(e => console.error("Remote Play Error:", e))
         }
     }, [stream])
 
