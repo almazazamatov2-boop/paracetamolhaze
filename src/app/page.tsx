@@ -60,10 +60,9 @@ const PROJECTS = [
     disabled: true,
   },
   {
-    title: 'ПАСТА',
-    desc: 'Генерация и поиск паст',
-    href: '#',
-    disabled: true,
+    title: 'Эмоджино',
+    desc: 'Угадай фильм по эмоджи',
+    href: '/emojino',
   },
 ]
 
