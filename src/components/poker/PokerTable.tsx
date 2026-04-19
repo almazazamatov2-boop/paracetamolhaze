@@ -266,10 +266,11 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         const onlineIds = Object.keys(state)
         // Connect to new peers...
 
-        // Connect to new peers
+        // Lexicographical ID comparison to determine initiator (Prevents glare/collision)
         onlineIds.forEach(pid => {
             if (pid !== (user.id || user.display_name) && !peerConnections.current[pid]) {
-                peerConnections.current[pid] = createPeerConnection(pid, true)
+                const isInitiator = (user.id || user.display_name).toString() > pid.toString()
+                peerConnections.current[pid] = createPeerConnection(pid, isInitiator)
             }
         })
 
