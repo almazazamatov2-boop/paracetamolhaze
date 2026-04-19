@@ -141,9 +141,32 @@ export default function PokerTable({ settings, onBack }: TableProps) {
         communityCards: newCards,
         deck: currentDeck,
         currentBet: 0,
-        players: players.map(p => ({ ...p, bet: 0 }))
+        players: players.map(p => ({ ...p, bet: 0 })) 
     })
   }
+
+  // --- AUTOMATION EFFECT ---
+  useEffect(() => {
+    // Only the "Host" (first player in list) manages automation to avoid conflicts
+    if (players[0]?.id !== (user?.id || user?.display_name)) return
+    if (gameState === 'waiting' || gameState === 'showdown') return
+
+    const activePlayers = players.filter(p => !p.folded)
+    const allMatched = activePlayers.every(p => p.bet === currentBet)
+    
+    // In a real game we'd also check if everyone had a chance to act
+    if (allMatched && activePlayers.length > 0 && currentBet >= 0) {
+        // Simple delay before next stage for better UX
+        const timer = setTimeout(() => {
+            if (gameState === 'river') {
+                setGameState('showdown')
+            } else {
+                nextStage()
+            }
+        }, 2000)
+        return () => clearTimeout(timer)
+    }
+  }, [players, currentBet, gameState])
 
   // Fetch Twitch User
   useEffect(() => {
@@ -378,15 +401,8 @@ export default function PokerTable({ settings, onBack }: TableProps) {
                     START GAME
                 </button>
             )}
-            {gameState !== 'waiting' && gameState !== 'showdown' && (
-                <button 
-                  onClick={nextStage}
-                  className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
-                >
-                    NEXT STAGE
-                </button>
-            )}
             <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"><History className="w-5 h-5" /></button>
+        </div>
       </div>
 
       {/* RENDER TABLE */}
