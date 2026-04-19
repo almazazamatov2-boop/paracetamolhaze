@@ -456,6 +456,7 @@ function EmojinoContent() {
                     )}
                  </div>
               </div>
+              </div>
             </motion.div>
           )}
 
