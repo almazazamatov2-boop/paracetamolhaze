@@ -322,14 +322,8 @@ export const PokerLogic = {
         state.activePlayerIndex = nextIdx;
         state.lastRaiserId = state.players[nextIdx].id;
 
-        // Если все остальные all-in (или сфолдили) — переходим сразу к следующей фазе
-        const canAct = state.players.filter(p => !p.folded && !p.allIn);
-        if (canAct.length <= 1 && state.phase !== 'showdown' && state.phase !== 'river') {
-            return this.nextPhase(state);
-        } else if (canAct.length <= 1 && state.phase === 'river') {
-            return this.resolveShowdown(state);
-        }
-
+        // Если все остальные all-in (или сфолдили) — переходим сразу
+        // Раньше тут была рекурсия, убрали её чтобы UI успевал показывать карты
         return state;
     },
 
@@ -426,11 +420,39 @@ export const PokerLogic = {
 
     getHandName(score: number): string {
         const rank = Math.floor(score / 1e10);
+        const subScore = score % 1e10;
+        
         const names = [
             'Старшая карта', 'Пара', 'Две пары', 'Сет',
             'Стрит', 'Флеш', 'Фулл-Хаус', 'Каре',
             'Стрит-Флеш', 'Рояль-Флеш'
         ];
+
+        const rankToName = (r: number) => {
+            const valNames: Record<number, string> = {
+                2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9',
+                10: '10', 11: 'Валетов', 12: 'Дам', 13: 'Королей', 14: 'Тузов'
+            };
+            return valNames[r] || '';
+        };
+
+        if (rank === 1) { // Пара
+            const r = Math.floor(subScore / 1e8);
+            return `Пара ${rankToName(r)}`;
+        }
+        if (rank === 2) { // Две пары
+            const r1 = Math.floor(subScore / 1e4);
+            return `Две пары (${rankToName(r1)})`;
+        }
+        if (rank === 3) { // Сет
+            const r = Math.floor(subScore / 1e4);
+            return `Сет ${rankToName(r)}`;
+        }
+        if (rank === 7) { // Каре
+             const r = Math.floor(subScore / 1e2);
+             return `Каре ${rankToName(r)}`;
+        }
+
         return names[rank] || 'Неизвестно';
     },
 

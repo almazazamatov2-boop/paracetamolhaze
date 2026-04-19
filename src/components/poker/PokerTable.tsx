@@ -243,25 +243,17 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
   // --- HANDLE ACTION ---
   const handleAction = (action: 'fold' | 'call' | 'raise' | 'check', amount?: number) => {
-    // FIX 5: Берём состояние из fullStateRef (не из React useState)
-    if (!fullStateRef.current) {
-      console.error('fullStateRef is null, cannot handle action')
-      return
-    }
-
+    if (!fullStateRef.current) return
     const state = fullStateRef.current
 
-    // Проверяем что сейчас наш ход
+    // Проверяем ход
     const activePlayer = state.players[state.activePlayerIndex]
-    if (!activePlayer || String(activePlayer.id) !== myId) {
-      return
-    }
+    if (!activePlayer || String(activePlayer.id) !== myId) return
 
-    // При рейзе проверяем минимальный рейз
     let raiseAmt = amount
     if (action === 'raise' && raiseAmt !== undefined) {
-      const minRaise = state.currentBet * 2 || settings.blind * 2
-      if (raiseAmt < minRaise) raiseAmt = minRaise
+      const minPossible = currentBet * 2 || settings.blind * 2
+      if (raiseAmt < minPossible) raiseAmt = minPossible
     }
 
     const nextState = PokerLogic.handleAction(state, myId, action, raiseAmt)
@@ -286,6 +278,41 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       winners: nextState.winners || [],
     })
   }
+
+  // --- AUTO ADVANCE FOR ALL-INS (HOST ONLY) ---
+  useEffect(() => {
+    const isHost = joinedPlayers[0]?.id === myId
+    if (!isHost || !fullStateRef.current) return
+
+    const state = fullStateRef.current
+    if (state.phase === 'showdown' || state.phase === 'waiting') return
+
+    const canAct = state.players.filter(p => !p.folded && !p.allIn)
+    if (canAct.length <= 1) {
+      const timer = setTimeout(() => {
+        const nextState = state.phase === 'river' 
+          ? PokerLogic.resolveShowdown(state)
+          : PokerLogic.nextPhase(state)
+
+        deckRef.current = nextState.deck
+        fullStateRef.current = nextState
+        const turnId = nextState.players[nextState.activePlayerIndex]?.id
+
+        broadcastMessage({
+          phase: nextState.phase,
+          state: nextState.phase,
+          players: nextState.players,
+          pot: nextState.pot,
+          currentBet: nextState.currentBet,
+          currentTurn: turnId,
+          communityCards: nextState.communityCards,
+          deck: nextState.deck,
+          winners: nextState.winners || [],
+        })
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [players, currentTurn, joinedPlayers])
 
   // --- SUPABASE + WEBRTC SETUP ---
   useEffect(() => {
@@ -460,9 +487,21 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   }, [players, communityCards])
 
   // Мой текущий бет (для кнопки CALL/CHECK)
-  const myCurrentBet = players.find(p => String(p.id) === myId)?.bet || 0
+  const myPlayer = players.find(p => String(p.id) === myId)
+  const myBalance = myPlayer?.chips || 0
+  const myCurrentBet = myPlayer?.bet || 0
   const canCheck = myCurrentBet >= currentBet
   const isMyTurn = String(currentTurn) === myId
+
+  const minRaise = currentBet * 2 || settings.blind * 2
+  const maxPossibleRaise = myBalance + myCurrentBet
+
+  // Синхронизация ползунка при изменении стейка или ставки
+  useEffect(() => {
+    if (isMyTurn) {
+        setRaiseAmount(Math.min(minRaise, maxPossibleRaise))
+    }
+  }, [isMyTurn, minRaise, maxPossibleRaise])
 
   // Победитель
   const winnerPlayer = winnerInfo.length > 0
@@ -686,27 +725,31 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
               className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
             >
-              {canCheck ? 'CHECK' : `CALL ${currentBet - myCurrentBet}`}
+              {canCheck ? 'CHECK' : (myBalance <= (currentBet - myCurrentBet) ? 'ALL IN' : `CALL ${currentBet - myCurrentBet}`)}
             </button>
 
-            <div className="flex flex-col gap-1 min-w-[200px]">
-              <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5">
+            <div className="flex flex-col gap-1 min-w-[240px]">
+              <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5 gap-4">
+                <input 
+                  type="range"
+                  min={minRaise}
+                  max={maxPossibleRaise}
+                  step={settings.blind}
+                  value={raiseAmount}
+                  onChange={(e) => setRaiseAmount(Number(e.target.value))}
+                  className="flex-1 accent-primary h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
+                />
                 <button
-                  onClick={() => setRaiseAmount(Math.max(settings.blind * 2, raiseAmount - settings.blind))}
-                  className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors"
-                >-</button>
-                <span className="text-[10px] font-black tracking-widest text-primary">RAISE {raiseAmount}</span>
-                <button
-                  onClick={() => setRaiseAmount(raiseAmount + settings.blind)}
-                  className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors"
-                >+</button>
+                  onClick={() => setRaiseAmount(maxPossibleRaise)}
+                  className="text-[8px] font-black bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white"
+                >MAX</button>
               </div>
               <button
                 onClick={() => handleAction('raise', raiseAmount)}
-                disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
+                disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || raiseAmount < minRaise}
                 className="w-full py-4 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase"
               >
-                RAISE {raiseAmount}
+                {raiseAmount >= maxPossibleRaise ? 'ALL IN' : `RAISE ${raiseAmount}`}
               </button>
             </div>
           </div>
@@ -724,9 +767,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
             <div className="flex gap-4 items-center">
               {handHint && (
-                <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl backdrop-blur-md">
-                  <span className="text-[10px] font-black italic text-primary mr-2 uppercase">HINT:</span>
-                  <span className="text-xs font-bold text-white tracking-widest">{handHint}</span>
+                <div className="px-5 py-3 bg-primary/10 border border-primary/20 rounded-2xl backdrop-blur-md">
+                   <span className="text-sm font-black italic text-white tracking-widest uppercase">{handHint}</span>
                 </div>
               )}
 
