@@ -17,6 +17,59 @@ import { supabase } from '@/lib/supabase'
 import PokerCard from './PokerCard'
 import { PokerLogic, type PokerPlayer, type PokerGameState, type Card } from '@/lib/pokerLogic'
 
+// --- POKER CHIP COMPONENT ---
+const CHIP_COLORS: Record<number, string> = {
+  1: 'bg-slate-200 border-slate-400 text-slate-800',   // White
+  5: 'bg-red-600 border-red-800 text-white',         // Red
+  25: 'bg-green-600 border-green-800 text-white',    // Green
+  100: 'bg-black border-gray-800 text-white',       // Black
+  500: 'bg-blue-600 border-blue-800 text-white',     // Blue
+  1000: 'bg-orange-500 border-orange-700 text-white',// Orange
+  5000: 'bg-yellow-500 border-yellow-700 text-white',// Gold
+}
+
+const PokerChip = ({ value, index }: { value: number, index: number }) => {
+  const colorClass = Object.entries(CHIP_COLORS)
+    .reverse()
+    .find(([v]) => value >= Number(v))?.[1] || CHIP_COLORS[1]
+
+  return (
+    <motion.div
+      initial={{ y: -5, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className={`w-8 h-8 md:w-10 md:h-10 rounded-full border-4 ${colorClass} shadow-lg flex items-center justify-center relative translate-z-0`}
+      style={{ 
+        marginTop: index > 0 ? -32 : 0, 
+        zIndex: 50 + index,
+        boxShadow: '0 4px 0 rgba(0,0,0,0.3)'
+      }}
+    >
+      <div className="absolute inset-1 border border-white/20 rounded-full" />
+      <div className="absolute inset-0 border-4 border-dashed border-white/10 rounded-full scale-105" />
+      <span className="text-[8px] md:text-[10px] font-black italic">{value}</span>
+    </motion.div>
+  )
+}
+
+const ChipsStack = ({ amount, className = "" }: { amount: number, className?: string }) => {
+  const denominations = [5000, 1000, 500, 100, 25, 5, 1]
+  const chips: number[] = []
+  let remaining = amount
+  
+  denominations.forEach(d => {
+    while (remaining >= d && chips.length < 12) {
+      chips.push(d)
+      remaining -= d
+    }
+  })
+
+  return (
+    <div className={`flex flex-col-reverse items-center justify-center ${className}`}>
+        {chips.map((val, i) => <PokerChip key={i} value={val} index={i} />)}
+    </div>
+  )
+}
+
 interface TableProps {
   roomId: string
   user: { id: string, display_name: string, profile_image_url: string }
@@ -616,11 +669,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                     transition={{ duration: 0.8, type: 'spring' }}
                     className="flex flex-wrap justify-center gap-1 max-w-[120px] mb-2"
                   >
-                    {[...Array(Math.min(10, Math.ceil(pot / 100)))].map((_, i) => (
-                      <div key={i} className="w-6 h-6 bg-yellow-500 rounded-full border-2 border-yellow-600 shadow-lg flex items-center justify-center">
-                        <div className="w-4 h-4 border border-yellow-700/30 rounded-full" />
-                      </div>
-                    ))}
+                    <ChipsStack amount={pot} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -629,10 +678,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 key={pot}
                 initial={{ scale: 0.8 }}
                 animate={{ scale: 1 }}
-                className="text-4xl font-black italic text-white/40 tracking-widest uppercase flex items-center gap-3"
+                className="text-4xl font-black italic text-white/50 tracking-widest uppercase flex flex-col items-center gap-1"
               >
-                <Coins className="w-8 h-8 text-yellow-500" />
-                POT: {pot}
+                <div className="flex items-center gap-3">
+                    <Coins className="w-8 h-8 text-yellow-500" />
+                    POT: {pot}
+                </div>
               </motion.div>
 
               {/* Winner Info in Center (Subtle) */}
@@ -731,19 +782,16 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                   </div>
                 </div>
 
-                {/* Bet Chips Animation */}
-                {player.bet > 0 && (
                   <motion.div
-                    initial={{ scale: 0, y: 20 }}
-                    animate={{ scale: 1, y: 0 }}
-                    className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/80 px-3 py-1 rounded-full border border-yellow-500/50 shadow-lg z-50 pointer-events-none"
+                    initial={{ scale: 0, scaleZ: 0 }}
+                    animate={{ scale: 1, scaleZ: 1 }}
+                    className="absolute -top-24 left-1/2 -translate-x-1/2 flex flex-col items-center z-50 pointer-events-none"
                   >
-                    <div className="w-3.5 h-3.5 bg-yellow-500 rounded-full border border-yellow-600 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 border border-yellow-700/30 rounded-full" />
+                    <ChipsStack amount={player.bet} />
+                    <div className="bg-black/80 px-3 py-0.5 rounded-full border border-yellow-500/50 shadow-lg mt-1">
+                        <span className="text-[11px] font-black text-yellow-500 italic tracking-tighter">{player.bet}</span>
                     </div>
-                    <span className="text-[11px] font-black text-yellow-500 italic tracking-tighter">{player.bet}</span>
                   </motion.div>
-                )}
 
               </div>
 
@@ -815,7 +863,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               </div>
               <button
                 onClick={() => handleAction('raise', raiseAmount)}
-                disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || raiseAmount < minRaise}
+                disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || (raiseAmount < minRaise && raiseAmount < maxPossibleRaise)}
                 className="w-full py-4 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase"
               >
                 {raiseAmount >= maxPossibleRaise ? 'ALL IN' : `RAISE ${raiseAmount}`}
