@@ -290,8 +290,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     const state = fullStateRef.current
     if (state.phase === 'showdown' || state.phase === 'waiting') return
 
+    // Если круг завершен И остался максимум один игрок с фишками (остальные all-in)
+    // тогда хост двигает фазы чтобы раскрыть карты
     const canAct = state.players.filter(p => !p.folded && !p.allIn)
-    if (canAct.length <= 1) {
+    const isRoundComplete = PokerLogic.isRoundComplete(state)
+
+    if (canAct.length <= 1 && isRoundComplete) {
       const timer = setTimeout(() => {
         const nextState = state.phase === 'river' 
           ? PokerLogic.resolveShowdown(state)
