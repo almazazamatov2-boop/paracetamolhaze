@@ -56,8 +56,8 @@ const PROJECTS = [
   {
     title: 'Покер',
     desc: 'С вебкамерами',
-    href: '#',
-    disabled: true,
+    href: '/poker',
+    disabled: false,
   },
   {
     title: 'ПАСТА',
