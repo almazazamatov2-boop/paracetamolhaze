@@ -195,10 +195,37 @@ function EmojinoContent() {
 
   const twitchLogin = () => signIn('emojino');
 
-  const startNewGame = (mode: string) => {
-    const pool = mode === 'all' ? movies : movies.filter(m => m.type === mode);
-    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 10); // 10 rounds for emojino
-    setGameMovies(shuffled);
+  const fetchMoviesSupabase = async (mode: string) => {
+    try {
+      let query = supabase.from('emojino_movies').select('*');
+      if (mode === 'film') query = query.eq('type', 'film');
+      else if (mode === 'serial') query = query.eq('type', 'serial');
+      
+      const { data, error } = await query.limit(200);
+      
+      if (data && data.length > 0) {
+        return data.sort(() => Math.random() - 0.5).slice(0, 10);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  };
+
+  const startNewGame = async (mode: string) => {
+    let pool: any[] = [];
+    
+    // Try to get from Supabase first
+    const dbData = await fetchMoviesSupabase(mode);
+    if (dbData) {
+      pool = dbData;
+    } else {
+      // Fallback to local data
+      const localPool = mode === 'all' ? movies : movies.filter(m => m.type === mode);
+      pool = [...localPool].sort(() => Math.random() - 0.5).slice(0, 10);
+    }
+
+    setGameMovies(pool);
     setScreen('game');
     setCurrentIndex(0);
     setState({ 
