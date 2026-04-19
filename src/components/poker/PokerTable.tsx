@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import PokerCard from './PokerCard'
+import { PokerLogic, type PokerPlayer, type Card } from '@/lib/pokerLogic'
 
 const SUITS = ['H', 'D', 'C', 'S']
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
@@ -117,154 +118,41 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   }
 
   const startNewGame = () => {
-    const newDeck = createDeck()
-    const activeSeatCount = joinedPlayers.length
-    if (activeSeatCount < 2) return
-
-    // Rotate Dealer
-    dealerIndexRef.current = (dealerIndexRef.current + 1) % activeSeatCount
-    const dealerIdx = dealerIndexRef.current
-    const sbIdx = (dealerIdx + 1) % activeSeatCount
-    const bbIdx = (dealerIdx + 2) % activeSeatCount
-
-    const sbAmount = settings.blind
-    const bbAmount = settings.blind * 2
-
-    const updatedPlayers = joinedPlayers.map((p, i) => {
-        let chips = settings.buyIn
-        let bet = 0
-        if (i === sbIdx) {
-            chips -= sbAmount
-            bet = sbAmount
-        } else if (i === bbIdx) {
-            chips -= bbAmount
-            bet = bbAmount
-        }
-
-        const cards = [newDeck.pop()!, newDeck.pop()!].filter(c => !!c) as {suit: string, value: string}[]
-
-        return {
-            id: String(p.id),
-            name: p.display_name,
-            chips,
-            bet,
-            cards,
-            folded: false,
-            isDealer: i === dealerIdx,
-            isSmallBlind: i === sbIdx,
-            isBigBlind: i === bbIdx
-        }
-    })
-
-    const initialTurnIdx = (bbIdx + 1) % updatedPlayers.length
-
+    const newState = PokerLogic.prepareNewHand(joinedPlayers, dealerIndexRef.current, settings.blind, settings.buyIn);
     broadcastMessage({
         type: 'game_update',
-        state: 'preflop',
-        players: updatedPlayers,
-        deck: newDeck,
-        communityCards: [],
-        pot: sbAmount + bbAmount,
-        currentBet: bbAmount,
-        currentTurn: updatedPlayers[initialTurnIdx].id,
-        lastRaiserId: updatedPlayers[bbIdx].id
-    })
+        ...newState,
+        state: 'preflop' // PokerLogic uses 'preflop'
+    });
   }
 
-  const handleAction = (action: 'fold' | 'call' | 'raise', amount?: number) => {
-    if (currentTurn !== String(user.id || user.display_name)) return
+  const handleAction = (action: 'fold' | 'call' | 'raise' | 'check', amount?: number) => {
+    // ТЕКУЩЕЕ СОСТОЯНИЕ
+    const currentState = {
+        players,
+        pot,
+        sidePots: [],
+        currentBet,
+        dealerIndex: dealerIndexRef.current,
+        activePlayerIndex: players.findIndex(p => p.id === currentTurn),
+        phase: gameState as any,
+        communityCards,
+        lastRaiserId,
+        deck: deckRef.current
+    };
 
-    const me = players.find(p => String(p.id) === String(user.id || user.display_name))
-    if (!me) return
-
-    let newPlayers = [...players]
-    let newPot = pot
-    let newCurrentBet = currentBet
-    let newLastRaiserId = lastRaiserId
-    let playerIdx = players.findIndex(p => String(p.id) === String(me.id))
-
-    if (action === 'fold') {
-        newPlayers[playerIdx].folded = true
-    } else if (action === 'call') {
-        const diff = Math.min(newCurrentBet - (me.bet || 0), me.chips)
-        newPlayers[playerIdx].chips -= diff
-        newPlayers[playerIdx].bet = (me.bet || 0) + diff
-        newPot += diff
-    } else if (action === 'raise') {
-        const totalBet = amount || (newCurrentBet + settings.blind * 2)
-        const diff = totalBet - (me.bet || 0)
-        newPlayers[playerIdx].chips -= diff
-        newPlayers[playerIdx].bet = totalBet
-        newPot += diff
-        newCurrentBet = totalBet
-        newLastRaiserId = me.id
-    }
-
-    // Move turn to next active player
-    let nextIdx = (playerIdx + 1) % players.length
-    let loopCount = 0
-    while ((newPlayers[nextIdx].folded || newPlayers[nextIdx].chips <= 0) && loopCount < players.length) {
-        nextIdx = (nextIdx + 1) % players.length
-        loopCount++
-    }
-
-    // Check if round is over
-    const activePlayers = newPlayers.filter(p => !p.folded)
-    const allMatched = activePlayers.every(p => p.bet === newCurrentBet)
-
-    if (allMatched && (newPlayers[nextIdx].id === newLastRaiserId || activePlayers.length === 1)) {
-        transitionToNextStage(newPlayers, newPot)
-    } else {
-        broadcastMessage({
-            players: newPlayers,
-            pot: newPot,
-            currentBet: newCurrentBet,
-            currentTurn: newPlayers[nextIdx].id,
-            lastRaiserId: newLastRaiserId
-        })
-    }
-  }
-
-  const transitionToNextStage = (currentPlayers: Player[], currentPot: number) => {
-    let nextS = gameState
-    let newCards = [...communityCards]
-    const currentDeck = [...deckRef.current]
-
-    const resetPlayers = currentPlayers.map(p => ({ ...p, bet: 0 }))
-
-    if (gameState === 'preflop') {
-        nextS = 'flop'
-        newCards = [currentDeck.pop()!, currentDeck.pop()!, currentDeck.pop()!].filter(c => !!c)
-    } else if (gameState === 'flop') {
-        nextS = 'turn'
-        const c = currentDeck.pop()
-        if (c) newCards.push(c)
-    } else if (gameState === 'turn') {
-        nextS = 'river'
-        const c = currentDeck.pop()
-        if (c) newCards.push(c)
-    } else if (gameState === 'river') {
-        nextS = 'showdown'
-    }
-
-    const dIdx = resetPlayers.findIndex(p => p.isDealer)
-    let nextIdx = (dIdx + 1) % resetPlayers.length
-    let l = 0
-    while (resetPlayers[nextIdx].folded && l < resetPlayers.length) {
-        nextIdx = (nextIdx + 1) % resetPlayers.length
-        l++
-    }
-
+    const nextState = PokerLogic.handleAction(currentState, String(user.id || user.display_name), action, amount);
+    
     broadcastMessage({
-        state: nextS,
-        players: resetPlayers,
-        communityCards: newCards,
-        deck: currentDeck,
-        currentBet: 0,
-        currentTurn: resetPlayers[nextIdx].id,
-        lastRaiserId: null,
-        pot: currentPot
-    })
+        state: nextState.phase,
+        players: nextState.players,
+        pot: nextState.pot,
+        currentBet: nextState.currentBet,
+        currentTurn: nextState.players[nextState.activePlayerIndex]?.id,
+        communityCards: nextState.communityCards,
+        deck: nextState.deck,
+        lastRaiserId: nextState.lastRaiserId
+    });
   }
 
   // --- AUTOMATION EFFECT ---
@@ -723,12 +611,28 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         </div>
       </div>
 
-      {/* Combination info button */}
-      <div className="absolute bottom-8 right-8">
-        <button className="p-4 bg-black/40 border border-white/10 rounded-full hover:bg-black/60 transition-all text-white/50 hover:text-white">
-            <HelpCircle />
-        </button>
-      </div>
+      {gameState === 'showdown' && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200]">
+            <div className="text-center">
+                <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4 animate-bounce" />
+                <h2 className="text-4xl font-black italic mb-6 shadow-glow">SHOWDOWN!</h2>
+                <div className="text-primary font-bold mb-8 uppercase tracking-widest">Определение победителя...</div>
+                <button onClick={startNewGame} className="px-10 py-4 bg-primary text-white font-black rounded-xl hover:scale-110 transition-transform">СЛЕДУЮЩАЯ РАЗДАЧА</button>
+            </div>
+        </div>
+      )}
+
+      {currentTurn === String(user.id || user.display_name) && gameState !== 'showdown' && (
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 pointer-events-none">
+            <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-primary/20 border border-primary text-primary px-8 py-2 rounded-full font-black italic animate-bounce shadow-[0_0_30px_rgba(255,69,0,0.5)] backdrop-blur-sm"
+            >
+                ВАШ ХОД!
+            </motion.div>
+        </div>
+      )}
 
     </div>
   )
