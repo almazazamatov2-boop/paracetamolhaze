@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { memo } from 'react'
+import { Trophy } from 'lucide-react'
 
 interface CardProps {
   suit: string // 'H' | 'D' | 'C' | 'S'

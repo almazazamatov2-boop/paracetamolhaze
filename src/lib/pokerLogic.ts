@@ -324,8 +324,10 @@ export const PokerLogic = {
 
         // Если все остальные all-in (или сфолдили) — переходим сразу к следующей фазе
         const canAct = state.players.filter(p => !p.folded && !p.allIn);
-        if (canAct.length <= 1 && state.phase !== 'showdown') {
+        if (canAct.length <= 1 && state.phase !== 'showdown' && state.phase !== 'river') {
             return this.nextPhase(state);
+        } else if (canAct.length <= 1 && state.phase === 'river') {
+            return this.resolveShowdown(state);
         }
 
         return state;
