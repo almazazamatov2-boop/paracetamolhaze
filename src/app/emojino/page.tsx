@@ -383,12 +383,12 @@ function EmojinoContent() {
             >
               {/* Left Column: Menu */}
               <div className="lg:col-span-6 space-y-12">
-                <div className="space-y-4 overflow-visible w-full py-4">
-                  <div className="flex flex-col items-start space-y-0 overflow-visible w-full">
-                    <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[0.8] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible">
+                <div className="space-y-0 overflow-visible w-full py-10">
+                  <div className="flex flex-col items-start space-y-[-2rem] overflow-visible w-full">
+                    <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[1.1] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible px-4">
                       Угадай
                     </h1>
-                    <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[0.8] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible -ml-4">
+                    <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[1.1] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible -ml-4 px-4 pb-4">
                       Эмоджи
                     </h1>
                   </div>

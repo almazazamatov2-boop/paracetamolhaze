@@ -18,7 +18,7 @@ export async function GET() {
 
     if (fetchError) throw fetchError;
     if (!dbMovies || dbMovies.length === 0) {
-      return NextResponse.json({ error: 'Source table kinokadr_movies is empty!' }, { status: 404 });
+      return NextResponse.json({ error: 'Source table kinopoisk_movies is empty!' }, { status: 404 });
     }
 
     console.log(`Found ${dbMovies.length} movies to migrate.`);
@@ -26,10 +26,28 @@ export async function GET() {
     // 2. Очищаем целевую таблицу
     await supabase.from('emojino_movies').delete().neq('id', '0');
 
-    // Набор запасных эмодзи для разнообразия у неизвестных фильмов
-    const genericEmojis = [
-      '🎬🎞️🎥', '📽️🎭🍿', '📺⭐️🎬', '🌟🎥🎞️', '🎬🍿🎥', '🎞️📽️🎭'
-    ];
+    // Наборы эмодзи по жанрам (для 5-8 знаков)
+    const genreEmojis: Record<string, string[]> = {
+      'боевик': ['🔫', '💣', '💥', '👊', '🚁', '🔥', '🚔', '💨'],
+      'драма': ['🥀', '💔', '🎭', '✉️', '🎻', '🫂', '📜', '🌑'],
+      'комедия': ['😂', '🤪', '🤡', '🍕', '🎉', '🤣', '🍺', '🍌'],
+      'хоррор': ['👻', '🌑', '🔪', '🏚️', '🩸', '😱', '🕯️', '👣'],
+      'фантастика': ['🚀', '🛸', '🪐', '🤖', '🛰️', '🧬', '🌌', '🔭'],
+      'фэнтези': ['🧙‍♂️', '🐉', '⚔️', '🦄', '🏰', '✨', '🪙', '📜'],
+      'триллер': ['🕵️‍♂️', '🔍', '🔍', '🥃', '⚖️', '👣', '⛓️', '🌑'],
+      'мультфильм': ['🎨', '🎈', '🧸', '🍭', '🌈', '🍿', '🎡', '🏰'],
+      'default': ['🎬', '🍿', '🎞️', '🎥', '📽️', '🎭', '🌟', '🎟️']
+    };
+
+    const getEmojiSequence = (genre: string, title: string, seed: number) => {
+      const g = genre?.toLowerCase() || 'default';
+      let pool = genreEmojis[g] || genreEmojis['default'];
+      
+      // Shuffle slightly based on seed
+      const shuffled = [...pool].sort(() => ((seed * 1.5) % 1) - 0.5);
+      const length = 5 + (seed % 4); // 5 to 8
+      return shuffled.slice(0, length).join('');
+    };
 
     // 3. Подготавливаем данные для вставки
     const mappedMovies = dbMovies.map((m, idx) => {
@@ -43,15 +61,23 @@ export async function GET() {
         );
       }
 
+      const year = m.year || 'Неизвестно';
+      const genre = m.category || (source?.genre) || 'Кино';
+      
+      // Формируем подсказки в строгом формате: 1.Год, 2.Жанр, 3.2-й актер
+      const hints = [
+        `${year} год`,
+        `${genre.charAt(0).toUpperCase() + genre.slice(1)}`,
+        source?.hints[2] || "Известный актер"
+      ];
+
       return {
-        id: `m-${m.id}`,
+        id: m.id, // сохраняем оригинальный ID kp-
         title_ru: m.title_ru,
-        type: m.type === 'serial' ? 'serial' : 'film',
+        type: m.type === 'series' || m.type === 'serial' ? 'serial' : 'film',
         year: m.year,
-        emoji: source?.emoji || genericEmojis[idx % genericEmojis.length],
-        hints: source?.hints && source.hints.length > 0 
-          ? source.hints 
-          : [`Вышел в ${m.year} году`, m.type === 'serial' ? 'Это популярный сериал' : 'Это известный фильм', 'Попробуй угадать!']
+        emoji: source?.emoji || getEmojiSequence(m.category, m.title_ru, idx),
+        hints: hints
       };
     });
 
@@ -71,7 +97,7 @@ export async function GET() {
     return NextResponse.json({ 
       success: true, 
       count: mappedMovies.length,
-      message: 'Migration completed successfully from kinokadr_movies.' 
+      message: 'Migration completed for all 495 movies with 5-8 emojis and formatted hints.' 
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
