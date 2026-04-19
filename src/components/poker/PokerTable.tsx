@@ -48,6 +48,8 @@ export default function PokerTable({ settings, onBack }: TableProps) {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [user, setUser] = useState<{ id: string, display_name: string, profile_image_url: string } | null>(null)
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
+  const [isMicOn, setIsMicOn] = useState(true)
+  const [isVideoOn, setIsVideoOn] = useState(true)
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const peerConnections = useRef<Record<string, RTCPeerConnection>>({})
@@ -177,6 +179,23 @@ export default function PokerTable({ settings, onBack }: TableProps) {
         .catch(err => console.error("Webcam error:", err))
     }
   }, [settings.withWebcams])
+
+  // Toggle handlers
+  const toggleMic = () => {
+    if (localStream) {
+        const newState = !isMicOn
+        localStream.getAudioTracks().forEach(track => track.enabled = newState)
+        setIsMicOn(newState)
+    }
+  }
+
+  const toggleVideo = () => {
+    if (localStream) {
+        const newState = !isVideoOn
+        localStream.getVideoTracks().forEach(track => track.enabled = newState)
+        setIsVideoOn(newState)
+    }
+  }
 
   useEffect(() => {
     if (videoRef.current && localStream) videoRef.current.srcObject = localStream
@@ -366,14 +385,15 @@ export default function PokerTable({ settings, onBack }: TableProps) {
                         )}
                     </div>
 
-                    {/* Hand Cards (Visible if Me or Showdown) */}
+                    {/* Hand Cards (Visible if Me or Showdown) - MOVED TO THE RIGHT */}
                     {isMe && player.cards.length > 0 && !player.folded && (
-                         <div className="absolute -bottom-8 flex gap-1 scale-50 md:scale-75 origin-top">
+                         <div className="absolute left-[110%] top-1/2 -translate-y-1/2 flex gap-1 scale-50 md:scale-75 origin-left z-30">
                             {player.cards.map((card, ci) => (
                                 <motion.div
                                     key={ci}
-                                    initial={{ y: 20, rotate: -10 + ci * 20 }}
-                                    animate={{ y: 0 }}
+                                    initial={{ x: -20, opacity: 0, rotate: -10 + ci * 20 }}
+                                    animate={{ x: 0, opacity: 1 }}
+                                    transition={{ delay: 0.5 + ci * 0.1 }}
                                 >
                                     <PokerCard suit={card.suit} value={card.value} />
                                 </motion.div>
@@ -387,30 +407,43 @@ export default function PokerTable({ settings, onBack }: TableProps) {
 
       {/* CONTROLS: Bottom HUD */}
       <div className="absolute bottom-0 left-0 w-full p-8 flex items-end justify-center pointer-events-none">
-        <div className="flex items-center gap-4 bg-black/80 backdrop-blur-2xl border border-white/10 p-6 rounded-3xl pointer-events-auto transform translate-y-[10px] hover:translate-y-0 transition-transform duration-500 shadow-2xl">
-            <div className="flex flex-col gap-2">
-                <button className="px-10 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95">FOLD</button>
-            </div>
-            <div className="flex flex-col gap-2">
-                <button className="px-10 py-4 bg-white/10 hover:bg-white/20 rounded-xl font-black italic transition-all active:scale-95">CHECK</button>
-            </div>
-            <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 mb-2 bg-black/40 rounded-lg p-1">
-                    <button className="w-8 h-8 rounded bg-white/5">-</button>
-                    <span className="flex-1 text-center font-black">2.5X</span>
-                    <button className="w-8 h-8 rounded bg-white/5">+</button>
+        <div className="flex flex-wrap items-center gap-4 bg-black/80 backdrop-blur-2xl border border-white/10 p-4 md:p-6 rounded-3xl pointer-events-auto transform translate-y-[10px] hover:translate-y-0 transition-all duration-500 shadow-2xl">
+            
+            <div className="flex items-center gap-3">
+              <button className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase">FOLD</button>
+              <button className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase">CHECK</button>
+              
+              <div className="flex flex-col gap-1 min-w-[200px]">
+                <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5">
+                    <button className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors">-</button>
+                    <span className="text-[10px] font-black tracking-widest text-primary">RAISE 2.5X</span>
+                    <button className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors">+</button>
                 </div>
-                <button className="px-10 py-4 bg-primary hover:bg-primary/90 text-white rounded-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95">RAISE 40</button>
+                <button className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase">RAISE 40</button>
+              </div>
             </div>
 
-            <div className="ml-8 border-l border-white/10 pl-8 flex items-center gap-4">
+            <div className="h-12 w-px bg-white/10 mx-4 hidden md:block" />
+
+            <div className="flex items-center gap-6">
                 <div className="flex flex-col">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-widest">ВАШ СТЕК</span>
-                    <span className="text-2xl font-black italic text-yellow-500 flex items-center gap-2"><Coins /> 1,450</span>
+                    <span className="text-xl font-black italic text-yellow-500 flex items-center gap-2 tracking-tight"><Coins className="w-5 h-5" /> 1,450</span>
                 </div>
+                
                 <div className="flex gap-2">
-                    <button className="p-3 bg-twitch-purple/20 text-twitch-purple rounded-xl"><Mic /></button>
-                    <button className="p-3 bg-twitch-purple/20 text-twitch-purple rounded-xl"><Video /></button>
+                    <button 
+                      onClick={toggleMic}
+                      className={`p-4 rounded-xl transition-all ${isMicOn ? 'bg-twitch-purple/20 text-twitch-purple hover:bg-twitch-purple/30' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
+                    >
+                      {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
+                    </button>
+                    <button 
+                      onClick={toggleVideo}
+                      className={`p-4 rounded-xl transition-all ${isVideoOn ? 'bg-twitch-purple/20 text-twitch-purple hover:bg-twitch-purple/30' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
+                    >
+                      {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
+                    </button>
                 </div>
             </div>
         </div>

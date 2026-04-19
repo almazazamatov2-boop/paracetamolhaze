@@ -37,20 +37,20 @@ const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: Card
     >
       {/* Front Side */}
       <div 
-        className={`absolute inset-0 backface-hidden bg-white rounded-lg p-2 flex flex-col justify-between border border-black/10 shadow-lg`}
+        className={`absolute inset-0 backface-hidden bg-white rounded-lg p-1.5 md:p-2 flex flex-col justify-between border border-black/10 shadow-lg overflow-hidden`}
       >
-        <div className={`text-lg font-bold leading-none ${suitColors[suit]}`}>
+        <div className={`text-xs md:text-sm font-bold leading-none ${suitColors[suit]}`}>
           {value === 'T' ? '10' : value}
-          <div className="text-xl -mt-1">{suitSymbols[suit]}</div>
+          <div className="text-sm md:text-base -mt-0.5">{suitSymbols[suit]}</div>
         </div>
         
-        <div className={`text-3xl self-center ${suitColors[suit]}`}>
+        <div className={`text-xl md:text-2xl self-center pointer-events-none ${suitColors[suit]}`}>
           {suitSymbols[suit]}
         </div>
 
-        <div className={`text-lg font-bold leading-none rotate-180 ${suitColors[suit]}`}>
+        <div className={`text-xs md:text-sm font-bold leading-none rotate-180 ${suitColors[suit]}`}>
           {value === 'T' ? '10' : value}
-          <div className="text-xl -mt-1">{suitSymbols[suit]}</div>
+          <div className="text-sm md:text-base -mt-0.5">{suitSymbols[suit]}</div>
         </div>
       </div>
 
