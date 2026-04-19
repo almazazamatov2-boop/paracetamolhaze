@@ -328,8 +328,9 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     return () => {
       channel.unsubscribe()
       Object.values(peerConnections.current).forEach(pc => pc.close())
+      peerConnections.current = {}
     }
-  }, [user, localStream, settings.withWebcams])
+  }, [user, roomId, settings.withWebcams]) // REMOVED localStream to prevent loop
 
   // Unified webcam initialization
   useEffect(() => {
@@ -345,18 +346,31 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
             .catch(err => console.error("Webcam error:", err))
     }
 
-    return () => {
-        activeStream?.getTracks().forEach(track => track.stop())
-    }
   }, [settings.withWebcams])
+
+  // ADD TRACKS DYNAMICALLY
+  useEffect(() => {
+    if (!localStream) return
+    
+    Object.values(peerConnections.current).forEach(pc => {
+        // Only add if not already added
+        const senders = pc.getSenders()
+        localStream.getTracks().forEach(track => {
+            const alreadyExists = senders.find(s => s.track?.id === track.id)
+            if (!alreadyExists) {
+                pc.addTrack(track, localStream)
+            }
+        })
+    })
+  }, [localStream])
 
   // Sync state logic (Dynamic players)
   const playersWithState = useMemo(() => {
     return Array.from({ length: settings.size }).map((_, i) => {
+        // Find player who specifically joined this seat (or just distribute them)
         const presencePlayer = joinedPlayers[i]
         if (!presencePlayer) return null
         
-        // Match live user with game state (chips, cards, etc)
         const gameStatePlayer = players.find(p => p.id === presencePlayer.id)
         return {
             id: presencePlayer.id,
