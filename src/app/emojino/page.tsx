@@ -68,9 +68,9 @@ function ProfileModal({ isOpen, onClose, user, stats }: { isOpen: boolean, onClo
            <div className="flex items-center justify-between p-5 rounded-3xl bg-white/[0.03] border border-white/[0.06]">
               <div className="flex items-center gap-3">
                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 font-black text-xs">
-                    В
+                    К
                  </div>
-                 <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest font-black">ВСЕ</span>
+                 <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest font-black">КОМБО</span>
               </div>
               <span className="text-xl font-black text-white">{stats.all || 0}</span>
            </div>
@@ -422,13 +422,13 @@ function EmojinoContent() {
           {screen === 'game' && gameMovies[currentIndex] && (
             <motion.div 
               key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-              className="w-full max-w-sm flex flex-col gap-5"
+              className="w-full max-w-xl flex flex-col gap-5"
             >
               {/* Emoji Card */}
-              <div className="relative aspect-[4/3] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl flex items-center justify-center group p-8">
+              <div className="relative aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl flex items-center justify-center group p-8">
                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-red-500/10 opacity-50" />
                  
-                 <div className="relative z-10 text-6xl tracking-[0.2em] flex flex-wrap justify-center items-center gap-4 text-center">
+                 <div className="relative z-10 text-6xl tracking-[0.2em] flex flex-nowrap justify-center items-center gap-6 text-center whitespace-nowrap">
                     {Array.from(gameMovies[currentIndex].emoji).map((char, i) => (
                       <motion.span
                         key={i}
