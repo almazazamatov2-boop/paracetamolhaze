@@ -124,8 +124,52 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   // FIX 2: Канонический стейт — избегаем реконструкции из разрозненных useState
   const fullStateRef = useRef<PokerGameState | null>(null)
 
-  // FIX 3: Собственные карты — не теряем их при получении broadcast
   const myCardsRef = useRef<{ suit: string, value: string }[]>([])
+  const [timeLeft, setTimeLeft] = useState(20)
+
+  // Качественные звуковые ассеты
+  const SOUNDS = {
+    deal: 'https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3',
+    chip: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
+    check: 'https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3',
+    fold: 'https://assets.mixkit.co/active_storage/sfx/2015/2015-preview.mp3',
+    win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3',
+    tick: 'https://assets.mixkit.co/active_storage/sfx/2016/2016-preview.mp3',
+  }
+
+  const playSound = (type: keyof typeof SOUNDS) => {
+    const audio = new Audio(SOUNDS[type])
+    audio.volume = 0.3
+    audio.play().catch(() => {})
+  }
+
+  // Таймер хода
+  useEffect(() => {
+    if (gameState !== 'playing' || !currentTurn) {
+        setTimeLeft(20)
+        return
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 6 && prev > 1) {
+            playSound('tick')
+        }
+        
+        if (prev <= 1) {
+          if (String(currentTurn) === myId) {
+             const currentPlayer = fullStateRef.current?.players.find(p => String(p.id) === myId)
+             const canCheckNow = (fullStateRef.current?.currentBet || 0) <= (currentPlayer?.bet || 0)
+             handleAction(canCheckNow ? 'check' : 'fold')
+          }
+          return 20
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [currentTurn, gameState])
 
   const peerRef = useRef<any>(null)
   const localStreamRef = useRef<MediaStream | null>(localStream)
@@ -313,6 +357,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     }
 
     const nextState = PokerLogic.handleAction(state, myId, action, raiseAmt)
+    
+    // Играем звук действия
+    if (action === 'fold') playSound('fold')
+    else if (action === 'raise') playSound('chip')
+    else if (action === 'call') playSound('chip')
+    else playSound('check')
 
     deckRef.current = nextState.deck
     fullStateRef.current = nextState
@@ -749,7 +799,18 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               )}
 
               {/* Player Card (Webcam or Avatar) */}
-              <div className={`relative w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${player.isCurrent ? 'border-primary scale-110' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}>
+              <div 
+                className={`relative w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden border-4 transition-all duration-300 ${player.isCurrent ? 'border-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}
+              >
+                {/* Timer Liquid Overlay (shinks from top) */}
+                {player.isCurrent && (
+                    <motion.div 
+                        initial={{ height: '100%' }}
+                        animate={{ height: `${(timeLeft / 20) * 100}%` }}
+                        transition={{ duration: 1, ease: 'linear' }}
+                        className={`absolute inset-0 ${timeLeft <= 5 ? 'bg-red-600/30' : 'bg-red-500/10'} pointer-events-none z-0`}
+                    />
+                )}
                 {settings.withWebcams ? (
                   <div className="relative w-full h-full bg-black">
                     {isMe ? (
