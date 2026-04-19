@@ -17,11 +17,11 @@ import {
 import { supabase } from '@/lib/supabase'
 import PokerCard from './PokerCard'
 
-// Game Logic Constants
-const SUITS = ['H', 'D', 'C', 'S']
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
 
 interface TableProps {
+  roomId: string
+  settings: {
   settings: {
     name: string
     size: number
@@ -58,10 +58,10 @@ export default function PokerTable({ settings, onBack }: TableProps) {
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const peerConnections = useRef<Record<string, RTCPeerConnection>>({})
-  const roomId = useMemo(() => "poker-main-room", [])
   const deckRef = useRef<{ suit: string, value: string }[]>([])
   const [currentTurn, setCurrentTurn] = useState<string | null>(null)
   const [currentBet, setCurrentBet] = useState(0)
+  const [joinedPlayers, setJoinedPlayers] = useState<any[]>([])
 
   // --- GAME LOGIC HELPERS ---
   const createDeck = () => {
@@ -226,7 +226,11 @@ export default function PokerTable({ settings, onBack }: TableProps) {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
+        const onlineUsers = Object.values(state).flat() as any[]
+        setJoinedPlayers(onlineUsers)
+
         const onlineIds = Object.keys(state)
+        // Connect to new peers...
 
         // Connect to new peers
         onlineIds.forEach(pid => {
@@ -285,71 +289,46 @@ export default function PokerTable({ settings, onBack }: TableProps) {
     }
   }, [user, localStream, settings.withWebcams])
 
-  // Setup local webcam
+  // Unified webcam initialization
   useEffect(() => {
-    if (settings.withWebcams && !localStream) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-          setLocalStream(stream)
-        })
-        .catch(err => console.error("Webcam error:", err))
-    }
-  }, [settings.withWebcams])
-
-  // Toggle handlers
-  const toggleMic = () => {
-    if (localStream) {
-        const newState = !isMicOn
-        localStream.getAudioTracks().forEach(track => track.enabled = newState)
-        setIsMicOn(newState)
-    }
-  }
-
-  const toggleVideo = () => {
-    if (localStream) {
-        const newState = !isVideoOn
-        localStream.getVideoTracks().forEach(track => track.enabled = newState)
-        setIsVideoOn(newState)
-    }
-  }
-
-  useEffect(() => {
-    if (videoRef.current && localStream) videoRef.current.srcObject = localStream
-  }, [localStream])
-
-  // Initialize players
-  useEffect(() => {
-    const mockPlayers: Player[] = Array.from({ length: settings.size }).map((_, i) => ({
-      id: i === 0 ? (user?.id || user?.display_name || 'me') : `player-${i}`,
-      name: i === 0 ? (user?.display_name || 'Вы (You)') : `Игрок ${i + 1}`,
-      chips: settings.buyIn,
-      isReady: true,
-      isDealer: i === 1,
-      isCurrent: i === 0,
-      cards: [],
-      folded: false,
-      bet: 0
-    }))
-    setPlayers(mockPlayers)
-    setCommunityCards([])
-    setPot(0)
-    setGameState('waiting')
-  }, [settings, user])
-
-  // Setup webcam
-  useEffect(() => {
+    let activeStream: MediaStream | null = null
+    
     if (settings.withWebcams) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(stream => {
-          setLocalStream(stream)
-          if (videoRef.current) videoRef.current.srcObject = stream
-        })
-        .catch(err => console.error("Webcam error:", err))
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(stream => {
+                activeStream = stream
+                setLocalStream(stream)
+                if (videoRef.current) videoRef.current.srcObject = stream
+            })
+            .catch(err => console.error("Webcam error:", err))
     }
+
     return () => {
-      localStream?.getTracks().forEach(track => track.stop())
+        activeStream?.getTracks().forEach(track => track.stop())
     }
   }, [settings.withWebcams])
+
+  // Sync state logic (Dynamic players)
+  const playersWithState = useMemo(() => {
+    return Array.from({ length: settings.size }).map((_, i) => {
+        const presencePlayer = joinedPlayers[i]
+        if (!presencePlayer) return null
+        
+        // Match live user with game state (chips, cards, etc)
+        const gameStatePlayer = players.find(p => p.id === presencePlayer.id)
+        return {
+            id: presencePlayer.id,
+            name: presencePlayer.display_name,
+            profile: presencePlayer.profile_image_url,
+            chips: gameStatePlayer?.chips ?? settings.buyIn,
+            isCurrent: gameStatePlayer?.isCurrent || false,
+            isDealer: gameStatePlayer?.isDealer || false,
+            folded: gameStatePlayer?.folded || false,
+            bet: gameStatePlayer?.bet || 0,
+            cards: gameStatePlayer?.cards || []
+        }
+    })
+  }, [joinedPlayers, players, settings])
 
   // Player positions around the table (percentages)
   const getPlayerPosition = (index: number, total: number) => {
@@ -393,7 +372,16 @@ export default function PokerTable({ settings, onBack }: TableProps) {
         </div>
 
         <div className="flex items-center gap-3">
-            {gameState === 'waiting' && players[0]?.id === (user?.id || user?.display_name) && (
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href)
+                alert("Ссылка на стол скопирована!")
+              }}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+            >
+                INVITE
+            </button>
+            {gameState === 'waiting' && joinedPlayers[0]?.id === (user?.id || user?.display_name) && (
                 <button 
                   onClick={startNewGame}
                   className="px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg shadow-primary/20 animate-pulse"
@@ -440,9 +428,25 @@ export default function PokerTable({ settings, onBack }: TableProps) {
         </div>
 
         {/* Players */}
-        {players.map((player, i) => {
-            const pos = getPlayerPosition(i, players.length)
-            const isMe = player.id === 'me'
+        {playersWithState.map((player, i) => {
+            if (!player) {
+                const pos = getPlayerPosition(i, settings.size)
+                return (
+                    <div 
+                        key={`empty-${i}`} 
+                        className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 scale-75 cursor-pointer hover:opacity-50 transition-all"
+                        style={{ left: pos.left, top: pos.top }}
+                    >
+                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-2 border-dashed border-white/40 flex flex-col items-center justify-center gap-2">
+                             <span className="text-2xl">🪑</span>
+                             <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">СВОБОДНО</span>
+                        </div>
+                    </div>
+                )
+            }
+
+            const pos = getPlayerPosition(i, settings.size)
+            const isMe = player.id === (user?.id || user?.display_name)
 
             return (
                 <motion.div
@@ -563,18 +567,19 @@ export default function PokerTable({ settings, onBack }: TableProps) {
                     >+</button>
                 </div>
                 <button 
+                  disabled={!players.find(p => p.id === (user?.id || user?.display_name))?.isCurrent}
                   onClick={() => {
                     const me = players.find(p => p.id === (user?.id || user?.display_name))
                     if (me && me.chips >= raiseAmount) {
                       broadcastMessage({
                           type: 'action',
-                          players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, chips: p.chips - raiseAmount, bet: p.bet + raiseAmount} : p),
+                          players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, chips: p.chips - raiseAmount, bet: p.bet + raiseAmount, isCurrent: false} : p),
                           pot: pot + raiseAmount,
                           currentBet: (me.bet || 0) + raiseAmount
                       })
                     }
                   }}
-                  className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase"
+                  className="w-full py-4 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase"
                 >
                   RAISE {raiseAmount}
                 </button>

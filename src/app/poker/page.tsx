@@ -15,6 +15,7 @@ import {
   Trophy,
   Dices
 } from 'lucide-react'
+import { useSearchParams } from 'next/navigation'
 import PokerTable from '@/components/poker/PokerTable'
 
 // Types
@@ -30,7 +31,9 @@ interface TableSettings {
 }
 
 export default function PokerPage() {
+  const searchParams = useSearchParams()
   const [view, setView] = useState<View>('lobby')
+  const [roomId, setRoomId] = useState<string>('')
   const [settings, setSettings] = useState<TableSettings>({
     name: 'Стол Paracetamol',
     size: 6,
@@ -38,6 +41,22 @@ export default function PokerPage() {
     blind: 10,
     withWebcams: true
   })
+
+  // Handle room join from URL
+  useEffect(() => {
+    const r = searchParams.get('room')
+    if (r) {
+        setRoomId(r)
+        setView('game')
+    }
+  }, [searchParams])
+
+  const createRoom = () => {
+    const id = Math.random().toString(36).substring(2, 9)
+    setRoomId(id)
+    window.history.pushState({}, '', `?room=${id}`)
+    setView('game')
+  }
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white overflow-hidden relative">
@@ -184,7 +203,7 @@ export default function PokerPage() {
               </div>
 
               <button 
-                onClick={() => setView('game')}
+                onClick={createRoom}
                 className="w-full mt-10 bg-primary hover:bg-primary/90 text-white font-black italic tracking-widest py-4 rounded-xl shadow-[0_0_30px_rgba(255,69,0,0.3)] transition-all hover:scale-[1.02] active:scale-[0.98]"
               >
                 СОЗДАТЬ И НАЧАТЬ
@@ -201,7 +220,10 @@ export default function PokerPage() {
             exit={{ opacity: 0 }}
             className="w-full h-screen"
           >
-            <PokerTable settings={settings} onBack={() => setView('lobby')} />
+            <PokerTable roomId={roomId} settings={settings} onBack={() => {
+                setView('lobby')
+                window.history.pushState({}, '', '/poker')
+            }} />
           </motion.div>
         )}
       </AnimatePresence>
