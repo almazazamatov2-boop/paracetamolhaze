@@ -267,7 +267,10 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
         const onlineUsers = Object.values(state).flat() as any[]
-        setJoinedPlayers(onlineUsers)
+        
+        // Deduplicate users (Prevents ghost avatars)
+        const uniqueUsers = Array.from(new Map(onlineUsers.map(u => [u.id, u])).values())
+        setJoinedPlayers(uniqueUsers)
 
         const onlineIds = Object.keys(state)
         // Connect to new peers...
