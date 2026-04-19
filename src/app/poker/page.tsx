@@ -15,7 +15,7 @@ import {
   Trophy,
   Dices
 } from 'lucide-react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import PokerTable from '@/components/poker/PokerTable'
 
 // Types
@@ -43,9 +43,12 @@ export default function PokerPage() {
 }
 
 function PokerConsole() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [view, setView] = useState<View>('lobby')
   const [roomId, setRoomId] = useState<string>('')
+  const [user, setUser] = useState<any>(null)
+  const [loadingAuth, setLoadingAuth] = useState(true)
   const [settings, setSettings] = useState<TableSettings>({
     name: 'Стол Paracetamol',
     size: 6,
@@ -53,6 +56,17 @@ function PokerConsole() {
     blind: 10,
     withWebcams: true
   })
+
+  // Fetch Auth
+  useEffect(() => {
+    fetch('/api/auth_me')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setUser(data)
+        setLoadingAuth(false)
+      })
+      .catch(() => setLoadingAuth(false))
+  }, [])
 
   // Handle room join from URL
   useEffect(() => {
@@ -66,8 +80,40 @@ function PokerConsole() {
   const createRoom = () => {
     const id = Math.random().toString(36).substring(2, 9)
     setRoomId(id)
-    window.history.pushState({}, '', `?room=${id}`)
+    router.push(`?room=${id}`)
     setView('game')
+  }
+
+  if (loadingAuth) {
+    return (
+        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+            <div className="text-primary font-black italic animate-pulse">AUTENTICATING...</div>
+        </div>
+    )
+  }
+
+  if (!user) {
+    return (
+        <div className="min-h-screen bg-[#0a0a0a] flex flex-col items-center justify-center p-4">
+             <motion.h1 
+                initial={{ scale: 0.9 }}
+                animate={{ scale: 1 }}
+                className="text-5xl font-black italic tracking-tighter mb-8 paracetamol-di-letters relative inline-block px-4 py-2 bg-primary shadow-[0_0_30px_rgba(255,69,0,0.5)]"
+              >
+                POKER
+              </motion.h1>
+             <div className="bg-[#151515] border border-white/10 p-8 rounded-3xl text-center max-w-md">
+                <h2 className="text-2xl font-bold mb-4">Вход в игру</h2>
+                <p className="text-muted-foreground mb-8 text-sm">Для игры в покер с вебкамерами необходимо авторизоваться через Twitch.</p>
+                <button 
+                  onClick={() => window.location.href = '/api/auth/twitch'}
+                  className="w-full bg-twitch-purple hover:bg-twitch-purple/90 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-twitch-purple/20"
+                >
+                    АВТОРИЗОВАТЬСЯ ЧЕРЕЗ TWITCH
+                </button>
+             </div>
+        </div>
+    )
   }
 
   return (
@@ -232,9 +278,9 @@ function PokerConsole() {
             exit={{ opacity: 0 }}
             className="w-full h-screen"
           >
-            <PokerTable roomId={roomId} settings={settings} onBack={() => {
+            <PokerTable roomId={roomId} user={user} settings={settings} onBack={() => {
                 setView('lobby')
-                window.history.pushState({}, '', '/poker')
+                router.push('/poker')
             }} />
           </motion.div>
         )}

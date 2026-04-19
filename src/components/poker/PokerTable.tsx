@@ -22,6 +22,7 @@ const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
 
 interface TableProps {
   roomId: string
+  user: { id: string, display_name: string, profile_image_url: string }
   settings: {
     name: string
     size: number
@@ -44,14 +45,13 @@ interface Player {
   bet: number
 }
 
-export default function PokerTable({ roomId, settings, onBack }: TableProps) {
+export default function PokerTable({ roomId, user, settings, onBack }: TableProps) {
   const [players, setPlayers] = useState<Player[]>([])
   const [communityCards, setCommunityCards] = useState<{ suit: string, value: string }[]>([])
   const [pot, setPot] = useState(0)
   const [gameState, setGameState] = useState<'waiting' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('waiting')
   const [raiseAmount, setRaiseAmount] = useState(40)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
-  const [user, setUser] = useState<{ id: string, display_name: string, profile_image_url: string } | null>(null)
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
   const [isMicOn, setIsMicOn] = useState(true)
   const [isVideoOn, setIsVideoOn] = useState(true)
@@ -168,19 +168,32 @@ export default function PokerTable({ roomId, settings, onBack }: TableProps) {
     }
   }, [players, currentBet, gameState])
 
-  // Fetch Twitch User
+  // Automatically enroll new presence players into the game state
   useEffect(() => {
-    fetch('/api/auth_me')
-      .then(res => res.json())
-      .then(data => {
-        if (!data.error) setUser(data)
-      })
-      .catch(console.error)
-  }, [])
+    setPlayers(prev => {
+        const newPlayers = [...prev]
+        joinedPlayers.forEach(jp => {
+            if (!newPlayers.find(p => p.id === jp.id)) {
+                newPlayers.push({
+                    id: jp.id,
+                    name: jp.display_name,
+                    chips: settings.buyIn,
+                    isReady: true,
+                    isDealer: false,
+                    isCurrent: false,
+                    cards: [],
+                    folded: false,
+                    bet: 0
+                })
+            }
+        })
+        return newPlayers
+    })
+  }, [joinedPlayers, settings.buyIn])
 
   // Setup WebRTC and Supabase Signaling
   useEffect(() => {
-    if (!user || !settings.withWebcams) return
+    if (!user || !roomId) return
 
     const channel = supabase.channel(roomId, {
       config: { presence: { key: user.id || user.display_name } }
