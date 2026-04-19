@@ -263,7 +263,7 @@ export default function PokerTable({ settings, onBack }: TableProps) {
   }, [players, communityCards])
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505]">
+    <div className="relative w-full h-full flex flex-col items-center justify-start pt-16 md:pt-24 p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505]">
       
       {/* HUD: Top Bar */}
       <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between z-50">
@@ -351,9 +351,6 @@ export default function PokerTable({ settings, onBack }: TableProps) {
                                 ) : (
                                     <RemoteVideo stream={remoteStreams[player.id]} name={player.name} />
                                 )}
-                                <div className="absolute top-2 right-2 flex gap-1">
-                                    <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                </div>
                             </div>
                         ) : (
                             <div className="w-full h-full bg-[#151515] flex items-center justify-center">
@@ -407,11 +404,21 @@ export default function PokerTable({ settings, onBack }: TableProps) {
 
       {/* CONTROLS: Bottom HUD */}
       <div className="absolute bottom-0 left-0 w-full p-8 flex items-end justify-center pointer-events-none">
-        <div className="flex flex-wrap items-center gap-4 bg-black/80 backdrop-blur-2xl border border-white/10 p-4 md:p-6 rounded-3xl pointer-events-auto transform translate-y-[10px] hover:translate-y-0 transition-all duration-500 shadow-2xl">
+        <div className="flex flex-wrap items-center gap-4 bg-black/80 backdrop-blur-2xl border border-white/10 p-4 md:p-6 rounded-3xl pointer-events-auto shadow-2xl">
             
             <div className="flex items-center gap-3">
-              <button className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase">FOLD</button>
-              <button className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase">CHECK</button>
+              <button 
+                onClick={() => setPlayers(prev => prev.map(p => p.id === 'me' ? {...p, folded: true} : p))}
+                className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
+              >
+                FOLD
+              </button>
+              <button 
+                onClick={() => setPlayers(prev => prev.map(p => p.id === 'me' ? {...p, isCurrent: false} : p))}
+                className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
+              >
+                CHECK
+              </button>
               
               <div className="flex flex-col gap-1 min-w-[200px]">
                 <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5">
@@ -419,7 +426,15 @@ export default function PokerTable({ settings, onBack }: TableProps) {
                     <span className="text-[10px] font-black tracking-widest text-primary">RAISE 2.5X</span>
                     <button className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors">+</button>
                 </div>
-                <button className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase">RAISE 40</button>
+                <button 
+                  onClick={() => {
+                    setPot(prev => prev + 40)
+                    setPlayers(prev => prev.map(p => p.id === 'me' ? {...p, chips: p.chips - 40, bet: p.bet + 40} : p))
+                  }}
+                  className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase"
+                >
+                  RAISE 40
+                </button>
               </div>
             </div>
 
