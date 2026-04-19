@@ -210,45 +210,47 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     })
   }, [joinedPlayers, settings.buyIn])
 
-  // Setup PeerJS and Supabase Presence
-  useEffect(() => {
-    if (!user || !roomId) return
-    
-    let peer: any = null
-    const myId = `poker-${roomId}-${(user.id || user.display_name).toString().replace(/\s+/g, '_')}`
+    const peerRef = useRef<any>(null)
+    const localStreamRef = useRef<MediaStream | null>(localStream)
 
-    const initPeer = async () => {
-        const { default: Peer } = await import('peerjs')
-        peer = new Peer(myId, {
-            debug: 1,
-            config: {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            }
-        })
+    useEffect(() => {
+        localStreamRef.current = localStream
+    }, [localStream])
 
-        // Handle incoming calls
-        peer.on('call', (call: any) => {
-            const remoteUserId = call.peer.replace(`poker-${roomId}-`, '').replace(/_/g, ' ')
-            console.log('Incoming call from user:', remoteUserId)
-            
-            call.answer(localStream || undefined)
-            
-            call.on('stream', (remoteStream: MediaStream) => {
-                setRemoteStreams(prev => {
-                    // Only update if stream changed or not present to avoid AbortError
-                    if (prev[remoteUserId]?.id === remoteStream.id) return prev
-                    return { ...prev, [remoteUserId]: remoteStream }
+    useEffect(() => {
+        if (!user || !roomId) return
+        
+        const myId = `poker-${roomId}-${(user.id || user.display_name).toString().replace(/\s+/g, '_')}`
+
+        const initPeer = async () => {
+            const { default: Peer } = await import('peerjs')
+            const peer = new Peer(myId, {
+                debug: 1,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'stun:stun2.l.google.com:19302' },
+                        { urls: 'stun:stun3.l.google.com:19302' },
+                        { urls: 'stun:stun4.l.google.com:19302' },
+                        { urls: 'stun:stun.services.mozilla.com' }
+                    ]
+                }
+            })
+            peerRef.current = peer
+
+            peer.on('call', (call: any) => {
+                const remoteUserId = call.peer.replace(`poker-${roomId}-`, '').replace(/_/g, ' ')
+                call.answer(localStreamRef.current || undefined)
+                call.on('stream', (remoteStream: MediaStream) => {
+                    setRemoteStreams(prev => {
+                        if (prev[remoteUserId]?.id === remoteStream.id) return prev
+                        return { ...prev, [remoteUserId]: remoteStream }
+                    })
                 })
             })
-        })
-
-        peer.on('error', (err: any) => console.error('PeerJS error:', err))
-    }
-
-    initPeer()
+        }
+        initPeer()
 
     const channel = supabase.channel(roomId, {
       config: { presence: { key: (user.id || user.display_name).toString() } }
@@ -261,18 +263,15 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         const uniqueUsers = Array.from(new Map(onlineUsers.map(u => [u.id, u])).values())
         setJoinedPlayers(uniqueUsers)
 
-        // Find people to call
         uniqueUsers.forEach(u => {
             if (!u?.id) return
             const remoteUserId = String(u.id)
             const remotePeerId = `poker-${roomId}-${remoteUserId.replace(/\s+/g, '_')}`
             
             const myCurrentId = String(user.id || user.display_name)
-            if (remoteUserId !== myCurrentId && peer && !remoteStreams[remoteUserId]) {
-                // Initiator logic
-                if (myId > remotePeerId && localStream) {
-                    console.log('Calling peer:', remotePeerId)
-                    const call = peer.call(remotePeerId, localStream)
+            if (remoteUserId !== myCurrentId && peerRef.current && !remoteStreams[remoteUserId]) {
+                if (myId > remotePeerId && localStreamRef.current) {
+                    const call = peerRef.current.call(remotePeerId, localStreamRef.current)
                     call.on('stream', (remoteStream: MediaStream) => {
                         setRemoteStreams(prev => ({ ...prev, [remoteUserId]: remoteStream }))
                     })
@@ -296,9 +295,9 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
     return () => {
       channel.unsubscribe()
-      peer?.destroy()
+      peerRef.current?.destroy()
     }
-  }, [user, roomId, localStream, settings.withWebcams])
+  }, [user, roomId, settings.withWebcams])
 
   // Unified webcam initialization
   useEffect(() => {
@@ -392,14 +391,10 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 INVITE
             </button>
             <button 
-              onClick={() => {
-                setJoinedPlayers([])
-                supabase.channel(roomId).track({ refresh: Date.now() })
-                alert("Синхронизация запущена...")
-              }}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/50 rounded-xl text-[10px] font-bold transition-all"
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-bold transition-all shadow-lg shadow-primary/20"
             >
-                RECONNECT
+                HARD FIX CAM
             </button>
             {gameState === 'waiting' && joinedPlayers[0]?.id === (user?.id || user?.display_name) && (
                 <button 
