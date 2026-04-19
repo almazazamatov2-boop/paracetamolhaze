@@ -46,14 +46,14 @@ const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: Card
     >
       {/* Front Side (Face) */}
       <div 
-        className="absolute inset-0 bg-white rounded-lg border border-black/10 shadow-lg overflow-hidden"
+        className="absolute inset-0 bg-white rounded-lg border border-black/10 shadow-lg overflow-hidden flex items-center justify-center"
         style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
       >
-        {/* SVG Card Face */}
+        {/* SVG Card Face — Scaling up because the SVGs have huge internal whitespace */}
         <img 
             src={cardSrc} 
             alt={`${value}${suit}`} 
-            className="w-full h-full object-contain"
+            className="w-full h-full object-contain scale-[3.5] translate-y-[2%] translate-x-[1%]"
             onError={(e) => {
                 console.error('Card Image Load Error:', cardSrc);
                 e.currentTarget.style.display = 'none';
