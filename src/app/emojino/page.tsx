@@ -184,7 +184,7 @@ function EmojinoContent() {
     if (isProfileOpen) fetchUserStats();
   }, [isProfileOpen]);
 
-  const twitchLogin = () => signIn('kinokadr');
+  const twitchLogin = () => signIn('emojino');
 
   const startNewGame = (mode: string) => {
     const pool = mode === 'all' ? movies : movies.filter(m => m.type === mode);
@@ -347,17 +347,17 @@ function EmojinoContent() {
             >
               {/* Left Column: Menu */}
               <div className="lg:col-span-5 space-y-12">
-                <div className="space-y-2">
-                  <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none uppercase italic drop-shadow-2xl">
+                <div className="space-y-2 pr-10">
+                  <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none uppercase italic drop-shadow-2xl pr-4">
                     Угадай <br/> Эмоджи
                   </h1>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4">
                   {[
-                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-9 h-9 text-white" />, c: 'from-amber-600 to-orange-800' },
-                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-9 h-9 text-white" />, c: 'from-orange-500 to-red-700' },
-                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-9 h-9 text-white" />, c: 'from-red-600 to-rose-900' }
+                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-9 h-9 text-white" />, c: 'from-purple-600 to-indigo-800' },
+                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-9 h-9 text-white" />, c: 'from-amber-500 to-orange-700' },
+                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-9 h-9 text-white" />, c: 'from-emerald-600 to-teal-900' }
                   ].map((item) => (
                     <button 
                       key={item.m} onClick={() => startNewGame(item.m)} 
@@ -585,7 +585,7 @@ function EmojinoContent() {
             className="group flex items-center gap-2"
           >
             <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">Powered by</span>
-            <span className="text-xs font-black italic tracking-tighter bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent group-hover:from-amber-300 group-hover:to-red-400 transition-all">PARACETAMOLHAZE</span>
+            <span className="text-xs font-black italic tracking-tighter bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent group-hover:from-amber-300 group-hover:to-red-400 transition-all pr-1">PARACETAMOLHAZE</span>
           </a>
         </div>
       </footer>
