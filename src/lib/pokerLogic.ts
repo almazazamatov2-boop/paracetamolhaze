@@ -1,6 +1,6 @@
 /**
- * ПОКЕРНЫЙ ДВИЖОК (Texas Hold'em)
- * Реализует правила раздачи, ставок, очередности и определения победителя.
+ * ПОКЕРНЫЙ ДВИЖОК (Texas Hold'em) — ИСПРАВЛЕННАЯ ВЕРСИЯ
+ * Фиксы: hasActed флаг, BB-опция, check-логика, корректное завершение круга
  */
 
 export type Suit = 'H' | 'D' | 'C' | 'S';
@@ -20,6 +20,7 @@ export interface PokerPlayer {
     cards: Card[];
     folded: boolean;
     allIn: boolean;
+    hasActed: boolean;   // FIX: действовал ли игрок в текущем круге ставок
     isDealer: boolean;
     isSmallBlind: boolean;
     isBigBlind: boolean;
@@ -37,71 +38,64 @@ export interface PokerGameState {
     currentBet: number;
     dealerIndex: number;
     activePlayerIndex: number;
-    phase: 'preflop' | 'flop' | 'turn' | 'river' | 'showdown';
+    phase: 'waiting' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown';
     communityCards: Card[];
     lastRaiserId: string | null;
     deck: Card[];
+    winners?: { id: string; handName: string }[];
 }
 
-// Ранги карт для оценки
 const VALUE_RANKS: Record<Value, number> = {
-    '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, 'T': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
+    '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9,
+    'T': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14
 };
 
 const HAND_RANKS = {
-    HIGH_CARD: 0,
-    PAIR: 1,
-    TWO_PAIR: 2,
-    THREE_KIND: 3,
-    STRAIGHT: 4,
-    FLUSH: 5,
-    FULL_HOUSE: 6,
-    FOUR_KIND: 7,
-    STRAIGHT_FLUSH: 8,
-    ROYAL_FLUSH: 9
+    HIGH_CARD: 0, PAIR: 1, TWO_PAIR: 2, THREE_KIND: 3, STRAIGHT: 4,
+    FLUSH: 5, FULL_HOUSE: 6, FOUR_KIND: 7, STRAIGHT_FLUSH: 8, ROYAL_FLUSH: 9
 };
 
 export const PokerLogic = {
-    /**
-     * Создание и тасовка колоды (Fisher-Yates)
-     */
+
+    /** Создание и тасовка колоды (Fisher-Yates) */
     createDeck(): Card[] {
         const suits: Suit[] = ['H', 'D', 'C', 'S'];
         const values: Value[] = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
         const deck: Card[] = [];
-        
         for (const s of suits) {
             for (const v of values) {
                 deck.push({ suit: s, value: v });
             }
         }
-
-        // Shuffle
+        // Fisher-Yates shuffle
         for (let i = deck.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [deck[i], deck[j]] = [deck[j], deck[i]];
         }
-        
         return deck;
     },
 
-    /**
-     * Подготовка новой раздачи
-     */
+    /** Подготовка новой раздачи */
     prepareNewHand(players: any[], dealerIndex: number, blindValue: number, buyIn: number): PokerGameState {
+        if (players.length < 2) {
+            throw new Error('Нужно минимум 2 игрока');
+        }
+
         const deck = this.createDeck();
-        const activePlayersCount = players.length;
-        
-        // Позиции
-        const dIdx = dealerIndex % activePlayersCount;
-        const sbIdx = (dIdx + 1) % activePlayersCount;
-        const bbIdx = (dIdx + 2) % activePlayersCount;
+        const n = players.length;
+        const dIdx = dealerIndex % n;
+
+        // Heads-up (2 игрока): дилер = SB, другой = BB
+        // Обычная игра: SB = следующий после дилера, BB = следующий после SB
+        const sbIdx = n === 2 ? dIdx : (dIdx + 1) % n;
+        const bbIdx = n === 2 ? (dIdx + 1) % n : (dIdx + 2) % n;
 
         const sbAmount = blindValue;
         const bbAmount = blindValue * 2;
 
         const pokerPlayers: PokerPlayer[] = players.map((p, i) => {
-            let chips = p.chips ?? buyIn;
+            // Берём фишки из предыдущей раздачи или из buyIn
+            let chips = (typeof p.chips === 'number' && p.chips > 0) ? p.chips : buyIn;
             let bet = 0;
             let isAllIn = false;
 
@@ -117,20 +111,35 @@ export const PokerLogic = {
                 if (chips === 0) isAllIn = true;
             }
 
+            // Раздаём по 2 карты каждому
+            const card1 = deck.pop()!;
+            const card2 = deck.pop()!;
+
             return {
                 id: String(p.id),
-                name: p.display_name || p.name,
+                name: p.display_name || p.name || `Player ${i + 1}`,
                 chips,
+                allIn: isAllIn,
                 bet,
                 totalBet: bet,
-                cards: [deck.pop()!, deck.pop()!],
+                cards: [card1, card2],
                 folded: false,
-                allIn: isAllIn,
+                hasActed: false, // FIX: никто не действовал в начале круга
                 isDealer: i === dIdx,
                 isSmallBlind: i === sbIdx,
-                isBigBlind: i === bbIdx
+                isBigBlind: i === bbIdx,
             };
         });
+
+        // Pre-flop: первый ход у игрока слева от BB (или BB в heads-up)
+        const firstToActPreflop = n === 2 ? sbIdx : (bbIdx + 1) % n;
+        // Пропускаем all-in игроков
+        let activeStart = firstToActPreflop;
+        let loops = 0;
+        while (pokerPlayers[activeStart].allIn && loops < n) {
+            activeStart = (activeStart + 1) % n;
+            loops++;
+        }
 
         return {
             players: pokerPlayers,
@@ -138,99 +147,150 @@ export const PokerLogic = {
             sidePots: [],
             currentBet: bbAmount,
             dealerIndex: dIdx,
-            activePlayerIndex: (bbIdx + 1) % activePlayersCount,
+            activePlayerIndex: activeStart,
             phase: 'preflop',
             communityCards: [],
-            lastRaiserId: pokerPlayers[bbIdx].id,
-            deck
+            lastRaiserId: pokerPlayers[bbIdx].id, // BB — последний "рейзер" в pre-flop
+            deck,
         };
     },
 
-    /**
-     * Обработка действия игрока
-     */
-    handleAction(state: PokerGameState, playerId: string, action: 'fold' | 'call' | 'raise' | 'check', amount?: number): PokerGameState {
-        const newState = JSON.parse(JSON.stringify(state)) as PokerGameState;
+    /** Обработка действия игрока */
+    handleAction(
+        state: PokerGameState,
+        playerId: string,
+        action: 'fold' | 'call' | 'raise' | 'check' | 'allIn',
+        amount?: number
+    ): PokerGameState {
+        // Глубокое копирование состояния
+        const newState: PokerGameState = JSON.parse(JSON.stringify(state));
         const pIdx = newState.players.findIndex(p => p.id === playerId);
-        if (pIdx === -1 || newState.phase === 'showdown') return state;
+
+        if (pIdx === -1 || newState.phase === 'showdown' || newState.phase === 'waiting') {
+            return state;
+        }
 
         const player = newState.players[pIdx];
 
+        // Помечаем что игрок действовал
+        player.hasActed = true;
+
         if (action === 'fold') {
             player.folded = true;
+
         } else if (action === 'check') {
+            // Check возможен только если нет ставки или ставка игрока уже равна currentBet
             if (player.bet < newState.currentBet) {
-                // Если чекнуть нельзя (есть ставка), делаем колл вместо этого или игнорим
+                // Нельзя чекнуть — делаем колл
                 return this.handleAction(state, playerId, 'call');
             }
+            // Иначе просто check (ничего не меняем в ставках, hasActed = true уже)
+
         } else if (action === 'call') {
             const needed = newState.currentBet - player.bet;
-            const actual = Math.min(player.chips, needed);
-            player.chips -= actual;
-            player.bet += actual;
-            player.totalBet += actual;
-            newState.pot += actual;
-            if (player.chips === 0) player.allIn = true;
-        } else if (action === 'raise') {
-            const raiseTo = amount || (newState.currentBet * 2);
+            if (needed <= 0) {
+                // Ставка уже равна currentBet — это фактически check
+                // hasActed уже true, просто продолжаем
+            } else {
+                const actual = Math.min(player.chips, needed);
+                player.chips -= actual;
+                player.bet += actual;
+                player.totalBet += actual;
+                newState.pot += actual;
+                if (player.chips === 0) player.allIn = true;
+            }
+
+        } else if (action === 'raise' || action === 'allIn') {
+            const isAllIn = action === 'allIn' || (amount !== undefined && amount >= player.chips + player.bet);
+            const raiseTo = isAllIn ? (player.chips + player.bet) : (amount || newState.currentBet * 2);
             const needed = raiseTo - player.bet;
             const actual = Math.min(player.chips, needed);
-            
-            // Если игрок идет олл-ин меньшей суммой чем рейз — это просто олл-ин
+
             player.chips -= actual;
             player.bet += actual;
             player.totalBet += actual;
             newState.pot += actual;
-            
+
+            if (player.chips === 0) player.allIn = true;
+
+            // Рейз сбрасывает hasActed у всех остальных активных игроков
             if (player.bet > newState.currentBet) {
                 newState.currentBet = player.bet;
                 newState.lastRaiserId = player.id;
+
+                // FIX: все кроме текущего игрока должны ответить на рейз
+                newState.players.forEach((p, i) => {
+                    if (i !== pIdx && !p.folded && !p.allIn) {
+                        p.hasActed = false;
+                    }
+                });
+                // Текущий игрок уже действовал (рейзнул)
+                player.hasActed = true;
             }
-
-            if (player.chips === 0) player.allIn = true;
         }
 
-        // Проверка: остался ли только один игрок
-        const activeNotFolded = newState.players.filter(p => !p.folded);
-        if (activeNotFolded.length === 1) {
-            return this.resolveOneWinner(newState, activeNotFolded[0]);
+        // Проверка: остался ли только один активный игрок
+        const activePlayers = newState.players.filter(p => !p.folded);
+        if (activePlayers.length === 1) {
+            return this.resolveOneWinner(newState, activePlayers[0]);
         }
 
-        // Очередь следующего
-        let nextIdx = (pIdx + 1) % newState.players.length;
-        let loops = 0;
-        while ((newState.players[nextIdx].folded || newState.players[nextIdx].allIn) && loops < newState.players.length) {
-            nextIdx = (nextIdx + 1) % newState.players.length;
-            loops++;
-        }
+        // FIX: Проверяем завершение круга ставок через hasActed
+        const roundComplete = this.isRoundComplete(newState);
 
-        // Проверка завершения круга
-        // Круг завершен если:
-        // 1. Все активные игроки уравняли currentBet (или олл-ин)
-        // 2. Мы вернулись к последнему рейзеру
-        const everyoneActed = activeNotFolded.every(p => p.folded || p.allIn || p.bet === newState.currentBet);
-        const backToRaiser = newState.players[nextIdx].id === newState.lastRaiserId;
-
-        if (everyoneActed && backToRaiser) {
+        if (roundComplete) {
             return this.nextPhase(newState);
-        } else {
-            newState.activePlayerIndex = nextIdx;
         }
 
+        // Находим следующего игрока который должен действовать
+        newState.activePlayerIndex = this.findNextActivePlayer(newState, pIdx);
         return newState;
     },
 
-    nextPhase(state: PokerGameState): PokerGameState {
-        if (state.phase === 'showdown') return state;
+    /**
+     * FIX: Круг завершён если все активные (не сфолдившие, не all-in) игроки:
+     * 1. Действовали (hasActed = true)
+     * 2. Их ставка равна currentBet
+     */
+    isRoundComplete(state: PokerGameState): boolean {
+        const playersWhoNeedToAct = state.players.filter(p =>
+            !p.folded && !p.allIn && (!p.hasActed || p.bet < state.currentBet)
+        );
+        return playersWhoNeedToAct.length === 0;
+    },
 
-        // Сброс ставок раунда
-        state.players.forEach(p => p.bet = 0);
+    /** Находим следующего игрока которому нужно действовать */
+    findNextActivePlayer(state: PokerGameState, fromIdx: number): number {
+        const n = state.players.length;
+        let nextIdx = (fromIdx + 1) % n;
+        let loops = 0;
+        while (loops < n) {
+            const p = state.players[nextIdx];
+            const needsToAct = !p.folded && !p.allIn && (!p.hasActed || p.bet < state.currentBet);
+            if (needsToAct) return nextIdx;
+            nextIdx = (nextIdx + 1) % n;
+            loops++;
+        }
+        // Все уже действовали — вернуть любого не-сфолдившего
+        return fromIdx;
+    },
+
+    /** Переход к следующей фазе */
+    nextPhase(state: PokerGameState): PokerGameState {
+        if (state.phase === 'showdown' || state.phase === 'waiting') return state;
+
+        // Сброс ставок и флагов действий
+        state.players.forEach(p => {
+            p.bet = 0;
+            p.hasActed = false; // FIX: сброс hasActed для нового круга
+        });
         state.currentBet = 0;
         state.lastRaiserId = null;
 
-        // Переход фаз
+        // Выкладываем карты на стол
         if (state.phase === 'preflop') {
             state.phase = 'flop';
+            // Флоп: 3 карты
             state.communityCards.push(state.deck.pop()!, state.deck.pop()!, state.deck.pop()!);
         } else if (state.phase === 'flop') {
             state.phase = 'turn';
@@ -243,130 +303,146 @@ export const PokerLogic = {
             return this.resolveShowdown(state);
         }
 
-        // Очередь после флопа — первый активный слева от дилера
+        // После флопа: ход с первого активного игрока слева от дилера
         let nextIdx = (state.dealerIndex + 1) % state.players.length;
-        let l = 0;
-        while ((state.players[nextIdx].folded || state.players[nextIdx].allIn) && l < state.players.length) {
+        let loops = 0;
+        while (loops < state.players.length) {
+            const p = state.players[nextIdx];
+            if (!p.folded && !p.allIn) break;
             nextIdx = (nextIdx + 1) % state.players.length;
-            l++;
+            loops++;
         }
         state.activePlayerIndex = nextIdx;
-        state.lastRaiserId = state.players[nextIdx].id; // Чтобы круг прошел полностью
+        // lastRaiserId = первый к действию, чтобы круг прошёл полный оборот
+        state.lastRaiserId = state.players[nextIdx].id;
+
+        // Если все остальные all-in — переходим сразу
+        const canAct = state.players.filter(p => !p.folded && !p.allIn);
+        if (canAct.length <= 1) {
+            // Сразу переходим дальше (раскрываем оставшиеся карты)
+            return this.nextPhase(state);
+        }
 
         return state;
     },
 
-    /**
-     * Все сфолдили, кроме одного
-     */
+    /** Один победитель (все сфолдили) */
     resolveOneWinner(state: PokerGameState, winner: PokerPlayer): PokerGameState {
         const wIdx = state.players.findIndex(p => p.id === winner.id);
-        state.players[wIdx].chips += state.pot;
+        if (wIdx !== -1) {
+            state.players[wIdx].chips += state.pot;
+        }
         state.pot = 0;
-        state.phase = 'waiting' as any; // Сигнал для UI закончить раздачу
+        state.phase = 'showdown';
+        state.winners = [{ id: winner.id, handName: 'Все сфолдили' }];
         return state;
     },
 
-    /**
-     * Оценка силы руки (7 карт -> лучшая 5-карточная рука)
-     * Возвращает числовой рейтинг для сравнения
-     */
+    /** Оценка силы руки (7 карт → лучшая 5-карточная) */
     evaluateHand(cards: Card[]): number {
         if (cards.length < 5) return 0;
 
         const ranks = cards.map(c => VALUE_RANKS[c.value]).sort((a, b) => b - a);
         const suits = cards.map(c => c.suit);
-        
-        // Группировка по рангу
+
         const counts: Record<number, number> = {};
         ranks.forEach(r => counts[r] = (counts[r] || 0) + 1);
-        const freq = Object.entries(counts).map(([r, c]) => ({ r: parseInt(r), c })).sort((a,b) => b.c - a.c || b.r - a.r);
+        const freq = Object.entries(counts)
+            .map(([r, c]) => ({ r: parseInt(r), c }))
+            .sort((a, b) => b.c - a.c || b.r - a.r);
 
-        // Проверка Флеша
+        // Флеш
         const suitCounts: Record<string, number> = {};
         suits.forEach(s => suitCounts[s] = (suitCounts[s] || 0) + 1);
         const flushSuit = Object.keys(suitCounts).find(s => suitCounts[s] >= 5);
         const isFlush = !!flushSuit;
 
-        // Проверка Стрита
+        // Стрит
         const uniqueRanks = Array.from(new Set(ranks)).sort((a, b) => b - a);
-        if (uniqueRanks.includes(14)) uniqueRanks.push(1); // Дикий Туз для A-2-3-4-5
-        
+        if (uniqueRanks.includes(14)) uniqueRanks.push(1); // A-2-3-4-5
         let straightHigh = -1;
         for (let i = 0; i <= uniqueRanks.length - 5; i++) {
-            if (uniqueRanks[i] - uniqueRanks[i+4] === 4) {
+            if (uniqueRanks[i] - uniqueRanks[i + 4] === 4) {
                 straightHigh = uniqueRanks[i];
                 break;
             }
         }
         const isStraight = straightHigh !== -1;
 
-        // Комбинации
-        // 1. Стрит-Флеш / Роял-Флеш
+        // Стрит-флеш / Роял-флеш
         if (isFlush && isStraight) {
-            const flushCards = cards.filter(c => c.suit === flushSuit).map(c => VALUE_RANKS[c.value]);
-            // Проверка стрита внутри масти
-            const fUnique = Array.from(new Set(flushCards)).sort((a,b) => b-a);
-             if (fUnique.includes(14)) fUnique.push(1);
-             for(let i=0; i<= fUnique.length - 5; i++) {
-                 if (fUnique[i] - fUnique[i+4] === 4) {
-                     return (fUnique[i] === 14 ? HAND_RANKS.ROYAL_FLUSH : HAND_RANKS.STRAIGHT_FLUSH) * 1e10 + fUnique[i];
-                 }
-             }
+            const flushCards = cards
+                .filter(c => c.suit === flushSuit)
+                .map(c => VALUE_RANKS[c.value]);
+            const fUnique = Array.from(new Set(flushCards)).sort((a, b) => b - a);
+            if (fUnique.includes(14)) fUnique.push(1);
+            for (let i = 0; i <= fUnique.length - 5; i++) {
+                if (fUnique[i] - fUnique[i + 4] === 4) {
+                    const isRoyal = fUnique[i] === 14;
+                    return (isRoyal ? HAND_RANKS.ROYAL_FLUSH : HAND_RANKS.STRAIGHT_FLUSH) * 1e10 + fUnique[i];
+                }
+            }
         }
 
-        // 2. Каре
-        if (freq[0].c === 4) return HAND_RANKS.FOUR_KIND * 1e10 + freq[0].r * 1e2 + freq[1].r;
+        if (freq[0].c === 4)
+            return HAND_RANKS.FOUR_KIND * 1e10 + freq[0].r * 1e2 + freq[1].r;
 
-        // 3. Фулл-Хаус
-        if (freq[0].c === 3 && freq[1].c >= 2) return HAND_RANKS.FULL_HOUSE * 1e10 + freq[0].r * 1e2 + freq[1].r;
+        if (freq[0].c === 3 && freq.length > 1 && freq[1].c >= 2)
+            return HAND_RANKS.FULL_HOUSE * 1e10 + freq[0].r * 1e2 + freq[1].r;
 
-        // 4. Флеш
         if (isFlush) {
-            const flushCards = cards.filter(c => c.suit === flushSuit).map(c => VALUE_RANKS[c.value]).sort((a,b) => b-a);
-            return HAND_RANKS.FLUSH * 1e10 + flushCards.slice(0, 5).reduce((acc, r, i) => acc + r * Math.pow(15, 4-i), 0);
+            const flushCards = cards
+                .filter(c => c.suit === flushSuit)
+                .map(c => VALUE_RANKS[c.value])
+                .sort((a, b) => b - a);
+            return HAND_RANKS.FLUSH * 1e10 +
+                flushCards.slice(0, 5).reduce((acc, r, i) => acc + r * Math.pow(15, 4 - i), 0);
         }
 
-        // 5. Стрит
-        if (isStraight) return HAND_RANKS.STRAIGHT * 1e10 + straightHigh;
+        if (isStraight)
+            return HAND_RANKS.STRAIGHT * 1e10 + straightHigh;
 
-        // 6. Сет (Тройка)
-        if (freq[0].c === 3) return HAND_RANKS.THREE_KIND * 1e10 + freq[0].r * 1e4 + freq[1].r * 1e2 + freq[2].r;
+        if (freq[0].c === 3)
+            return HAND_RANKS.THREE_KIND * 1e10 + freq[0].r * 1e4 + (freq[1]?.r || 0) * 1e2 + (freq[2]?.r || 0);
 
-        // 7. Две пары
-        if (freq[0].c === 2 && freq[1].c === 2) return HAND_RANKS.TWO_PAIR * 1e10 + freq[0].r * 1e4 + freq[1].r * 1e2 + freq[2].r;
+        if (freq[0].c === 2 && freq.length > 1 && freq[1].c === 2)
+            return HAND_RANKS.TWO_PAIR * 1e10 + freq[0].r * 1e4 + freq[1].r * 1e2 + (freq[2]?.r || 0);
 
-        // 8. Пара
-        if (freq[0].c === 2) return HAND_RANKS.PAIR * 1e10 + freq[0].r * 1e8 + ranks.filter(r => r !== freq[0].r).slice(0, 3).reduce((acc, r, i) => acc + r * Math.pow(15, 2-i), 0);
+        if (freq[0].c === 2)
+            return HAND_RANKS.PAIR * 1e10 + freq[0].r * 1e8 +
+                ranks.filter(r => r !== freq[0].r).slice(0, 3)
+                    .reduce((acc, r, i) => acc + r * Math.pow(15, 2 - i), 0);
 
-        // 9. Старшая карта
-        return HAND_RANKS.HIGH_CARD * 1e10 + ranks.slice(0, 5).reduce((acc, r, i) => acc + r * Math.pow(15, 4-i), 0);
+        return HAND_RANKS.HIGH_CARD * 1e10 +
+            ranks.slice(0, 5).reduce((acc, r, i) => acc + r * Math.pow(15, 4 - i), 0);
     },
 
-    /**
-     * Определение победителей
-     */
-    findWinners(players: PokerPlayer[], communityCards: Card[]): { id: string, score: number, handName: string }[] {
+    getHandName(score: number): string {
+        const rank = Math.floor(score / 1e10);
+        const names = [
+            'Старшая карта', 'Пара', 'Две пары', 'Сет',
+            'Стрит', 'Флеш', 'Фулл-Хаус', 'Каре',
+            'Стрит-Флеш', 'Рояль-Флеш'
+        ];
+        return names[rank] || 'Неизвестно';
+    },
+
+    findWinners(players: PokerPlayer[], communityCards: Card[]): { id: string; score: number; handName: string }[] {
         const scores = players.map(p => {
             if (p.folded) return { id: p.id, score: -1, handName: 'Folded' };
             const score = this.evaluateHand([...p.cards, ...communityCards]);
             return { id: p.id, score, handName: this.getHandName(score) };
         });
-
         const maxScore = Math.max(...scores.map(s => s.score));
         return scores.filter(s => s.score === maxScore);
     },
 
-    getHandName(score: number): string {
-        const rank = Math.floor(score / 1e10);
-        const names = ["Старшая карта", "Пара", "Две пары", "Сет", "Стрит", "Флеш", "Фулл-Хаус", "Каре", "Стрит-Флеш", "Рояль-Флеш"];
-        return names[rank] || "Неизвестно";
-    },
-
     resolveShowdown(state: PokerGameState): PokerGameState {
-        const winners = this.findWinners(state.players, state.communityCards);
+        // Основной пот
+        const activePlayers = state.players.filter(p => !p.folded);
+        const winners = this.findWinners(activePlayers, state.communityCards);
         const winAmount = Math.floor(state.pot / winners.length);
-        
+
         winners.forEach(w => {
             const pIdx = state.players.findIndex(p => p.id === w.id);
             if (pIdx !== -1) state.players[pIdx].chips += winAmount;
@@ -374,6 +450,7 @@ export const PokerLogic = {
 
         state.pot = 0;
         state.phase = 'showdown';
+        state.winners = winners.map(w => ({ id: w.id, handName: w.handName }));
         return state;
     }
 };
