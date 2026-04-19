@@ -75,6 +75,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   }
 
   const broadcastMessage = (msg: any) => {
+    if (!roomId) return
     supabase.channel(roomId).send({
         type: 'broadcast',
         event: 'game_logic',

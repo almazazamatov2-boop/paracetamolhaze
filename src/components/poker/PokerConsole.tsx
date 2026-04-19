@@ -145,7 +145,14 @@ export default function PokerConsole() {
               </button>
 
               <button 
-                onClick={() => setView('game')}
+                onClick={() => {
+                    const r = searchParams.get('room')
+                    if (r) {
+                        setView('game')
+                    } else {
+                        alert("Пожалуйста, используйте ссылку-приглашение для входа или создайте новый стол.")
+                    }
+                }}
                 className="group relative bg-[#151515] border border-white/10 p-8 rounded-2xl hover:border-twitch-purple/50 transition-all duration-300 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-twitch-purple/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
