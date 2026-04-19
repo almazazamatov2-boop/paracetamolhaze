@@ -464,13 +464,13 @@ function EmojinoContent() {
               <div className="relative aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl flex items-center justify-center group p-8">
                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-red-500/10 opacity-50" />
                  
-                 <div className="relative z-10 text-6xl tracking-[0.2em] flex flex-nowrap justify-center items-center gap-6 text-center whitespace-nowrap">
+                 <div className="relative z-10 text-4xl sm:text-5xl md:text-6xl tracking-[0.1em] flex flex-wrap justify-center items-center gap-4 md:gap-6 text-center">
                     {Array.from(gameMovies[currentIndex].emoji).map((char, i) => (
                       <motion.span
                         key={i}
                         initial={{ opacity: 0, scale: 0, rotate: -20 }}
                         animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                        transition={{ delay: i * 0.1, type: "spring" }}
+                        transition={{ delay: i * 0.05, type: "spring" }}
                       >
                         {char}
                       </motion.span>
