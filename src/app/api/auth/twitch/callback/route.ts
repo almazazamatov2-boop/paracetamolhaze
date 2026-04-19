@@ -112,7 +112,9 @@ export async function GET(request: NextRequest) {
       ? `${baseUrl}/67` 
       : source === 'kinokadr' 
         ? `${baseUrl}/kinokadr` 
-        : `${baseUrl}/overlays/dashboard`;
+        : source === 'poker'
+          ? `${baseUrl}/poker`
+          : `${baseUrl}/overlays/dashboard`;
     const res = NextResponse.redirect(target);
     res.cookies.set('twitch_token', data.access_token, {
       httpOnly: true,

@@ -508,7 +508,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                         {settings.withWebcams ? (
                             <div className="relative w-full h-full bg-black">
                                 {isMe ? (
-                                    <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+                                    <LocalVideo stream={localStream} />
                                 ) : (
                                     <RemoteVideo stream={remoteStreams[player.id]} name={player.name} />
                                 )}
@@ -675,6 +675,18 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
     </div>
   )
+}
+
+function LocalVideo({ stream }: { stream: MediaStream | null }) {
+    const videoRef = useRef<HTMLVideoElement>(null)
+
+    useEffect(() => {
+        if (videoRef.current && stream) {
+            videoRef.current.srcObject = stream
+        }
+    }, [stream])
+
+    return <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
 }
 
 function RemoteVideo({ stream, name }: { stream?: MediaStream, name: string }) {
