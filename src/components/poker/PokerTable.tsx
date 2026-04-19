@@ -217,17 +217,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       config: { presence: { key: (user.id || user.display_name).toString() } }
     })
 
-    // Track our own presence
-    channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-            await channel.track({
-                id: user.id || user.display_name,
-                display_name: user.display_name,
-                profile_image_url: user.profile_image_url,
-                joined_at: new Date().toISOString()
-            })
-        }
-    })
 
 
     const createPeerConnection = (targetId: string, isInitiator: boolean) => {
@@ -325,7 +314,16 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       .on('broadcast', { event: 'game_logic' }, (payload) => {
         handleGameMessage(payload.payload)
       })
-      .subscribe()
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+            await channel.track({
+                id: user.id || user.display_name,
+                display_name: user.display_name,
+                profile_image_url: user.profile_image_url,
+                joined_at: new Date().toISOString()
+            })
+        }
+      })
 
     return () => {
       channel.unsubscribe()
