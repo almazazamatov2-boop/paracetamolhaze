@@ -44,7 +44,7 @@ interface Player {
   bet: number
 }
 
-export default function PokerTable({ settings, onBack }: TableProps) {
+export default function PokerTable({ roomId, settings, onBack }: TableProps) {
   const [players, setPlayers] = useState<Player[]>([])
   const [communityCards, setCommunityCards] = useState<{ suit: string, value: string }[]>([])
   const [pot, setPot] = useState(0)
