@@ -17,6 +17,10 @@ import {
 import { supabase } from '@/lib/supabase'
 import PokerCard from './PokerCard'
 
+// Game Logic Constants
+const SUITS = ['H', 'D', 'C', 'S']
+const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
+
 interface TableProps {
   settings: {
     name: string
@@ -54,7 +58,92 @@ export default function PokerTable({ settings, onBack }: TableProps) {
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const peerConnections = useRef<Record<string, RTCPeerConnection>>({})
-  const roomId = useMemo(() => "poker-main-room", []) // Static for now, can be dynamic
+  const roomId = useMemo(() => "poker-main-room", [])
+  const deckRef = useRef<{ suit: string, value: string }[]>([])
+  const [currentTurn, setCurrentTurn] = useState<string | null>(null)
+  const [currentBet, setCurrentBet] = useState(0)
+
+  // --- GAME LOGIC HELPERS ---
+  const createDeck = () => {
+    const deck = []
+    for (const suit of SUITS) {
+      for (const value of VALUES) {
+        deck.push({ suit, value })
+      }
+    }
+    return deck.sort(() => Math.random() - 0.5)
+  }
+
+  const broadcastMessage = (msg: any) => {
+    supabase.channel(roomId).send({
+        type: 'broadcast',
+        event: 'game_logic',
+        payload: msg
+    })
+    handleGameMessage(msg)
+  }
+
+  const handleGameMessage = (msg: any) => {
+    if (msg.state) setGameState(msg.state)
+    if (msg.players) setPlayers(msg.players)
+    if (msg.pot !== undefined) setPot(msg.pot)
+    if (msg.communityCards) setCommunityCards(msg.communityCards)
+    if (msg.currentBet !== undefined) setCurrentBet(msg.currentBet)
+    if (msg.currentTurn) setCurrentTurn(msg.currentTurn)
+    if (msg.deck) deckRef.current = msg.deck
+  }
+
+  const startNewGame = () => {
+    const newDeck = createDeck()
+    const dealerId = players[0]?.id
+    
+    const updatedPlayers = players.map((p, i) => ({
+        ...p,
+        cards: [newDeck.pop()!, newDeck.pop()!],
+        folded: false,
+        bet: 0,
+        isCurrent: p.id === dealerId
+    }))
+
+    broadcastMessage({
+        type: 'game_update',
+        state: 'preflop',
+        players: updatedPlayers,
+        deck: newDeck,
+        communityCards: [],
+        pot: settings.blind * 3,
+        currentBet: settings.blind * 2,
+        currentTurn: dealerId
+    })
+  }
+
+  const nextStage = () => {
+    let nextS: typeof gameState = 'preflop'
+    let newCards = [...communityCards]
+    const currentDeck = [...deckRef.current]
+
+    if (gameState === 'preflop') {
+        nextS = 'flop'
+        newCards = [currentDeck.pop()!, currentDeck.pop()!, currentDeck.pop()!]
+    } else if (gameState === 'flop') {
+        nextS = 'turn'
+        newCards.push(currentDeck.pop()!)
+    } else if (gameState === 'turn') {
+        nextS = 'river'
+        newCards.push(currentDeck.pop()!)
+    } else if (gameState === 'river') {
+        nextS = 'showdown'
+    }
+
+    broadcastMessage({
+        type: 'game_update',
+        state: nextS,
+        communityCards: newCards,
+        deck: currentDeck,
+        currentBet: 0,
+        players: players.map(p => ({ ...p, bet: 0 }))
+    })
+  }
 
   // Fetch Twitch User
   useEffect(() => {
@@ -162,6 +251,9 @@ export default function PokerTable({ settings, onBack }: TableProps) {
           pc.addIceCandidate(new RTCIceCandidate(iceCandidate))
         }
       })
+      .on('broadcast', { event: 'game_logic' }, (payload) => {
+        handleGameMessage(payload.payload)
+      })
       .subscribe()
 
     return () => {
@@ -211,16 +303,15 @@ export default function PokerTable({ settings, onBack }: TableProps) {
       isReady: true,
       isDealer: i === 1,
       isCurrent: i === 0,
-      cards: i === 0 ? [{ suit: 'H', value: 'A' }, { suit: 'S', value: 'A' }] : [],
+      cards: [],
       folded: false,
       bet: 0
     }))
     setPlayers(mockPlayers)
-
-    // Initially pot is 0, no cards on table
     setCommunityCards([])
     setPot(0)
-  }, [settings])
+    setGameState('waiting')
+  }, [settings, user])
 
   // Setup webcam
   useEffect(() => {
@@ -279,9 +370,23 @@ export default function PokerTable({ settings, onBack }: TableProps) {
         </div>
 
         <div className="flex items-center gap-3">
+            {gameState === 'waiting' && players[0]?.id === (user?.id || user?.display_name) && (
+                <button 
+                  onClick={startNewGame}
+                  className="px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg shadow-primary/20 animate-pulse"
+                >
+                    START GAME
+                </button>
+            )}
+            {gameState !== 'waiting' && gameState !== 'showdown' && (
+                <button 
+                  onClick={nextStage}
+                  className="px-6 py-2 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl transition-all"
+                >
+                    NEXT STAGE
+                </button>
+            )}
             <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"><History className="w-5 h-5" /></button>
-            <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"><MessageSquare className="w-5 h-5" /></button>
-        </div>
       </div>
 
       {/* RENDER TABLE */}
@@ -402,16 +507,31 @@ export default function PokerTable({ settings, onBack }: TableProps) {
             
             <div className="flex items-center gap-3">
               <button 
-                onClick={() => setPlayers(prev => prev.map(p => p.id === 'me' ? {...p, folded: true} : p))}
+                onClick={() => {
+                    broadcastMessage({
+                        type: 'action',
+                        players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, folded: true} : p)
+                    })
+                }}
                 className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
               >
                 FOLD
               </button>
               <button 
-                onClick={() => setPlayers(prev => prev.map(p => p.id === 'me' ? {...p, isCurrent: false} : p))}
+                onClick={() => {
+                    const me = players.find(p => p.id === (user?.id || user?.display_name))
+                    const callAmount = currentBet - (me?.bet || 0)
+                    if (me && me.chips >= callAmount) {
+                        broadcastMessage({
+                            type: 'action',
+                            players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, chips: p.chips - callAmount, bet: p.bet + callAmount} : p),
+                            pot: pot + callAmount
+                        })
+                    }
+                }}
                 className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
               >
-                CHECK
+                {currentBet > (players.find(p => p.id === (user?.id || user?.display_name))?.bet || 0) ? 'CALL' : 'CHECK'}
               </button>
               
               <div className="flex flex-col gap-1 min-w-[200px]">
@@ -428,10 +548,14 @@ export default function PokerTable({ settings, onBack }: TableProps) {
                 </div>
                 <button 
                   onClick={() => {
-                    const me = players.find(p => p.id === (user?.id || user?.display_name || 'me'))
+                    const me = players.find(p => p.id === (user?.id || user?.display_name))
                     if (me && me.chips >= raiseAmount) {
-                      setPot(prev => prev + raiseAmount)
-                      setPlayers(prev => prev.map(p => p.id === (user?.id || user?.display_name || 'me') ? {...p, chips: p.chips - raiseAmount, bet: p.bet + raiseAmount} : p))
+                      broadcastMessage({
+                          type: 'action',
+                          players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, chips: p.chips - raiseAmount, bet: p.bet + raiseAmount} : p),
+                          pot: pot + raiseAmount,
+                          currentBet: (me.bet || 0) + raiseAmount
+                      })
                     }
                   }}
                   className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase"
