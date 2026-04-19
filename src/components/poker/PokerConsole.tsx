@@ -57,8 +57,10 @@ export default function PokerConsole() {
   // Handle room join from URL
   useEffect(() => {
     const r = searchParams.get('room')
+    const s = searchParams.get('size')
     if (r) {
         setRoomId(r)
+        if (s) setSettings(prev => ({...prev, size: parseInt(s) as TableSize}))
         setView('game')
     }
   }, [searchParams])
@@ -66,7 +68,7 @@ export default function PokerConsole() {
   const createRoom = () => {
     const id = Math.random().toString(36).substring(2, 9)
     setRoomId(id)
-    router.push(`/poker?room=${id}`)
+    router.push(`/poker?room=${id}&size=${settings.size}`)
     setView('game')
   }
 

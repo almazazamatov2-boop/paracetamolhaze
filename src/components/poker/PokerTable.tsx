@@ -46,6 +46,8 @@ interface Player {
 }
 
 export default function PokerTable({ roomId, user, settings, onBack }: TableProps) {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [players, setPlayers] = useState<Player[]>([])
   const [communityCards, setCommunityCards] = useState<{ suit: string, value: string }[]>([])
   const [pot, setPot] = useState(0)
@@ -496,9 +498,9 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                             </div>
                         )}
                         
-                        {/* Status Overlay */}
-                        <div className="absolute bottom-0 left-0 w-full bg-black/60 backdrop-blur-md p-1 px-2">
-                            <div className="text-[10px] font-bold uppercase truncate">{player.name} {isMe ? '(ВЫ)' : ''}</div>
+                        {/* Status Overlay - MOVED BELOW WEBCAM */}
+                        <div className="absolute top-[105%] left-0 w-full bg-black/40 backdrop-blur-md p-1 px-2 rounded-lg border border-white/5">
+                            <div className="text-[10px] font-bold uppercase truncate text-white/90">{player.name} {isMe ? '(ВЫ)' : ''}</div>
                             <div className="text-[12px] text-yellow-500 font-black italic flex items-center gap-1">
                                 <Coins className="w-3 h-3" /> {player.chips}
                             </div>
