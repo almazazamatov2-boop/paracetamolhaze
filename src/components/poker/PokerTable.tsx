@@ -38,53 +38,52 @@ interface Player {
   id: string
   name: string
   chips: number
-  isReady: boolean
   isDealer: boolean
-  isCurrent: boolean
+  isSmallBlind: boolean
+  isBigBlind: boolean
   cards: { suit: string, value: string }[]
   folded: boolean
   bet: number
 }
 
+// Helper to evaluate hand strength (Minimal for now)
+const evaluateHand = (cards: {suit: string, value: string}[]) => {
+    if (cards.length < 2) return ""
+    const vals = cards.map(c => c.value)
+    if (vals[0] === vals[1]) return `ПАРА ${vals[0]}`
+    return "Старшая карта"
+}
+
 export default function PokerTable({ roomId, user, settings, onBack }: TableProps) {
   const searchParams = useSearchParams()
   const router = useRouter()
+  
   const [players, setPlayers] = useState<Player[]>([])
   const [communityCards, setCommunityCards] = useState<{ suit: string, value: string }[]>([])
   const [pot, setPot] = useState(0)
   const [gameState, setGameState] = useState<'waiting' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('waiting')
+  const [currentTurn, setCurrentTurn] = useState<string | null>(null)
+  const [currentBet, setCurrentBet] = useState(0)
+  const [lastRaiserId, setLastRaiserId] = useState<string | null>(null)
   const [raiseAmount, setRaiseAmount] = useState(40)
+  
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
   const [isMicOn, setIsMicOn] = useState(true)
   const [isVideoOn, setIsVideoOn] = useState(true)
-  
+
   const videoRef = useRef<HTMLVideoElement>(null)
-  const peerConnections = useRef<Record<string, any>>({})
+  const peerRef = useRef<any>(null)
+  const localStreamRef = useRef<MediaStream | null>(null)
   const deckRef = useRef<{ suit: string, value: string }[]>([])
-  const [currentTurn, setCurrentTurn] = useState<string | null>(null)
-  const [currentBet, setCurrentBet] = useState(0)
+  const dealerIndexRef = useRef(0)
   const [joinedPlayers, setJoinedPlayers] = useState<any[]>([])
 
-  // --- TOGGLE HANDLERS ---
-  const toggleMic = () => {
-    if (localStream) {
-        console.log("TOGGLE MIC", !isMicOn)
-        const newState = !isMicOn
-        localStream.getAudioTracks().forEach(track => track.enabled = newState)
-        setIsMicOn(newState)
-    }
-  }
+  useEffect(() => {
+    localStreamRef.current = localStream
+  }, [localStream])
 
-  const toggleVideo = () => {
-    if (localStream) {
-        const newState = !isVideoOn
-        localStream.getVideoTracks().forEach(track => track.enabled = newState)
-        setIsVideoOn(newState)
-    }
-  }
-
-  // --- GAME LOGIC HELPERS ---
+  // --- GAME LOGIC ---
   const createDeck = () => {
     const deck = []
     for (const suit of SUITS) {
@@ -113,577 +112,361 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     if (msg.currentBet !== undefined) setCurrentBet(msg.currentBet)
     if (msg.currentTurn) setCurrentTurn(msg.currentTurn)
     if (msg.deck) deckRef.current = msg.deck
+    if (msg.lastRaiserId !== undefined) setLastRaiserId(msg.lastRaiserId)
   }
 
   const startNewGame = () => {
-    const newDeck = createDeck()
-    const dealerId = players[0]?.id
-    
-    const updatedPlayers = players.map((p, i) => ({
-        ...p,
-        cards: [newDeck.pop()!, newDeck.pop()!],
-        folded: false,
-        bet: 0,
-        isCurrent: p.id === dealerId
-    }))
+    const freshDeck = createDeck()
+    const activePlayers = joinedPlayers.length
+    if (activePlayers < 2) return
+
+    // Rotate Dealer
+    dealerIndexRef.current = (dealerIndexRef.current + 1) % activePlayers
+    const dIdx = dealerIndexRef.current
+    const sbIdx = (dIdx + 1) % activePlayers
+    const bbIdx = (dIdx + 2) % activePlayers
+
+    const sbVal = settings.blind
+    const bbVal = settings.blind * 2
+
+    const updatedPlayers = joinedPlayers.map((p, i) => {
+        let chips = settings.buyIn
+        let bet = 0
+        if (i === sbIdx) {
+            chips -= sbVal
+            bet = sbVal
+        } else if (i === bbIdx) {
+            chips -= bbVal
+            bet = bbVal
+        }
+
+        const c1 = freshDeck.pop()!
+        const c2 = freshDeck.pop()!
+
+        return {
+            id: String(p.id),
+            name: p.display_name,
+            chips,
+            bet,
+            cards: [c1, c2],
+            folded: false,
+            isDealer: i === dIdx,
+            isSmallBlind: i === sbIdx,
+            isBigBlind: i === bbIdx
+        }
+    })
+
+    const utgIdx = (bbIdx + 1) % activePlayers
 
     broadcastMessage({
-        type: 'game_update',
+        type: 'game_start',
         state: 'preflop',
         players: updatedPlayers,
-        deck: newDeck,
+        deck: freshDeck,
         communityCards: [],
-        pot: settings.blind * 3,
-        currentBet: settings.blind * 2,
-        currentTurn: dealerId
+        pot: sbVal + bbVal,
+        currentBet: bbVal,
+        currentTurn: updatedPlayers[utgIdx].id,
+        lastRaiserId: updatedPlayers[bbIdx].id
     })
   }
 
-  const nextStage = () => {
-    let nextS: typeof gameState = 'preflop'
-    let newCards = [...communityCards]
-    const currentDeck = [...deckRef.current]
+  const handleAction = (action: 'fold' | 'call' | 'raise', amount?: number) => {
+    if (currentTurn !== String(user.id || user.display_name)) return
+
+    let nextPlayers = JSON.parse(JSON.stringify(players))
+    let pIdx = nextPlayers.findIndex((p: any) => String(p.id) === String(user.id || user.display_name))
+    if (pIdx === -1) return
+
+    let nextPot = pot
+    let nextBetTotal = currentBet
+    let nextRaiser = lastRaiserId
+
+    if (action === 'fold') {
+        nextPlayers[pIdx].folded = true
+    } else if (action === 'call') {
+        const toCall = nextBetTotal - nextPlayers[pIdx].bet
+        const actual = Math.min(toCall, nextPlayers[pIdx].chips)
+        nextPlayers[pIdx].chips -= actual
+        nextPlayers[pIdx].bet += actual
+        nextPot += actual
+    } else if (action === 'raise') {
+        const raiseTo = amount || (nextBetTotal + settings.blind * 2)
+        const diff = raiseTo - nextPlayers[pIdx].bet
+        nextPlayers[pIdx].chips -= diff
+        nextPlayers[pIdx].bet = raiseTo
+        nextPot += diff
+        nextBetTotal = raiseTo
+        nextRaiser = nextPlayers[pIdx].id
+    }
+
+    // Find next player
+    let nextIdx = (pIdx + 1) % nextPlayers.length
+    while (nextPlayers[nextIdx].folded || nextPlayers[nextIdx].chips <= 0) {
+        nextIdx = (nextIdx + 1) % nextPlayers.length
+        if (nextIdx === pIdx) break // All others folded
+    }
+
+    // Check round end
+    const active = nextPlayers.filter((p: any) => !p.folded)
+    const matched = active.every((p: any) => p.bet === nextBetTotal || p.chips === 0)
+
+    if (matched && (nextPlayers[nextIdx].id === nextRaiser || active.length === 1)) {
+        transitionStage(nextPlayers, nextPot)
+    } else {
+        broadcastMessage({
+            players: nextPlayers,
+            pot: nextPot,
+            currentBet: nextBetTotal,
+            currentTurn: nextPlayers[nextIdx].id,
+            lastRaiserId: nextRaiser
+        })
+    }
+  }
+
+  const transitionStage = (curPlayers: any[], curPot: number) => {
+    let nextState = gameState
+    let board = [...communityCards]
+    const curDeck = [...deckRef.current]
+
+    // Clear bets
+    const resetPlayers = curPlayers.map(p => ({ ...p, bet: 0 }))
 
     if (gameState === 'preflop') {
-        nextS = 'flop'
-        newCards = [currentDeck.pop()!, currentDeck.pop()!, currentDeck.pop()!]
+        nextState = 'flop'
+        board = [curDeck.pop()!, curDeck.pop()!, curDeck.pop()!]
     } else if (gameState === 'flop') {
-        nextS = 'turn'
-        newCards.push(currentDeck.pop()!)
+        nextState = 'turn'
+        board.push(curDeck.pop()!)
     } else if (gameState === 'turn') {
-        nextS = 'river'
-        newCards.push(currentDeck.pop()!)
+        nextState = 'river'
+        board.push(curDeck.pop()!)
     } else if (gameState === 'river') {
-        nextS = 'showdown'
+        nextState = 'showdown'
+    }
+
+    // Next turn starts from SB (or next active after dealer)
+    const dealerIdx = resetPlayers.findIndex(p => p.isDealer)
+    let nextTurnIdx = (dealerIdx + 1) % resetPlayers.length
+    while (resetPlayers[nextTurnIdx].folded) {
+        nextTurnIdx = (nextTurnIdx + 1) % resetPlayers.length
     }
 
     broadcastMessage({
-        type: 'game_update',
-        state: nextS,
-        communityCards: newCards,
-        deck: currentDeck,
+        state: nextState,
+        players: resetPlayers,
+        communityCards: board,
+        deck: curDeck,
         currentBet: 0,
-        players: players.map(p => ({ ...p, bet: 0 })) 
+        currentTurn: resetPlayers[nextTurnIdx].id,
+        lastRaiserId: null,
+        pot: curPot
     })
   }
 
-  // --- AUTOMATION EFFECT ---
+  // --- WEBCAM & PEER ---
   useEffect(() => {
-    // Only the "Host" (first player in list) manages automation to avoid conflicts
-    if (players[0]?.id !== (user?.id || user?.display_name)) return
-    if (gameState === 'waiting' || gameState === 'showdown') return
-
-    const activePlayers = players.filter(p => !p.folded)
-    const allMatched = activePlayers.every(p => p.bet === currentBet)
+    if (!user || !roomId) return
+    const myUniqueId = `poker-${roomId}-${String(user.id || user.display_name).replace(/\s+/g, '_')}`
     
-    // In a real game we'd also check if everyone had a chance to act
-    if (allMatched && activePlayers.length > 0 && currentBet >= 0) {
-        // Simple delay before next stage for better UX
-        const timer = setTimeout(() => {
-            if (gameState === 'river') {
-                setGameState('showdown')
-            } else {
-                nextStage()
-            }
-        }, 2000)
-        return () => clearTimeout(timer)
-    }
-  }, [players, currentBet, gameState])
-
-  // Automatically enroll new presence players into the game state
-  useEffect(() => {
-    setPlayers(prev => {
-        const newPlayers = [...prev]
-        joinedPlayers.forEach(jp => {
-            if (!newPlayers.find(p => p.id === jp.id)) {
-                newPlayers.push({
-                    id: jp.id,
-                    name: jp.display_name,
-                    chips: settings.buyIn,
-                    isReady: true,
-                    isDealer: false,
-                    isCurrent: false,
-                    cards: [],
-                    folded: false,
-                    bet: 0
-                })
-            }
+    const setupPeer = async () => {
+        const { default: Peer } = await import('peerjs')
+        const peer = new Peer(myUniqueId, {
+            debug: 1,
+            config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }
         })
-        return newPlayers
-    })
-  }, [joinedPlayers, settings.buyIn])
+        peerRef.current = peer
+        peer.on('call', (call: any) => {
+            const rId = call.peer.replace(`poker-${roomId}-`, '').replace(/_/g, ' ')
+            call.answer(localStreamRef.current || undefined)
+            call.on('stream', (s: MediaStream) => setRemoteStreams(prev => ({...prev, [rId]: s})))
+        })
+    }
+    setupPeer()
 
-    const peerRef = useRef<any>(null)
-    const localStreamRef = useRef<MediaStream | null>(localStream)
-
-    useEffect(() => {
-        localStreamRef.current = localStream
-    }, [localStream])
-
-    useEffect(() => {
-        if (!user || !roomId) return
-        
-        const myId = `poker-${roomId}-${(user.id || user.display_name).toString().replace(/\s+/g, '_')}`
-
-        const initPeer = async () => {
-            const { default: Peer } = await import('peerjs')
-            const peer = new Peer(myId, {
-                debug: 1,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'stun:stun2.l.google.com:19302' },
-                        { urls: 'stun:stun3.l.google.com:19302' },
-                        { urls: 'stun:stun4.l.google.com:19302' },
-                        { urls: 'stun:stun.services.mozilla.com' }
-                    ]
-                }
-            })
-            peerRef.current = peer
-
-            peer.on('call', (call: any) => {
-                const remoteUserId = call.peer.replace(`poker-${roomId}-`, '').replace(/_/g, ' ')
-                call.answer(localStreamRef.current || undefined)
-                call.on('stream', (remoteStream: MediaStream) => {
-                    setRemoteStreams(prev => {
-                        if (prev[remoteUserId]?.id === remoteStream.id) return prev
-                        return { ...prev, [remoteUserId]: remoteStream }
-                    })
-                })
-            })
-        }
-        initPeer()
-
-    const channel = supabase.channel(roomId, {
-      config: { presence: { key: (user.id || user.display_name).toString() } }
-    })
-
+    const channel = supabase.channel(roomId, { config: { presence: { key: String(user.id || user.display_name) } } })
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
-        const onlineUsers = Object.values(state).flat() as any[]
-        const uniqueUsers = Array.from(new Map(onlineUsers.map(u => [u.id, u])).values())
-        setJoinedPlayers(uniqueUsers)
+        const users = Object.values(state).flat() as any[]
+        const unique = Array.from(new Map(users.map(u => [u.id, u])).values())
+        setJoinedPlayers(unique)
 
-        uniqueUsers.forEach(u => {
-            if (!u?.id) return
-            const remoteUserId = String(u.id)
-            const remotePeerId = `poker-${roomId}-${remoteUserId.replace(/\s+/g, '_')}`
-            
-            const myCurrentId = String(user.id || user.display_name)
-            if (remoteUserId !== myCurrentId && peerRef.current && !remoteStreams[remoteUserId]) {
-                if (myId > remotePeerId && localStreamRef.current) {
-                    const call = peerRef.current.call(remotePeerId, localStreamRef.current)
-                    call.on('stream', (remoteStream: MediaStream) => {
-                        setRemoteStreams(prev => ({ ...prev, [remoteUserId]: remoteStream }))
-                    })
+        unique.forEach(u => {
+            const rId = String(u.id)
+            const rPeerId = `poker-${roomId}-${rId.replace(/\s+/g, '_')}`
+            if (rId !== String(user.id || user.display_name) && peerRef.current && !remoteStreams[rId]) {
+                if (myUniqueId > rPeerId && localStreamRef.current) {
+                    const call = peerRef.current.call(rPeerId, localStreamRef.current)
+                    call.on('stream', (s: MediaStream) => setRemoteStreams(prev => ({...prev, [rId]: s})))
                 }
             }
         })
       })
-      .on('broadcast', { event: 'game_logic' }, (payload) => {
-        handleGameMessage(payload.payload)
-      })
+      .on('broadcast', { event: 'game_logic' }, (p) => handleGameMessage(p.payload))
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-            await channel.track({
-                id: user.id || user.display_name,
-                display_name: user.display_name,
-                profile_image_url: user.profile_image_url,
-                joined_at: new Date().toISOString()
-            })
+            await channel.track({ id: user.id || user.display_name, display_name: user.display_name, profile_image_url: user.profile_image_url })
         }
       })
 
-    return () => {
-      channel.unsubscribe()
-      peerRef.current?.destroy()
-    }
-  }, [user, roomId, settings.withWebcams])
+    return () => { channel.unsubscribe(); peerRef.current?.destroy() }
+  }, [user, roomId])
 
-  // Unified webcam initialization
   useEffect(() => {
-    let activeStream: MediaStream | null = null
-    
     if (settings.withWebcams) {
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(stream => {
-                activeStream = stream
-                setLocalStream(stream)
-                if (videoRef.current) videoRef.current.srcObject = stream
-            })
-            .catch(err => console.error("Webcam error:", err))
+            .then(s => setLocalStream(s))
+            .catch(e => console.error(e))
     }
-
   }, [settings.withWebcams])
 
-
-  // Sync state logic (Dynamic players)
   const playersWithState = useMemo(() => {
     return Array.from({ length: settings.size }).map((_, i) => {
-        // Find player who specifically joined this seat (or just distribute them)
-        const presencePlayer = joinedPlayers[i]
-        if (!presencePlayer) return null
-        
-        const presenceId = String(presencePlayer.id)
-        const gameStatePlayer = players.find(p => String(p.id) === presenceId)
+        const pj = joinedPlayers[i]
+        if (!pj) return null
+        const gp = players.find(p => String(p.id) === String(pj.id))
         return {
-            id: presencePlayer.id,
-            name: presencePlayer.display_name,
-            profile: presencePlayer.profile_image_url,
-            chips: gameStatePlayer?.chips ?? settings.buyIn,
-            isCurrent: gameStatePlayer?.isCurrent || false,
-            isDealer: gameStatePlayer?.isDealer || false,
-            folded: gameStatePlayer?.folded || false,
-            bet: gameStatePlayer?.bet || 0,
-            cards: gameStatePlayer?.cards || []
+            id: pj.id,
+            name: pj.display_name,
+            profile: pj.profile_image_url,
+            chips: gp?.chips ?? settings.buyIn,
+            bet: gp?.bet ?? 0,
+            folded: gp?.folded ?? false,
+            cards: gp?.cards ?? [],
+            isDealer: gp?.isDealer ?? false,
+            isSB: gp?.isSmallBlind ?? false,
+            isBB: gp?.isBigBlind ?? false
         }
     })
   }, [joinedPlayers, players, settings])
 
-  // Player positions around the table (percentages)
-  const getPlayerPosition = (index: number, total: number) => {
-    const angle = (index / total) * 2 * Math.PI + Math.PI / 2
-    const radiusX = 42 // table width radius
-    const radiusY = 38 // table height radius
-    return {
-      left: `${50 + radiusX * Math.cos(angle)}%`,
-      top: `${50 + radiusY * Math.sin(angle)}%`
-    }
+  const getPos = (i: number, n: number) => {
+    const a = (i / n) * 2 * Math.PI + Math.PI / 2
+    return { left: `${50 + 42 * Math.cos(a)}%`, top: `${50 + 38 * Math.sin(a)}%` }
   }
 
-  // Hand Evaluation Hint (Simplified for Demo)
-  const handHint = useMemo(() => {
-    const me = players.find(p => p.id === (user?.id || user?.display_name || 'me'))
-    const myCards = me?.cards || []
-    if (myCards.length === 0 || me?.folded) return null
-
-    if (myCards.length >= 2 && myCards[0].value === myCards[1].value) {
-        return `ПАРА (${myCards[0].value}, ${myCards[1].value})`
-    }
-    return null
-  }, [players, communityCards, user])
-
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-start pt-16 md:pt-24 p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505]">
+    <div className="relative w-full h-screen bg-[#050505] text-white flex flex-col items-center justify-center overflow-hidden">
       
-      {/* HUD: Top Bar */}
-      <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between z-[100]">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <ArrowLeft className="w-6 h-6" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold italic text-primary">{settings.name}</h1>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><Coins className="w-3 h-3 text-yellow-500" /> Blinds: {settings.blind}/{settings.blind*2}</span>
-              <span className="bg-white/10 px-2 py-0.5 rounded uppercase tracking-tighter">POT: {pot}</span>
+      {/* Header */}
+      <div className="absolute top-0 w-full p-6 flex justify-between items-center z-50">
+        <div className="flex gap-4 items-center">
+            <button onClick={onBack} className="p-2 bg-white/5 rounded-full hover:bg-white/10"><ArrowLeft /></button>
+            <div>
+                <div className="text-primary font-black italic">{settings.name}</div>
+                <div className="text-[10px] text-white/40">POT: {pot} | BLINDS: {settings.blind}/{settings.blind*2}</div>
             </div>
-          </div>
         </div>
-
-        <div className="flex items-center gap-3">
-            <button 
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href)
-                alert("Ссылка на стол скопирована!")
-              }}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
-            >
-                INVITE
-            </button>
-            <button 
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-bold transition-all shadow-lg shadow-primary/20"
-            >
-                HARD FIX CAM
-            </button>
-            {gameState === 'waiting' && joinedPlayers[0]?.id === (user?.id || user?.display_name) && (
-                <button 
-                  onClick={startNewGame}
-                  className="px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg shadow-primary/20 animate-pulse"
-                >
-                    START GAME
-                </button>
+        <div className="flex gap-2">
+            <button onClick={() => window.location.reload()} className="px-4 py-2 bg-primary text-white font-bold rounded-lg text-xs">HARD FIX CAM</button>
+            {gameState === 'waiting' && joinedPlayers[0]?.id === (user.id || user.display_name) && (
+                <button onClick={startNewGame} className="px-6 py-2 bg-primary text-white font-black italic rounded-lg animate-pulse">START GAME</button>
             )}
-            <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"><History className="w-5 h-5" /></button>
         </div>
       </div>
 
-      {/* RENDER TABLE */}
-      <div className="relative w-full max-w-5xl aspect-[16/10] flex items-center justify-center">
-        
-        {/* The Felt Table */}
-        <div className="absolute w-[80%] h-[70%] bg-[#1a4a2e] rounded-[150px] border-[12px] border-[#2c1810] shadow-[0_0_100px_rgba(0,0,0,0.8),inset_0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
-            {/* Table inner glow */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.05)_0%,_transparent_70%)]" />
-            <div className="absolute inset-0 bg-grid-pattern opacity-10" />
-            
-            {/* Community Cards */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
-                <div className="flex items-center gap-3">
-                    <AnimatePresence>
-                        {communityCards.map((card, i) => (
-                            <motion.div
-                                key={`${card.suit}-${card.value}`}
-                                initial={{ y: -50, opacity: 0, rotateY: 180 }}
-                                animate={{ y: 0, opacity: 1, rotateY: 0 }}
-                                transition={{ delay: 0.2 + i * 0.1 }}
-                            >
-                                <PokerCard suit={card.suit} value={card.value} />
-                            </motion.div>
-                        ))}
-                    </AnimatePresence>
-                    {communityCards.length < 5 && Array.from({length: 5 - communityCards.length}).map((_, i) => (
-                        <div key={i} className="w-16 h-24 md:w-20 md:h-28 rounded-lg bg-black/20 border border-white/5 border-dashed" />
+      {/* Table */}
+      <div className="relative w-full max-w-5xl aspect-[16/9]">
+        <div className="absolute inset-[15%] bg-[#1a4a2e] rounded-[200px] border-[15px] border-[#2c1810] shadow-2xl flex flex-col items-center justify-center gap-4">
+            <div className="flex gap-2">
+                <AnimatePresence>
+                    {communityCards.map((c, i) => (
+                        <motion.div key={i} initial={{y:-20, opacity:0}} animate={{y:0, opacity:1}} transition={{delay: i*0.1}}>
+                            <PokerCard suit={c.suit} value={c.value} />
+                        </motion.div>
                     ))}
-                </div>
-                <div className="text-center">
-                    <div className="text-4xl font-black italic text-white/20 tracking-widest uppercase">POT: {pot}</div>
-                </div>
+                </AnimatePresence>
             </div>
+            <div className="text-white/10 font-black text-6xl italic tracking-tighter">POT: {pot}</div>
         </div>
 
         {/* Players */}
-        {playersWithState.map((player, i) => {
-            if (!player) {
-                const pos = getPlayerPosition(i, settings.size)
-                return (
-                    <div 
-                        key={`empty-${i}`} 
-                        className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 scale-75 cursor-pointer hover:opacity-50 transition-all"
-                        style={{ left: pos.left, top: pos.top }}
-                    >
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-2 border-dashed border-white/40 flex flex-col items-center justify-center gap-2">
-                             <span className="text-2xl">🪑</span>
-                             <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">СВОБОДНО</span>
-                        </div>
-                    </div>
-                )
-            }
-
-            const pos = getPlayerPosition(i, settings.size)
-            const isMe = player.id === (user?.id || user?.display_name)
+        {playersWithState.map((p, i) => {
+            if (!p) return null
+            const pos = getPos(i, settings.size)
+            const isMe = String(p.id) === String(user.id || user.display_name)
+            const isTurn = String(p.id) === String(currentTurn)
 
             return (
-                <motion.div
-                    key={player.id}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="absolute z-20 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-                    style={{ left: pos.left, top: pos.top }}
-                >
-                    {/* Dealer Button */}
-                    {player.isDealer && (
-                        <div className="absolute -top-4 -right-4 w-8 h-8 bg-white text-black font-bold rounded-full border-2 border-black flex items-center justify-center shadow-lg text-[10px]">D</div>
-                    )}
-
-                    {/* Player Card (Webcam or Avatar) */}
-                    <div className={`relative w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${player.isCurrent ? 'border-primary ring-4 ring-primary/20 scale-110 shadow-[0_0_30px_rgba(255,69,0,0.4)]' : 'border-white/10 grayscale-[0.5]'} hover:grayscale-0`}>
+                <div key={p.id} className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center" style={{ left: pos.left, top: pos.top }}>
+                    <div className={`relative w-28 h-28 md:w-32 md:h-32 rounded-2xl overflow-hidden border-4 transition-all ${isTurn ? 'border-primary ring-8 ring-primary/20 scale-110' : 'border-white/10'}`}>
                         {settings.withWebcams ? (
-                            <div className="relative w-full h-full bg-black">
-                                {isMe ? (
-                                    <LocalVideo stream={localStream} />
-                                ) : (
-                                    <RemoteVideo stream={remoteStreams[player.id]} name={player.name} />
-                                )}
+                            <div className="w-full h-full bg-black">
+                                {isMe ? <LocalVideo stream={localStream} /> : <RemoteVideo stream={remoteStreams[p.id]} name={p.name} />}
                             </div>
                         ) : (
-                            <div className="w-full h-full bg-[#151515] flex items-center justify-center">
-                                {isMe && user?.profile_image_url ? (
-                                    <img src={user.profile_image_url} alt={player.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <span className="text-4xl">👤</span>
-                                )}
-                            </div>
+                            <div className="w-full h-full bg-white/5 flex items-center justify-center text-4xl">👤</div>
                         )}
                         
-                        {/* Status Overlay - MOVED BELOW WEBCAM */}
-                        <div className="absolute top-[105%] left-0 w-full bg-black/40 backdrop-blur-md p-1 px-2 rounded-lg border border-white/5">
-                            <div className="text-[10px] font-bold uppercase truncate text-white/90">{player.name} {isMe ? '(ВЫ)' : ''}</div>
-                            <div className="text-[12px] text-yellow-500 font-black italic flex items-center gap-1">
-                                <Coins className="w-3 h-3" /> {player.chips}
-                            </div>
+                        <div className="absolute bottom-0 w-full bg-black/60 p-1 text-[10px] text-center font-bold">
+                            {p.isDealer && <span className="bg-white text-black px-1 mr-1">D</span>}
+                            {p.name.substring(0, 10)}
                         </div>
-
-                        {/* Bet Amount */}
-                        {player.bet > 0 && (
-                            <motion.div 
-                                initial={{ y: 20, opacity: 0 }} 
-                                animate={{ y: 0, opacity: 1 }}
-                                className="absolute -top-10 bg-primary/20 border border-primary text-primary px-3 py-1 rounded-full text-xs font-bold"
-                            >
-                                {player.bet}
-                            </motion.div>
-                        )}
+                    </div>
+                    
+                    <div className="mt-2 bg-black/80 px-3 py-1 rounded-full border border-white/10 text-xs font-black italic text-yellow-500 flex items-center gap-1">
+                        <Coins className="w-3 h-3" /> {p.chips}
                     </div>
 
-                    {/* Hand Cards (Visible if Me or Showdown) - MOVED TO THE RIGHT */}
-                    {isMe && player.cards.length > 0 && !player.folded && (
-                         <div className="absolute left-[110%] top-1/2 -translate-y-1/2 flex gap-4 scale-50 md:scale-75 origin-left z-30">
-                            {player.cards.map((card, ci) => (
-                                <motion.div
-                                    key={ci}
-                                    initial={{ x: -20, opacity: 0, rotate: -5 + ci * 10 }}
-                                    animate={{ x: 0, opacity: 1 }}
-                                    transition={{ delay: 0.5 + ci * 0.1 }}
-                                >
-                                    <PokerCard suit={card.suit} value={card.value} />
-                                </motion.div>
+                    {p.bet > 0 && <div className="mt-1 bg-primary px-2 py-0.5 rounded text-[10px] font-bold">BET: {p.bet}</div>}
+
+                    {/* Cards */}
+                    {p.cards.length > 0 && !p.folded && (
+                        <div className="absolute -bottom-4 flex gap-1 scale-50">
+                            {p.cards.map((c, ci) => (
+                                <PokerCard key={ci} suit={c.suit} value={c.value} isFlipped={!isMe && gameState !== 'showdown'} />
                             ))}
-                         </div>
+                        </div>
                     )}
-                </motion.div>
+                </div>
             )
         })}
       </div>
 
-      {/* CONTROLS: Bottom HUD */}
-      <div className="absolute bottom-0 left-0 w-full p-8 flex items-end justify-center z-[100] pointer-events-auto">
-        <div className="flex flex-wrap items-center gap-4 bg-black/90 backdrop-blur-3xl border border-white/20 p-4 md:p-6 rounded-3xl shadow-2xl">
-            
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => {
-                    broadcastMessage({
-                        type: 'action',
-                        players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, folded: true} : p)
-                    })
-                }}
-                className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
-              >
-                FOLD
-              </button>
-              <button 
-                onClick={() => {
-                    const me = players.find(p => p.id === (user?.id || user?.display_name))
-                    const callAmount = currentBet - (me?.bet || 0)
-                    if (me && me.chips >= callAmount) {
-                        broadcastMessage({
-                            type: 'action',
-                            players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, chips: p.chips - callAmount, bet: p.bet + callAmount} : p),
-                            pot: pot + callAmount
-                        })
-                    }
-                }}
-                className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
-              >
-                {currentBet > (players.find(p => p.id === (user?.id || user?.display_name))?.bet || 0) ? 'CALL' : 'CHECK'}
-              </button>
-              
-              <div className="flex flex-col gap-1 min-w-[200px]">
-                <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5">
-                    <button 
-                      onClick={() => setRaiseAmount(Math.max(settings.blind * 2, raiseAmount - 10))}
-                      className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors"
-                    >-</button>
-                    <span className="text-[10px] font-black tracking-widest text-primary">RAISE {raiseAmount}</span>
-                    <button 
-                      onClick={() => setRaiseAmount(raiseAmount + 10)}
-                      className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors"
-                    >+</button>
+      {/* Controls */}
+      {gameState !== 'waiting' && currentTurn === String(user.id || user.display_name) && (
+        <div className="absolute bottom-10 flex gap-4 p-6 bg-black/80 border border-white/10 rounded-2xl z-50">
+            <button onClick={() => handleAction('fold')} className="px-8 py-3 bg-white/5 hover:bg-white/10 font-bold rounded-lg border border-white/10">FOLD</button>
+            <button onClick={() => handleAction('call')} className="px-8 py-3 bg-white/5 hover:bg-white/10 font-bold rounded-lg border border-white/10">
+                {currentBet > (players.find(p => String(p.id) === String(user.id))?.bet || 0) ? 'CALL' : 'CHECK'}
+            </button>
+            <div className="flex flex-col gap-1">
+                <div className="flex justify-between items-center px-2 text-[10px] text-primary font-bold">
+                    <button onClick={() => setRaiseAmount(Math.max(settings.blind*2, raiseAmount-10))}>-</button>
+                    <span>RAISE {raiseAmount}</span>
+                    <button onClick={() => setRaiseAmount(raiseAmount+10)}>+</button>
                 </div>
-                <button 
-                  disabled={!players.find(p => p.id === (user?.id || user?.display_name))?.isCurrent}
-                  onClick={() => {
-                    const me = players.find(p => p.id === (user?.id || user?.display_name))
-                    if (me && me.chips >= raiseAmount) {
-                      broadcastMessage({
-                          type: 'action',
-                          players: players.map(p => p.id === (user?.id || user?.display_name) ? {...p, chips: p.chips - raiseAmount, bet: p.bet + raiseAmount, isCurrent: false} : p),
-                          pot: pot + raiseAmount,
-                          currentBet: (me.bet || 0) + raiseAmount
-                      })
-                    }
-                  }}
-                  className="w-full py-4 bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase"
-                >
-                  RAISE {raiseAmount}
-                </button>
-              </div>
-            </div>
-
-            <div className="h-12 w-px bg-white/10 mx-4 hidden md:block" />
-
-            <div className="flex items-center gap-6">
-                <div className="flex flex-col">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-widest">ВАШ СТЕК</span>
-                    <span className="text-xl font-black italic text-yellow-500 flex items-center gap-2 tracking-tight">
-                        <Coins className="w-5 h-5" /> 
-                        {players.find(p => p.id === (user?.id || user?.display_name || 'me'))?.chips?.toLocaleString() || '0'}
-                    </span>
-                </div>
-                
-                <div className="flex gap-4 items-center">
-                    {handHint && (
-                        <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl backdrop-blur-md">
-                            <span className="text-[10px] font-black italic text-primary mr-2 uppercase">HINT:</span>
-                            <span className="text-xs font-bold text-white tracking-widest">{handHint}</span>
-                        </div>
-                    )}
-
-                    <div className="flex gap-2">
-                    <button 
-                      onClick={toggleMic}
-                      className={`p-4 rounded-xl transition-all ${isMicOn ? 'bg-twitch-purple/20 text-twitch-purple hover:bg-twitch-purple/30' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
-                    >
-                      {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-                    </button>
-                    <button 
-                      onClick={toggleVideo}
-                      className={`p-4 rounded-xl transition-all ${isVideoOn ? 'bg-twitch-purple/20 text-twitch-purple hover:bg-twitch-purple/30' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
-                    >
-                      {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-                    </button>
-                </div>
-              </div>
+                <button onClick={() => handleAction('raise', raiseAmount)} className="px-8 py-3 bg-primary text-white font-bold rounded-lg shadow-lg">RAISE</button>
             </div>
         </div>
-      </div>
-
-      {/* Combination info button */}
-      <div className="absolute bottom-8 right-8">
-        <button className="p-4 bg-black/40 border border-white/10 rounded-full hover:bg-black/60 transition-all text-white/50 hover:text-white">
-            <HelpCircle />
-        </button>
-      </div>
-
+      )}
+      
+      {isMeInGame() && currentTurn === String(user.id || user.display_name) && <div className="absolute bottom-32 text-primary font-black italic animate-bounce">ВАШ ХОД!</div>}
+      
+      {gameState === 'showdown' && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200]">
+            <div className="text-center">
+                <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4 animate-bounce" />
+                <h2 className="text-4xl font-black italic mb-6">SHOWDOWN!</h2>
+                <button onClick={startNewGame} className="px-10 py-4 bg-primary text-white font-black rounded-xl">СЛЕДУЮЩАЯ РАЗДАЧА</button>
+            </div>
+        </div>
+      )}
     </div>
   )
 }
 
 function LocalVideo({ stream }: { stream: MediaStream | null }) {
-    const videoRef = useRef<HTMLVideoElement>(null)
-
-    useEffect(() => {
-        if (videoRef.current && stream) {
-            videoRef.current.srcObject = stream
-            videoRef.current.play().catch(e => console.error("Remote Play Error:", e))
-        }
-    }, [stream])
-
-    return <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
+  const ref = useRef<HTMLVideoElement>(null)
+  useEffect(() => { if (ref.current && stream) ref.current.srcObject = stream }, [stream])
+  return <video ref={ref} autoPlay muted playsInline className="w-full h-full object-cover mirror" />
 }
 
-function RemoteVideo({ stream, name }: { stream?: MediaStream, name: string }) {
-    const videoRef = useRef<HTMLVideoElement>(null)
-
-    useEffect(() => {
-        if (videoRef.current && stream) {
-            console.log("ATTACHING STREAM TO LOCAL VIDEO")
-            videoRef.current.srcObject = stream
-            videoRef.current.play().catch(e => console.error("Play error:", e))
-        }
-    }, [stream])
-
-    if (!stream) {
-        return (
-            <div className="w-full h-full bg-[#151515] flex items-center justify-center">
-                <span className="text-muted-foreground text-[10px] text-center px-2">Ожидание камеры...</span>
-            </div>
-        )
-    }
-
-    return <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+function RemoteVideo({ stream, name }: { stream: MediaStream | null, name: string }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  useEffect(() => { if (ref.current && stream) ref.current.srcObject = stream }, [stream])
+  return stream ? <video ref={ref} autoPlay playsInline className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-[10px] text-white/20 uppercase font-bold text-center p-4">Ожидание камеры {name}...</div>
 }
+
+function isMeInGame() { return true }
