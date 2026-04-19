@@ -212,6 +212,23 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         }
     })
 
+    // Toggle handlers
+    const toggleMic = () => {
+        if (localStream) {
+            const newState = !isMicOn
+            localStream.getAudioTracks().forEach(track => track.enabled = newState)
+            setIsMicOn(newState)
+        }
+    }
+
+    const toggleVideo = () => {
+        if (localStream) {
+            const newState = !isVideoOn
+            localStream.getVideoTracks().forEach(track => track.enabled = newState)
+            setIsVideoOn(newState)
+        }
+    }
+
     const createPeerConnection = (targetId: string, isInitiator: boolean) => {
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
