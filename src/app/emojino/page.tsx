@@ -379,20 +379,21 @@ function EmojinoContent() {
           {screen === 'home' && (
             <motion.div 
               key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pt-10"
+              className="w-full max-w-6xl space-y-12 pt-10"
             >
-              {/* Left Column: Menu */}
-              <div className="lg:col-span-5 space-y-12">
-                <div className="space-y-2 overflow-visible w-full">
-                  <h1 className="text-7xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[0.7] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible pl-1 pr-60">
-                    Угадай
-                  </h1>
-                  <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[0.7] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible pl-1 pr-60">
-                    Эмоджи
-                  </h1>
-                </div>
+              <div className="space-y-0 overflow-visible w-full px-2">
+                <h1 className="text-7xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[0.6] uppercase italic drop-shadow-2xl">
+                  Угадай
+                </h1>
+                <h1 className="text-[120px] font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[0.9] uppercase italic drop-shadow-2xl">
+                  Эмоджи
+                </h1>
+              </div>
 
-                <div className="grid grid-cols-1 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+                {/* Left Column: Menu */}
+                <div className="lg:col-span-5 space-y-8">
+                  <div className="grid grid-cols-1 gap-4">
                   {[
                     { m: 'all', t: 'КОМБО', i: <Inbox className="w-9 h-9 text-white" />, c: 'from-purple-600 to-indigo-800' },
                     { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-9 h-9 text-white" />, c: 'from-amber-500 to-orange-700' },
