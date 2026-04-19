@@ -414,7 +414,7 @@ function EmojinoContent() {
               </div>
 
               {/* Right Column: Embedded Leaderboard */}
-              <div className="lg:col-span-7 bg-[#0c0c0e]/50 backdrop-blur-xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[600px] shadow-2xl">
+              <div className="lg:col-span-6 bg-[#0c0c0e]/50 backdrop-blur-xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[600px] shadow-2xl">
                  <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shadow-inner">
@@ -451,7 +451,6 @@ function EmojinoContent() {
                         </div>
                     )}
                  </div>
-              </div>
               </div>
             </motion.div>
           )}
