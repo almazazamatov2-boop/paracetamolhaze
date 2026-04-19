@@ -66,6 +66,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   // --- TOGGLE HANDLERS ---
   const toggleMic = () => {
     if (localStream) {
+        console.log("TOGGLE MIC", !isMicOn)
         const newState = !isMicOn
         localStream.getAudioTracks().forEach(track => track.enabled = newState)
         setIsMicOn(newState)
@@ -413,7 +414,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     <div className="relative w-full h-full flex flex-col items-center justify-start pt-16 md:pt-24 p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505]">
       
       {/* HUD: Top Bar */}
-      <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between z-50">
+      <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between z-[100]">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <ArrowLeft className="w-6 h-6" />
@@ -539,7 +540,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                         
                         {/* Status Overlay */}
                         <div className="absolute bottom-0 left-0 w-full bg-black/60 backdrop-blur-md p-1 px-2">
-                            <div className="text-[10px] font-bold uppercase truncate">{player.name}</div>
+                            <div className="text-[10px] font-bold uppercase truncate">{player.name} {isMe ? '(ВЫ)' : ''}</div>
                             <div className="text-[12px] text-yellow-500 font-black italic flex items-center gap-1">
                                 <Coins className="w-3 h-3" /> {player.chips}
                             </div>
@@ -578,8 +579,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       </div>
 
       {/* CONTROLS: Bottom HUD */}
-      <div className="absolute bottom-0 left-0 w-full p-8 flex items-end justify-center pointer-events-none">
-        <div className="flex flex-wrap items-center gap-4 bg-black/80 backdrop-blur-2xl border border-white/10 p-4 md:p-6 rounded-3xl pointer-events-auto shadow-2xl">
+      <div className="absolute bottom-0 left-0 w-full p-8 flex items-end justify-center z-[100] pointer-events-auto">
+        <div className="flex flex-wrap items-center gap-4 bg-black/90 backdrop-blur-3xl border border-white/20 p-4 md:p-6 rounded-3xl shadow-2xl">
             
             <div className="flex items-center gap-3">
               <button 
@@ -708,7 +709,9 @@ function RemoteVideo({ stream, name }: { stream?: MediaStream, name: string }) {
 
     useEffect(() => {
         if (videoRef.current && stream) {
+            console.log("ATTACHING STREAM TO LOCAL VIDEO")
             videoRef.current.srcObject = stream
+            videoRef.current.play().catch(e => console.error("Play error:", e))
         }
     }, [stream])
 
