@@ -1,608 +1,602 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useGameStore } from '@/store/gameStore'
-import { movies } from '@/data/movies'
-import './emojino.css'
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Film, Tv, Lightbulb, SkipForward, Trophy, Home, ChevronRight, 
+  Search, X, Check, Sparkles, Clapperboard, Eye, Crown, LogIn, 
+  Zap, Medal, Menu, User, Inbox, RefreshCw, Loader2, LogOut, Share2,
+  Smile
+} from 'lucide-react';
+import { Button } from '@/components/67/ui/button'; 
+import { AuthProvider, useSession, signIn, signOut } from '@/lib/67/authHook'; 
+import { supabase } from '@/lib/supabase';
+import { movies, Movie } from '@/data/movies';
 
-type View = 'home' | 'game' | 'profile' | 'ratings'
-type Mode = 'all' | 'film' | 'serial'
+// ============ TYPES ============
+interface EmojinoState {
+  hintsUsed: number;
+  guessed: boolean;
+  correct: boolean;
+  score: number;
+  totalScore: number;
+  round: number;
+  mode: string;
+}
 
-export default function EmojinoPage() {
-  const [view, setView] = useState<View>('home')
-  const [answer, setAnswer] = useState('')
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
-  const [showResult, setShowResult] = useState(false)
-  const [lastAnswerCorrect, setLastAnswerCorrect] = useState(false)
-  const [showEndModal, setShowEndModal] = useState(false)
-  const [hint, setHint] = useState<string | null>(null)
-  const [usernameInput, setUsernameInput] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
-  const [searchResults, setSearchResults] = useState<{name: string; year: number; type: string}[]>([])
-  const [ratingMode, setRatingMode] = useState<'all' | 'film' | 'serial'>('all')
-  const [twitchLoading, setTwitchLoading] = useState(false)
+type Screen = 'home' | 'game' | 'leaderboard' | 'result';
 
-  const store = useGameStore()
-  const { isPlaying, currentQuestion, score, hintsUsed, questions, answers, isTwitchAuth } = store
+function AnimatedBg() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-amber-500/[0.07] blur-[120px] animate-float-slow" />
+      <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-red-600/[0.06] blur-[140px] animate-float-slow-reverse" />
+      <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full bg-orange-500/[0.04] blur-[100px] animate-float-slow" />
+    </div>
+  );
+}
 
-  const currentMovie = questions[currentQuestion]
+const SCORE_FOR_HINTS = [5, 3, 2, 1];
 
+function ProfileModal({ isOpen, onClose, user, stats }: { isOpen: boolean, onClose: () => void, user: any, stats: any }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <motion.div 
+        initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+        className="relative w-full max-w-md bg-[#0c0c0e] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl p-8"
+      >
+        <button onClick={onClose} className="absolute top-6 right-6 text-neutral-500 hover:text-white transition-colors">
+          <X className="w-6 h-6" />
+        </button>
+
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div className="relative">
+            <img src={user.image} className="w-24 h-24 rounded-[2rem] border-2 border-white/10 shadow-2xl shadow-amber-500/20" alt="" />
+            <div className="absolute -bottom-2 -right-2 bg-amber-500 text-black p-2 rounded-xl shadow-lg">
+              <Crown className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-2xl font-black">{user.name}</h3>
+            <p className="text-[10px] text-neutral-500 uppercase font-black tracking-widest">Личный кабинет</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 mt-10">
+           <div className="flex items-center justify-between p-5 rounded-3xl bg-white/[0.03] border border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 font-black text-xs">
+                    В
+                 </div>
+                 <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest font-black">ВСЕ</span>
+              </div>
+              <span className="text-xl font-black text-white">{stats.all || 0}</span>
+           </div>
+           <div className="flex items-center justify-between p-5 rounded-3xl bg-white/[0.03] border border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400 font-black text-xs">
+                    Ф
+                 </div>
+                 <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest font-black">ФИЛЬМЫ</span>
+              </div>
+              <span className="text-xl font-black text-white">{stats.film || 0}</span>
+           </div>
+           <div className="flex items-center justify-between p-5 rounded-3xl bg-white/[0.03] border border-white/[0.06]">
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 font-black text-xs">
+                    С
+                 </div>
+                 <span className="text-sm font-bold text-neutral-400 uppercase tracking-widest font-black">СЕРИАЛЫ</span>
+              </div>
+              <span className="text-xl font-black text-white">{stats.serial || 0}</span>
+           </div>
+        </div>
+
+        <button 
+          onClick={() => window.location.reload()}
+          className="w-full mt-8 p-5 rounded-3xl bg-rose-500/10 border border-rose-500/20 text-rose-500 font-black text-sm hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2"
+        >
+          <LogOut className="w-4 h-4" /> ВЫЙТИ ИЗ АККАУНТА
+        </button>
+      </motion.div>
+    </div>
+  );
+}
+
+function EmojinoContent() {
+  const { data: session } = useSession();
+  const [screen, setScreen] = useState<Screen>('home');
+  const [gameMovies, setGameMovies] = useState<Movie[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [guessInput, setGuessInput] = useState('');
+  const [state, setState] = useState<EmojinoState>({ 
+    hintsUsed: 0, 
+    guessed: false, 
+    correct: false, 
+    score: 0, 
+    totalScore: 0,
+    round: 1,
+    mode: 'all' 
+  });
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [lbMode, setLbMode] = useState('all');
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [userStats, setUserStats] = useState({ all: 0, film: 0, serial: 0 });
+
+  // Client-side suggestions
   useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 2500)
-      return () => clearTimeout(t)
+    if (guessInput.length < 1 || state.guessed) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
     }
-  }, [toast])
+
+    const filtered = movies.filter(m => 
+      m.name.toLowerCase().includes(guessInput.toLowerCase()) ||
+      m.aliases.some(a => a.toLowerCase().includes(guessInput.toLowerCase()))
+    ).slice(0, 5);
+    
+    setSuggestions(filtered);
+    setShowSuggestions(true);
+  }, [guessInput, state.guessed]);
+
+  // Load leaderboard (local storage or supabase if I had a table, but I'll use a specific tag for now)
+  useEffect(() => {
+    fetchLeaderboard(lbMode);
+  }, [lbMode]);
+
+  const fetchLeaderboard = async (mode: string) => {
+    try {
+      const { data } = await supabase
+        .from('kinokadr_scores') // Reusing the same table but with different modes/tags if possible
+        .select('*')
+        .eq('mode', `emojino_${mode}`)
+        .order('score', { ascending: false })
+        .limit(10);
+      setLeaderboard(data || []);
+    } catch (e) {}
+  };
+
+  const fetchUserStats = async () => {
+    if (!session?.user) return;
+    try {
+      const { data } = await supabase
+        .from('kinokadr_scores')
+        .select('*')
+        .eq('user_id', session.user.id || (session.user as any).name)
+        .filter('mode', 'like', 'emojino_%');
+      
+      const stats = { all: 0, film: 0, serial: 0 };
+      data?.forEach(s => {
+        if (s.mode === 'emojino_all' && s.score > stats.all) stats.all = s.score;
+        if (s.mode === 'emojino_film' && s.score > stats.film) stats.film = s.score;
+        if (s.mode === 'emojino_serial' && s.score > stats.serial) stats.serial = s.score;
+      });
+      setUserStats(stats);
+    } catch (e) {}
+  };
 
   useEffect(() => {
-    const hash = window.location.hash
-    if (hash.includes('access_token')) {
-      const params = new URLSearchParams(hash.substring(1))
-      const token = params.get('access_token')
-      if (token) {
-        fetch('https://api.twitch.tv/helix/users', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Client-Id': 'c4c4mt2ymlsauflq7x58qxdxluxgye'
-          }
-        })
-        .then(res => res.json())
-        .then(data => {
-          if (data.data && data.data[0]) {
-            store.loginWithTwitch(data.data[0].login)
-            showToast(`Добро пожаловать, ${data.data[0].display_name}!`, 'success')
-            window.location.hash = ''
-          }
-        })
-        .catch(() => {
-          showToast('Ошибка Twitch авторизации', 'error')
-        })
+    if (isProfileOpen) fetchUserStats();
+  }, [isProfileOpen]);
+
+  const twitchLogin = () => signIn('kinokadr');
+
+  const startNewGame = (mode: string) => {
+    const pool = mode === 'all' ? movies : movies.filter(m => m.type === mode);
+    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 10); // 10 rounds for emojino
+    setGameMovies(shuffled);
+    setScreen('game');
+    setCurrentIndex(0);
+    setState({ 
+      hintsUsed: 0, 
+      guessed: false, 
+      correct: false, 
+      score: 0, 
+      totalScore: 0,
+      round: 1,
+      mode 
+    });
+    setGuessInput('');
+  };
+
+  const normalizeAnswer = (answer: string): string => {
+    return answer.toLowerCase().trim().replace(/ё/g, 'е').replace(/[-:.,!?'"\s]+/g, ' ');
+  };
+
+  const checkAnswer = (input: string, movie: Movie): boolean => {
+    const normalized = normalizeAnswer(input);
+    const possibleAnswers = [movie.name, ...movie.aliases];
+    
+    for (const alias of possibleAnswers) {
+      const normAlias = normalizeAnswer(alias);
+      if (normalized === normAlias) return true;
+      if (normalized.length >= 3 && (normAlias.includes(normalized) || normalized.includes(normAlias))) return true;
+    }
+    return false;
+  };
+
+  const handleGuess = (inputOverride?: string) => {
+    const input = (inputOverride || guessInput).trim();
+    if (!input || state.guessed) return;
+    
+    const current = gameMovies[currentIndex];
+    const isCorrect = checkAnswer(input, current);
+
+    const earned = isCorrect ? SCORE_FOR_HINTS[state.hintsUsed] : 0;
+    
+    setState(prev => ({ 
+      ...prev, 
+      guessed: true, 
+      correct: isCorrect, 
+      score: earned,
+      totalScore: prev.totalScore + earned
+    }));
+    setShowSuggestions(false);
+  };
+
+  const handleSkip = () => {
+    if (state.guessed) return;
+    setState(prev => ({ ...prev, guessed: true, correct: false, score: 0 }));
+  };
+
+  const nextMovie = () => {
+    if (state.round < 10 && currentIndex < gameMovies.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+      setState(prev => ({ ...prev, hintsUsed: 0, guessed: false, correct: false, score: 0, round: prev.round + 1 }));
+      setGuessInput('');
+    } else {
+      setScreen('result');
+      if (session?.user) {
+        saveFinalScore(session.user, state.totalScore, state.mode);
       }
     }
-  }, [store])
+  };
 
-  const handleTwitchLogin = () => {
-    setTwitchLoading(true)
-    const clientId = 'c4c4mt2ymlsauflq7x58qxdxluxgye'
-    const redirectUri = encodeURIComponent(window.location.origin + '/emojino')
-    const scope = 'user:read:email'
-    const randomState = Math.random().toString(36).substring(7)
-    
-    window.location.href = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&state=${randomState}`
-  }
+  const saveFinalScore = async (user: any, points: number, mode: string) => {
+    try {
+      await supabase.from('kinokadr_scores').insert({
+        user_id: user.id || user.name,
+        username: user.name,
+        avatar: user.image,
+        score: points,
+        mode: `emojino_${mode}`,
+      });
+      fetchLeaderboard(mode);
+    } catch (e) {}
+  };
 
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type })
-  }
-
-  const handleStartGame = (mode: Mode) => {
-    if (!store.username.trim()) {
-      showToast('Введите имя!', 'error')
-      return
+  const useHint = () => {
+    if (state.hintsUsed < 3) {
+      setState(prev => ({ ...prev, hintsUsed: prev.hintsUsed + 1 }));
     }
-    setShowResult(false)
-    setAnswer('')
-    setHint(null)
-    setLastAnswerCorrect(false)
-    setSearchResults([])
-    setShowSearch(false)
-    store.startGame(mode)
-    setView('game')
-  }
+  };
 
-  const handleAnswerChange = (value: string) => {
-    setAnswer(value)
-    if (value.trim().length >= 1) {
-      const filtered = movies.filter(m => 
-        m.name.toLowerCase().includes(value.toLowerCase()) ||
-        m.aliases.some(a => a.toLowerCase().includes(value.toLowerCase()))
-      ).slice(0, 5)
-      setSearchResults(filtered.map(m => ({ name: m.name, year: m.year, type: m.type })))
-      setShowSearch(true)
-    } else {
-      setShowSearch(false)
-    }
-  }
-
-  const handleSelectResult = (name: string) => {
-    setAnswer(name)
-    setShowSearch(false)
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!answer.trim()) {
-      showToast('Введите название!', 'error')
-      return
-    }
-    
-    const correct = store.answerQuestion(answer)
-    setLastAnswerCorrect(correct)
-    setShowResult(true)
-    setShowSearch(false)
-    setHint(null)
-  }
-
-  const handleNext = () => {
-    setShowResult(false)
-    setAnswer('')
-    setHint(null)
-    store.nextQuestion()
-  }
-
-  const handleEndGame = () => {
-    store.endGame()
-    setShowEndModal(true)
-  }
-
-  const handlePlayAgain = () => {
-    setShowEndModal(false)
-    setShowResult(false)
-    setAnswer('')
-    setHint(null)
-    setLastAnswerCorrect(false)
-    setSearchResults([])
-    setShowSearch(false)
-    store.startGame('all')
-  }
-
-  const handleUseHint = () => {
-    const h = store.useHint()
-    if (h) setHint(h)
-  }
-
-  const handleGoHome = () => {
-    setShowEndModal(false)
-    store.resetGame()
-    setView('home')
-  }
-
-  const renderDots = () => (
-    <div className="flex gap-2">
-      {questions.map((_, i) => (
-        <div
-          key={i}
-          className={`dot ${
-            i === currentQuestion ? 'dot-current' :
-            answers[i] === true ? 'dot-correct' :
-            answers[i] === false ? 'dot-wrong' : 'bg-gray-800'
-          }`}
-        />
-      ))}
-    </div>
-  )
-
-  const renderModeCard = (mode: Mode, icon: string, title: string, desc: string, color: string) => (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => handleStartGame(mode)}
-      className="mode-card w-full text-left"
-    >
-      <div className="mode-icon" style={{ background: `${color}22`, color: color }}>
-        {icon}
-      </div>
-      <div className="relative z-10 flex-1">
-        <div className="font-bold">{title}</div>
-        <div className="opacity-60 text-sm">{desc}</div>
-      </div>
-      <div className="opacity-60">→</div>
-    </motion.button>
-  )
+  const selectSuggestion = (s: Movie) => {
+    setGuessInput(s.name);
+    setShowSuggestions(false);
+    handleGuess(s.name);
+  };
 
   return (
-    <div className="emojino-container min-h-screen">
-      <div className="orbs">
-        <div className="orb orb-1" />
-        <div className="orb orb-2" />
-        <div className="orb orb-3" />
-      </div>
+    <div className="h-screen flex flex-col relative overflow-hidden bg-[#050505] text-white font-sans selection:bg-amber-500/30">
+      <AnimatedBg />
+      
+      <AnimatePresence>
+        {isProfileOpen && session?.user && (
+          <ProfileModal user={session.user} stats={userStats} isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+        )}
+      </AnimatePresence>
 
-      <div className="relative z-10 max-w-md mx-auto px-4 pb-10">
-        <header className="flex items-center justify-between py-4">
-          <motion.h1 
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setView('home')}
-            className="font-accent text-xl text-amber-500 tracking-wider cursor-pointer"
-          >
-            ЭМОДЖИНО
-          </motion.h1>
-          {store.username && (
-            <nav className="flex gap-3 text-sm">
-              <button onClick={() => setView('ratings')} className="opacity-60 hover:opacity-100">Рейтинг</button>
-              <button onClick={() => setView('profile')} className="opacity-60 hover:opacity-100">Профиль</button>
-            </nav>
-          )}
-        </header>
+      {/* Header */}
+      <header className="relative z-50 w-full border-b border-white/[0.06] backdrop-blur-md bg-black/40">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-6">
+            {screen === 'game' && (
+               <div className="flex items-center gap-4 h-10 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+                  <div className="flex items-center gap-2">
+                     <span className="text-[10px] font-black uppercase text-white/30 tracking-widest leading-none">Раунд</span>
+                     <span className="text-sm font-black text-amber-400">{state.round} / 10</span>
+                  </div>
+                  <div className="w-px h-4 bg-white/10" />
+                  <div className="flex items-center gap-2">
+                     <span className="text-[10px] font-black uppercase text-white/30 tracking-widest leading-none">Счет</span>
+                     <span className="text-sm font-black text-white">{state.totalScore}</span>
+                  </div>
+               </div>
+            )}
+            {screen !== 'game' && screen !== 'home' && (
+              <button 
+                onClick={() => setScreen('home')}
+                className="flex items-center gap-2 text-white/40 hover:text-white transition-colors uppercase text-[10px] font-black tracking-widest"
+              >
+                <Home className="w-4 h-4" /> Домой
+              </button>
+            )}
+          </div>
 
+          <div className="flex items-center gap-2">
+             {session?.user ? (
+                <button 
+                  onClick={() => setIsProfileOpen(true)}
+                  className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group"
+                >
+                  <img src={(session.user as any).image} className="w-8 h-8 rounded-full border border-white/10 group-hover:scale-110 transition-transform shadow-xl" alt="" />
+                  <span className="text-xs font-bold">{session.user.name}</span>
+                </button>
+             ) : (
+                <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-xl h-11 px-6 text-sm font-bold shadow-lg shadow-purple-500/20" onClick={twitchLogin}>
+                  Войти через Twitch
+                </Button>
+             )}
+          </div>
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto custom-scrollbar">
         <AnimatePresence mode="wait">
-          {view === 'home' && (
-            <motion.div
-              key="home"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+          {screen === 'home' && (
+            <motion.div 
+              key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pt-10"
             >
-              <section className="text-center py-8">
-                <h2 className="text-4xl font-black tracking-wider bg-gradient-to-r from-amber-500 via-red-500 to-amber-400 bg-clip-text text-transparent">
-                  ЭМОДЖИНО
-                </h2>
-                <p className="opacity-60 mt-3">Угадай фильм или сериал по эмодзи</p>
-              </section>
-
-              <section>
-                <h3 className="opacity-40 text-xs uppercase tracking-widest mb-4 text-center">Играть</h3>
-                <div className="flex flex-col gap-3">
-                  {!store.username ? (
-                    <div className="space-y-3">
-                      <button
-                        onClick={handleTwitchLogin}
-                        disabled={twitchLoading}
-                        className="btn btn-purple w-full flex items-center justify-center gap-2"
-                      >
-                        <span>🐸</span> {twitchLoading ? 'Перенаправление...' : 'Войти через Twitch'}
-                      </button>
-                      <div className="text-center opacity-40 text-xs">или</div>
-                      <input
-                        type="text"
-                        value={usernameInput}
-                        onChange={(e) => setUsernameInput(e.target.value)}
-                        placeholder="Ваше имя (мин. 2 символа)"
-                        className="input w-full"
-                        minLength={2}
-                      />
-                      <button
-                        onClick={() => {
-                          if (usernameInput.trim().length >= 2) {
-                            store.setUsername(usernameInput.trim())
-                          } else {
-                            showToast('Минимум 2 символа!', 'error')
-                          }
-                        }}
-                        className="btn btn-outline w-full"
-                      >
-                        Играть как гость
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 p-3 bg-gray-900/50 rounded-xl">
-                      <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center text-lg">
-                        {isTwitchAuth ? '🐸' : '👤'}
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-bold">{store.username}</div>
-                        <div className="opacity-40 text-xs">{isTwitchAuth ? 'Twitch' : 'Гость'}</div>
-                      </div>
-                      <button
-                        onClick={() => store.logout()}
-                        className="opacity-40 hover:text-red-500 text-sm"
-                      >
-                        Выйти
-                      </button>
-                    </div>
-                  )}
-                  {store.username && (
-                    <>
-                      {renderModeCard('all', '♾️', 'ВСЕ', 'Фильмы и сериалы', '#f59e0b')}
-                      {renderModeCard('film', '🎬', 'ФИЛЬМЫ', 'Только фильмы', '#06b6d4')}
-                      {renderModeCard('serial', '📺', 'СЕРИАЛЫ', 'Только сериалы', '#f43f5e')}
-                    </>
-                  )}
+              {/* Left Column: Menu */}
+              <div className="lg:col-span-5 space-y-12">
+                <div className="space-y-2">
+                  <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none uppercase italic drop-shadow-2xl">
+                    Угадай <br/> Эмоджи
+                  </h1>
                 </div>
-              </section>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {[
+                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-9 h-9 text-white" />, c: 'from-amber-600 to-orange-800' },
+                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-9 h-9 text-white" />, c: 'from-orange-500 to-red-700' },
+                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-9 h-9 text-white" />, c: 'from-red-600 to-rose-900' }
+                  ].map((item) => (
+                    <button 
+                      key={item.m} onClick={() => startNewGame(item.m)} 
+                      className={`group relative w-full border border-white/10 rounded-[2rem] p-8 flex items-center gap-6 transition-all hover:scale-[1.03] active:scale-[0.98] shadow-2xl bg-gradient-to-br ${item.c}`}
+                    >
+                      <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
+                        {item.i}
+                      </div>
+                      <div className="text-left flex-1">
+                        <h3 className="text-4xl font-black tracking-tighter uppercase text-white drop-shadow-md italic">
+                          {item.t}
+                        </h3>
+                      </div>
+                      <ChevronRight className="w-8 h-8 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right Column: Embedded Leaderboard */}
+              <div className="lg:col-span-7 bg-[#0c0c0e]/50 backdrop-blur-xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[600px] shadow-2xl">
+                 <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shadow-inner">
+                          <Trophy className="w-6 h-6" />
+                       </div>
+                       <h2 className="text-3xl font-black uppercase italic tracking-tighter">Рейтинг</h2>
+                    </div>
+
+                    <div className="flex gap-1 bg-white/[0.03] p-1 rounded-2xl border border-white/[0.06]">
+                      {['all', 'film', 'serial'].map(m => (
+                          <button key={m} onClick={() => setLbMode(m)} className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${lbMode === m ? 'bg-white/10 text-white shadow-lg' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                            {m === 'all' ? 'КОМБО' : m === 'film' ? 'ФИЛЬМЫ' : 'СЕРИАЛЫ'}
+                          </button>
+                      ))}
+                    </div>
+                 </div>
+
+                 <div className="flex-1 space-y-3 overflow-y-auto pr-3 custom-scrollbar">
+                    {leaderboard.length > 0 ? leaderboard.map((p, i) => (
+                        <div key={i} className="flex items-center gap-5 p-5 rounded-3xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all group">
+                          <div className={`w-10 text-2xl font-black italic ${i < 3 ? 'text-amber-400' : 'text-neutral-700'}`}>#{i+1}</div>
+                          <img src={p.avatar} className="w-14 h-14 rounded-2xl border border-white/10 shadow-lg group-hover:scale-110 transition-transform" alt="" />
+                          <div className="flex-1 min-w-0">
+                              <p className="text-lg font-black tracking-tight truncate">{p.username}</p>
+                              <p className="text-[10px] text-neutral-500 uppercase font-black leading-none mt-1">{p.mode.replace('emojino_', '')}</p>
+                          </div>
+                          <div className="text-right">
+                              <p className={`text-4xl font-black italic leading-none ${i < 3 ? 'text-amber-400' : 'text-white/60'}`}>{p.score}</p>
+                          </div>
+                        </div>
+                    )) : (
+                        <div className="flex flex-col items-center justify-center h-full opacity-20 uppercase font-black tracking-widest text-sm italic">
+                           Пусто...
+                        </div>
+                    )}
+                 </div>
+              </div>
             </motion.div>
           )}
 
-          {view === 'game' && isPlaying && currentMovie && !showEndModal && (
-            <motion.div
-              key="game"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+          {screen === 'game' && gameMovies[currentIndex] && (
+            <motion.div 
+              key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+              className="w-full max-w-sm flex flex-col gap-5"
             >
-              <div className="flex items-center justify-between mb-4">
-                <button onClick={() => { store.resetGame(); setView('home') }} className="opacity-60 hover:opacity-100">
-                  ← Назад
-                </button>
-                {renderDots()}
-                <div className="text-amber-500 font-bold">⭐ {score}</div>
+              {/* Emoji Card */}
+              <div className="relative aspect-[4/3] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl flex items-center justify-center group p-8">
+                 <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-red-500/10 opacity-50" />
+                 
+                 <div className="relative z-10 text-6xl tracking-[0.2em] flex flex-wrap justify-center items-center gap-4 text-center">
+                    {Array.from(gameMovies[currentIndex].emoji).map((char, i) => (
+                      <motion.span
+                        key={i}
+                        initial={{ opacity: 0, scale: 0, rotate: -20 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        transition={{ delay: i * 0.1, type: "spring" }}
+                      >
+                        {char}
+                      </motion.span>
+                    ))}
+                 </div>
+                 
+                 <div className="absolute top-5 left-5 z-20">
+                    <span className="px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest flex items-center h-7 shadow-lg">
+                      {gameMovies[currentIndex].type === 'film' ? 'Фильм' : 'Сериал'}
+                    </span>
+                 </div>
+
+                 {!state.guessed && (
+                    <div className="absolute top-5 right-5 animate-pulse z-20 cursor-default">
+                       <div className="bg-amber-500 text-black px-4 py-2.5 rounded-2xl font-black text-2xl shadow-lg shadow-amber-500/30">
+                          +{SCORE_FOR_HINTS[state.hintsUsed]}
+                       </div>
+                    </div>
+                 )}
               </div>
 
-              <div className="card text-center mb-4 relative overflow-hidden">
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-50" />
-                <div className="flex justify-center gap-2 mb-4">
-                  <span className={`tag ${currentMovie.type === 'film' ? 'tag-film' : 'tag-serial'}`}>
-                    {currentMovie.type === 'film' ? 'ФИЛЬМ' : 'СЕРИАЛ'}
-                  </span>
-                  <span className="opacity-60 text-sm">{currentMovie.year}</span>
-                </div>
-                <div className="text-4xl tracking-widest mb-4 flex justify-center gap-1 flex-wrap min-h-[56px] items-center">
-                  {Array.from(currentMovie.emoji).map((char, i) => (
-                    <motion.span
-                      key={i}
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: i * 0.07 }}
-                    >
-                      {char}
-                    </motion.span>
-                  ))}
-                </div>
-                <div className="opacity-40 text-xs uppercase tracking-widest">{currentMovie.genre}</div>
-                <div className="text-amber-500 text-sm mt-2">⭐ {Math.max(2, 5 - hintsUsed)} баллов</div>
-              </div>
-
+              {/* Hints Display */}
               <AnimatePresence>
-                {hint && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-3 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-500 text-sm"
+                {state.hintsUsed > 0 && !state.guessed && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-black text-center uppercase tracking-widest"
                   >
-                    💡 {hint}
+                    💡 {gameMovies[currentIndex].hints.slice(0, state.hintsUsed).join(' • ')}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              {!showResult ? (
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={answer}
-                      onChange={(e) => handleAnswerChange(e.target.value)}
-                      onFocus={() => answer.length >= 1 && setShowSearch(true)}
-                      onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-                      placeholder="🔍 Название фильма или сериала"
-                      className="input w-full pl-4"
-                      autoFocus
-                    />
-                    {showSearch && searchResults.length > 0 && (
-                      <div className="absolute bottom-full left-0 right-0 mb-1 bg-gray-900 border border-gray-800 rounded-xl overflow-hidden z-20">
-                        {searchResults.map((result, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => handleSelectResult(result.name)}
-                            className="w-full px-4 py-3 text-left hover:bg-gray-800 flex items-center justify-between"
-                          >
-                            <span>{result.name}</span>
-                            <span className={`tag ${result.type === 'film' ? 'tag-film' : 'tag-serial'}`}>
-                              {result.type === 'film' ? 'Фильм' : 'Сериал'}
-                            </span>
-                          </button>
-                        ))}
+              {!state.guessed ? (
+                <div className="space-y-3 relative">
+                   <div className="relative group">
+                      <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none">
+                        <Search className="w-5 h-5 text-white/20 group-focus-within:text-amber-400 transition-colors" />
                       </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleUseHint}
-                      disabled={hintsUsed >= 3}
-                      className="btn btn-secondary flex-1 disabled:opacity-50"
-                    >
-                      💡 Подсказка {hintsUsed}/3
-                    </button>
-                    <button type="submit" className="btn btn-primary flex-1.5 text-base">
-                      УГАДАТЬ
-                    </button>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      store.answerQuestion('')
-                      setLastAnswerCorrect(false)
-                      setShowResult(true)
-                      setShowSearch(false)
-                      setHint(null)
-                    }}
-                    className="btn btn-outline w-full text-sm mt-2"
-                  >
-                    Пропустить →
-                  </button>
-                </form>
+                      <input 
+                        className="w-full h-16 pl-14 pr-6 bg-white/[0.03] border border-white/10 rounded-2xl focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 text-lg font-bold transition-all placeholder:text-white/10"
+                        placeholder="Название..."
+                        value={guessInput}
+                        onChange={(e) => setGuessInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleGuess()}
+                        onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                      />
+                   </div>
+
+                   <AnimatePresence>
+                     {showSuggestions && suggestions.length > 0 && (
+                       <motion.div 
+                         initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                         className="absolute bottom-full mb-3 left-0 right-0 bg-[#0c0c0e] border border-white/10 rounded-3xl overflow-hidden shadow-2xl z-50 p-1.5"
+                       >
+                         {suggestions.map((s, idx) => (
+                           <button key={idx} onClick={() => selectSuggestion(s)} className="w-full text-left p-4 hover:bg-white/[0.05] flex flex-col transition-colors rounded-2xl group">
+                             <span className="font-bold text-white group-hover:text-amber-400 truncate">{s.name}</span>
+                             <span className="text-[10px] text-white/40 uppercase font-black">{s.type === 'serial' ? 'Сериал' : 'Фильм'} {s.year && `• ${s.year}`}</span>
+                           </button>
+                         ))}
+                       </motion.div>
+                     )}
+                   </AnimatePresence>
+
+                   <div className="grid grid-cols-4 gap-2">
+                      <button onClick={useHint} disabled={state.hintsUsed >= 3} className="h-16 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col items-center justify-center text-neutral-400 hover:text-white hover:bg-white/5 transition-all disabled:opacity-20 group">
+                         <Lightbulb className="w-5 h-5 group-hover:text-yellow-400 transition-colors" />
+                         <span className="text-[8px] uppercase font-black tracking-widest mt-1">ПОДСКАЗКА</span>
+                      </button>
+                      <button onClick={handleSkip} className="h-16 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-col items-center justify-center text-neutral-400 hover:text-white hover:bg-white/5 transition-all group">
+                         <SkipForward className="w-5 h-5 group-hover:text-amber-400 transition-colors" />
+                         <span className="text-[8px] uppercase font-black tracking-widest mt-1">СКИП</span>
+                      </button>
+                      <button onClick={() => handleGuess()} className="col-span-2 h-16 rounded-2xl bg-amber-500 text-black flex items-center justify-center gap-2 font-black hover:bg-amber-400 transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+                         <Sparkles className="w-5 h-5" /> УГАДАТЬ
+                      </button>
+                   </div>
+                </div>
               ) : (
-                <motion.div
-                  initial={{ scale: 0.9 }}
-                  animate={{ scale: 1 }}
-                  className="card text-center"
-                >
-                  <div className={`text-5xl mb-2 ${lastAnswerCorrect ? 'text-green-500' : 'text-red-500'}`}>
-                    {lastAnswerCorrect ? '✓' : '✗'}
-                  </div>
-                  <div className={`font-bold mb-1 ${lastAnswerCorrect ? 'text-green-500' : 'text-red-500'}`}>
-                    {lastAnswerCorrect ? 'Правильно!' : 'Не угадал'}
-                  </div>
-                  <div className="text-lg font-bold text-amber-500 mb-1">{currentMovie.name}</div>
-                  <div className="opacity-60 text-sm mb-3">
-                    {currentMovie.type === 'film' ? 'Фильм' : 'Сериал'} · {currentMovie.year} · {currentMovie.genre}
-                  </div>
-                  <div className={`inline-block px-4 py-1 rounded-full text-sm font-bold mb-4 ${
-                    lastAnswerCorrect ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'
-                  }`}>
-                    {lastAnswerCorrect ? `+${Math.max(2, 5 - hintsUsed)} баллов` : '0 баллов'}
-                  </div>
-                  <button onClick={currentQuestion < 4 ? handleNext : handleEndGame} className="btn btn-primary w-full">
-                    {currentQuestion < 4 ? 'СЛЕДУЮЩИЙ →' : 'РЕЗУЛЬТАТЫ'}
-                  </button>
+                <div className="flex flex-col gap-4">
+                   <div className={`p-5 rounded-[2rem] border ${state.correct ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'} flex items-center justify-between`}>
+                      <div className="flex items-center gap-4">
+                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${state.correct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                            {state.correct ? <Check className="w-6 h-6" /> : <X className="w-6 h-6" />}
+                         </div>
+                         <div className="flex-1 min-w-0">
+                            <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${state.correct ? 'text-emerald-400' : 'text-rose-400'}`}>
+                               {state.correct ? 'Верно!' : 'Не угадали'}
+                            </p>
+                            <p className="text-xl font-black leading-tight">{gameMovies[currentIndex]?.name || '---'}</p>
+                         </div>
+                      </div>
+                      <div className="text-right ml-4">
+                         <p className="text-[9px] text-white/40 uppercase font-black tracking-widest">Баллы</p>
+                         <p className="text-3xl font-black text-amber-400 leading-none mt-1">+{state.score}</p>
+                      </div>
+                   </div>
+
+                   <Button className="w-full h-16 text-lg font-black rounded-3xl bg-white text-black hover:bg-neutral-200 shadow-xl shadow-amber-500/10" onClick={nextMovie}>
+                     СЛЕДУЮЩИЙ <ChevronRight className="w-5 h-5 ml-1" />
+                   </Button>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {screen === 'result' && (
+            <motion.div key="result" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-8 max-w-sm w-full">
+              <div className="relative inline-block">
+                <Trophy className="w-24 h-24 text-yellow-500 mx-auto" />
+                <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-2 -right-2 bg-amber-500 text-black w-10 h-10 rounded-full flex items-center justify-center font-black text-base border-4 border-black">
+                   <Sparkles className="w-5 h-5" />
                 </motion.div>
-              )}
-            </motion.div>
-          )}
-
-          {view === 'profile' && (
-            <motion.div
-              key="profile"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <button onClick={() => setView('home')} className="opacity-60 hover:opacity-100 mb-4">
-                ← Назад
-              </button>
-
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center text-2xl">
-                  {store.isTwitchAuth ? '🐸' : (store.username ? store.username[0].toUpperCase() : '?')}
-                </div>
-                <div>
-                  <div className="font-bold text-xl">{store.username || 'Игрок'}</div>
-                  <div className="opacity-60 text-sm">
-                    {store.isTwitchAuth ? 'Twitch' : 'Гость'}
-                  </div>
-                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <h2 className="text-4xl font-black italic tracking-tighter uppercase">Конец игры!</h2>
+                <p className="text-neutral-500 font-bold uppercase tracking-widest text-[10px]">Все 10 раундов завершены</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 mb-6">
-                <div className="card text-center">
-                  <div className="text-2xl font-black text-amber-500">{store.bestScore}</div>
-                  <div className="opacity-40 text-xs">ВСЕ</div>
-                </div>
-                <div className="card text-center">
-                  <div className="text-2xl font-black text-cyan-500">{store.bestScoreFilm}</div>
-                  <div className="opacity-40 text-xs">ФИЛЬМЫ</div>
-                </div>
-                <div className="card text-center">
-                  <div className="text-2xl font-black text-rose-500">{store.bestScoreSerial}</div>
-                  <div className="opacity-40 text-xs">СЕРИАЛЫ</div>
-                </div>
+              <div className="p-10 rounded-[2.5rem] bg-white/[0.03] border border-white/10 shadow-2xl relative overflow-hidden">
+                 <p className="text-[9px] font-black uppercase tracking-[0.3em] text-amber-500 mb-2">Общий счет</p>
+                 <h3 className="text-7xl font-black leading-none italic">{state.totalScore}</h3>
               </div>
 
-              <div className="text-center opacity-60 text-sm mb-4">{store.gamesPlayed} игр сыграно</div>
+              <div className="flex flex-col gap-3">
+                 <Button className="w-full h-16 rounded-[1.5rem] bg-amber-500 text-black font-black hover:bg-amber-400 shadow-lg shadow-amber-500/20" onClick={() => startNewGame(state.mode)}>
+                   ИГРАТЬ СНОВА <RefreshCw className="w-5 h-5 ml-2" />
+                 </Button>
 
-              <h3 className="opacity-40 text-xs uppercase tracking-widest mb-4">История игр</h3>
-              {store.history.length === 0 ? (
-                <div className="text-center opacity-40 py-8">Нет сыгранных игр</div>
-              ) : (
-                <div className="space-y-2">
-                  {store.history.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 bg-gray-900/50 rounded-lg">
-                      <div>
-                        <div className="font-bold text-amber-500">{item.score} баллов</div>
-                        <div className="opacity-40 text-xs">Угадано {item.correct}/5 · {item.date}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <button
-                onClick={() => store.setUsername('')}
-                className="btn btn-outline w-full mt-6 text-red-500"
-              >
-                Сменить имя
-              </button>
-            </motion.div>
-          )}
-
-          {view === 'ratings' && (
-            <motion.div
-              key="ratings"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <button onClick={() => setView('home')} className="opacity-60 hover:opacity-100 mb-4">
-                ← Назад
-              </button>
-
-              <div className="flex gap-2 mb-6">
-                {(['all', 'film', 'serial'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setRatingMode(m)}
-                    className={`btn flex-1 text-xs ${ratingMode === m ? 'btn-primary' : 'btn-secondary'}`}
-                  >
-                    {m === 'all' ? 'ВСЕ' : m === 'film' ? 'ФИЛЬМЫ' : 'СЕРИАЛЫ'}
-                  </button>
-                ))}
+                 <Button variant="ghost" className="w-full h-14 rounded-[1.5rem] border border-white/10 hover:bg-white/5 text-neutral-500" onClick={() => setScreen('home')}>
+                   ВЕРНУТЬСЯ В МЕНЮ
+                 </Button>
               </div>
-
-              {store.getLeaderboard('all').filter(e => ratingMode === 'all' || e.mode === ratingMode).length === 0 ? (
-                <div className="text-center opacity-40 py-12">
-                  <div className="text-4xl mb-4">🎮</div>
-                  <p>Нет игроков в рейтинге</p>
-                  <p className="text-sm mt-2">Играйте, чтобы попасть в топ!</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {store.getLeaderboard('all').filter(e => ratingMode === 'all' || e.mode === ratingMode).map((entry, i) => (
-                    <div
-                      key={i}
-                      className={`flex items-center gap-3 p-3 rounded-lg ${
-                        entry.isCurrentUser ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-gray-900/50'
-                      }`}
-                    >
-                      <div className={`font-black w-6 ${
-                        i === 0 ? 'text-yellow-400' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-600' : 'opacity-40'
-                      }`}>
-                        {i + 1}
-                      </div>
-                      <div className="w-10 h-10 rounded-full bg-gray-900 flex items-center justify-center">
-                        {entry.isTwitch ? '🐸' : '👤'}
-                      </div>
-                      <div className="flex-1 font-bold">
-                        {entry.name.replace(' 🎬', '').replace(' 📺', '')}
-                        {entry.isCurrentUser && <span className="text-amber-500 ml-2">(Вы)</span>}
-                      </div>
-                      <div className={`font-bold ${entry.mode === 'film' ? 'text-cyan-500' : entry.mode === 'serial' ? 'text-rose-500' : 'text-amber-500'}`}>
-                        {entry.score}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </motion.div>
           )}
         </AnimatePresence>
-      </div>
+      </main>
 
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`toast ${toast.type === 'success' ? 'toast-success' : 'toast-error'}`}
+      <footer className="relative z-10 border-t border-white/[0.06] py-5 px-6 bg-black/50 backdrop-blur-md">
+        <div className="max-w-5xl mx-auto flex items-center justify-center">
+          <a 
+            href="https://t.me/paracetamolhaze" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="group flex items-center gap-2"
           >
-            {toast.message}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showEndModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="modal-overlay"
-            onClick={handleGoHome}
-          >
-            <motion.div
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              exit={{ scale: 0.9 }}
-              className="modal text-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-6xl mb-4">🏆</div>
-              <h2 className="text-2xl font-black mb-2">ИГРА ЗАВЕРШЕНА</h2>
-              <div className="text-5xl font-black text-amber-500 mb-4">{score}</div>
-              <div className="flex justify-center gap-8 mb-6 opacity-60">
-                <div>✓ Угадано {answers.filter(a => a).length}</div>
-                <div>✗ Пропущено {answers.filter(a => !a).length}</div>
-              </div>
-              <button onClick={handlePlayAgain} className="btn btn-primary w-full mb-3">
-                Играть снова
-              </button>
-              <button onClick={handleGoHome} className="btn btn-secondary w-full">
-                В меню
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em] group-hover:text-white/40 transition-colors">Powered by</span>
+            <span className="text-xs font-black italic tracking-tighter bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent group-hover:from-amber-300 group-hover:to-red-400 transition-all">PARACETAMOLHAZE</span>
+          </a>
+        </div>
+      </footer>
     </div>
-  )
+  );
+}
+
+export default function EmojinoPage() {
+  return (
+    <AuthProvider>
+      <EmojinoContent />
+    </AuthProvider>
+  );
 }
