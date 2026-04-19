@@ -155,7 +155,10 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     }
 
     if (msg.pot !== undefined) setPot(msg.pot)
-    if (msg.communityCards !== undefined) setCommunityCards(msg.communityCards)
+    if (msg.communityCards !== undefined) {
+      console.log('--- COMMUNITY CARDS UPDATE ---', msg.communityCards)
+      setCommunityCards(msg.communityCards)
+    }
     if (msg.currentBet !== undefined) setCurrentBet(msg.currentBet)
     if (msg.currentTurn !== undefined) setCurrentTurn(msg.currentTurn)
     if (msg.deck !== undefined) deckRef.current = msg.deck
@@ -165,7 +168,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     // Сохраняем канонический стейт
     if (msg.players && msg.deck !== undefined) {
       fullStateRef.current = {
-        players: msg.players, // полные данные (с реальными картами)
+        players: msg.players, 
         pot: msg.pot ?? pot,
         sidePots: msg.sidePots ?? [],
         currentBet: msg.currentBet ?? currentBet,
