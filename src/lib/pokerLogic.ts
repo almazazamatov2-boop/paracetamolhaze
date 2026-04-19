@@ -282,44 +282,49 @@ export const PokerLogic = {
         // Сброс ставок и флагов действий
         state.players.forEach(p => {
             p.bet = 0;
-            p.hasActed = false; // FIX: сброс hasActed для нового круга
+            p.hasActed = false;
         });
         state.currentBet = 0;
         state.lastRaiserId = null;
+
+        const drawCard = () => {
+            const card = state.deck.pop();
+            if (!card) return { suit: 'S', value: '2' } as Card; // Fallback
+            return card;
+        };
 
         // Выкладываем карты на стол
         if (state.phase === 'preflop') {
             state.phase = 'flop';
             // Флоп: 3 карты
-            state.communityCards.push(state.deck.pop()!, state.deck.pop()!, state.deck.pop()!);
+            state.communityCards.push(drawCard(), drawCard(), drawCard());
         } else if (state.phase === 'flop') {
             state.phase = 'turn';
-            state.communityCards.push(state.deck.pop()!);
+            state.communityCards.push(drawCard());
         } else if (state.phase === 'turn') {
             state.phase = 'river';
-            state.communityCards.push(state.deck.pop()!);
+            state.communityCards.push(drawCard());
         } else if (state.phase === 'river') {
             state.phase = 'showdown';
             return this.resolveShowdown(state);
         }
 
         // После флопа: ход с первого активного игрока слева от дилера
-        let nextIdx = (state.dealerIndex + 1) % state.players.length;
+        const n = state.players.length;
+        let nextIdx = (state.dealerIndex + 1) % n;
         let loops = 0;
-        while (loops < state.players.length) {
+        while (loops < n) {
             const p = state.players[nextIdx];
             if (!p.folded && !p.allIn) break;
-            nextIdx = (nextIdx + 1) % state.players.length;
+            nextIdx = (nextIdx + 1) % n;
             loops++;
         }
         state.activePlayerIndex = nextIdx;
-        // lastRaiserId = первый к действию, чтобы круг прошёл полный оборот
         state.lastRaiserId = state.players[nextIdx].id;
 
-        // Если все остальные all-in — переходим сразу
+        // Если все остальные all-in (или сфолдили) — переходим сразу к следующей фазе
         const canAct = state.players.filter(p => !p.folded && !p.allIn);
-        if (canAct.length <= 1) {
-            // Сразу переходим дальше (раскрываем оставшиеся карты)
+        if (canAct.length <= 1 && state.phase !== 'showdown') {
             return this.nextPhase(state);
         }
 
