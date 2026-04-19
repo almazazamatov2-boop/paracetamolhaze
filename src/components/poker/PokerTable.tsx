@@ -599,8 +599,66 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 <div key={i} className="w-16 h-24 md:w-20 md:h-28 rounded-lg bg-black/20 border border-white/5 border-dashed" />
               ))}
             </div>
-            <div className="text-4xl font-black italic text-white/20 tracking-widest uppercase">
-              POT: {pot}
+            <div className="relative mb-4 flex flex-col items-center">
+              {/* Visual Chips in Pot */}
+              <AnimatePresence>
+                {pot > 0 && (
+                  <motion.div
+                    layoutId="pot-chips"
+                    initial={{ scale: 0.5, opacity: 0, y: 20 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ 
+                      x: winnerInfo.length > 0 ? (getPlayerPosition(players.findIndex(p => p.id === winnerInfo[0]?.id), settings.size).left - 50) - (window.innerWidth / 2 - 50) : 0,
+                      y: winnerInfo.length > 0 ? (getPlayerPosition(players.findIndex(p => p.id === winnerInfo[0]?.id), settings.size).top - 300) - (window.innerHeight / 2 - 400) : 0,
+                      opacity: 0,
+                      scale: 0.5
+                    }}
+                    transition={{ duration: 0.8, type: 'spring' }}
+                    className="flex flex-wrap justify-center gap-1 max-w-[120px] mb-2"
+                  >
+                    {[...Array(Math.min(10, Math.ceil(pot / 100)))].map((_, i) => (
+                      <div key={i} className="w-6 h-6 bg-yellow-500 rounded-full border-2 border-yellow-600 shadow-lg flex items-center justify-center">
+                        <div className="w-4 h-4 border border-yellow-700/30 rounded-full" />
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <motion.div 
+                key={pot}
+                initial={{ scale: 0.8 }}
+                animate={{ scale: 1 }}
+                className="text-4xl font-black italic text-white/40 tracking-widest uppercase flex items-center gap-3"
+              >
+                <Coins className="w-8 h-8 text-yellow-500" />
+                POT: {pot}
+              </motion.div>
+
+              {/* Winner Info in Center (Subtle) */}
+              <AnimatePresence>
+                {gameState === 'showdown' && winnerInfo.length > 0 && (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    className="mt-4 flex flex-col items-center"
+                  >
+                    {winnerInfo.map(w => (
+                       <div key={w.id} className="text-primary font-black italic text-lg uppercase tracking-tighter flex items-center gap-2">
+                         🏆 {players.find(p => p.id === w.id)?.name} ({w.handName})
+                       </div>
+                    ))}
+                    {isHost && (
+                      <button
+                        onClick={startNewGame}
+                        className="mt-4 px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg hover:scale-105 transition-transform uppercase text-sm"
+                      >
+                        СЛЕДУЮЩАЯ РАЗДАЧА
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -673,16 +731,20 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                   </div>
                 </div>
 
-                {/* Bet Amount */}
+                {/* Bet Chips Animation */}
                 {player.bet > 0 && (
                   <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="absolute -top-10 bg-primary/20 border border-primary text-primary px-3 py-1 rounded-full text-xs font-bold"
+                    initial={{ scale: 0, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    className="absolute -top-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/80 px-3 py-1 rounded-full border border-yellow-500/50 shadow-lg z-50 pointer-events-none"
                   >
-                    {player.bet}
+                    <div className="w-3.5 h-3.5 bg-yellow-500 rounded-full border border-yellow-600 flex items-center justify-center">
+                        <div className="w-1.5 h-1.5 border border-yellow-700/30 rounded-full" />
+                    </div>
+                    <span className="text-[11px] font-black text-yellow-500 italic tracking-tighter">{player.bet}</span>
                   </motion.div>
                 )}
+
               </div>
 
               {/* FIX 6: Карты игрока — рубашкой для чужих, лицом для своих */}
@@ -798,36 +860,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         </div>
       </div>
 
-      {/* SHOWDOWN OVERLAY */}
-      {gameState === 'showdown' && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200]">
-          <div className="text-center">
-            <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4 animate-bounce" />
-            <h2 className="text-4xl font-black italic mb-4">SHOWDOWN!</h2>
-            {winnerInfo.length > 0 && (
-              <div className="mb-6">
-                {winnerInfo.map(w => {
-                  const wp = players.find(p => String(p.id) === String(w.id))
-                  return (
-                    <div key={w.id} className="text-primary font-bold text-xl uppercase tracking-widest">
-                      🏆 {wp?.name || w.id} — {w.handName}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-            {/* Только хост может начать следующую раздачу */}
-            {isHost && (
-              <button
-                onClick={startNewGame}
-                className="px-10 py-4 bg-primary text-white font-black rounded-xl hover:scale-110 transition-transform"
-              >
-                СЛЕДУЮЩАЯ РАЗДАЧА
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* SHOWDOWN OVERLAY REMOVED — Winner info moved to center pot area */}
 
       {/* ВАШ ХОД индикатор */}
       {isMyTurn && gameState !== 'showdown' && gameState !== 'waiting' && (
