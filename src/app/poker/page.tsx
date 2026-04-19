@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Users, 
@@ -31,6 +31,18 @@ interface TableSettings {
 }
 
 export default function PokerPage() {
+  return (
+    <Suspense fallback={
+        <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+            <div className="text-primary font-black italic animate-pulse">LOADING POKER...</div>
+        </div>
+    }>
+        <PokerConsole />
+    </Suspense>
+  )
+}
+
+function PokerConsole() {
   const searchParams = useSearchParams()
   const [view, setView] = useState<View>('lobby')
   const [roomId, setRoomId] = useState<string>('')
