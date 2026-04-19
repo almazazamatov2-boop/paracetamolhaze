@@ -474,6 +474,7 @@ export default function PokerTable({ settings, onBack }: TableProps) {
                       {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
                     </button>
                 </div>
+              </div>
             </div>
         </div>
       </div>
