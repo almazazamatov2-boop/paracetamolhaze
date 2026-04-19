@@ -244,7 +244,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
           channel.send({
             type: 'broadcast',
             event: 'signal',
-            payload: { to: targetId, from: user.id || user.display_name, iceCandidate: event.candidate }
+            payload: { to: String(targetId), from: String(user.id || user.display_name), iceCandidate: event.candidate }
           })
         }
       }
@@ -255,7 +255,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
             channel.send({
                 type: 'broadcast',
                 event: 'signal',
-                payload: { to: targetId, from: user.id || user.display_name, offer }
+                payload: { to: String(targetId), from: String(user.id || user.display_name), offer }
             })
         })
       }
@@ -295,7 +295,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       })
       .on('broadcast', { event: 'signal' }, (payload) => {
         const { to, from, offer, answer, iceCandidate } = payload.payload
-        if (to !== (user.id || user.display_name)) return
+        if (String(to) !== String(user.id || user.display_name)) return
 
         let pc = peerConnections.current[from]
         if (!pc) {
@@ -310,7 +310,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 channel.send({
                     type: 'broadcast',
                     event: 'signal',
-                    payload: { to: from, from: user.id || user.display_name, answer: ans }
+                    payload: { to: String(from), from: String(user.id || user.display_name), answer: ans }
                 })
             })
             // Process queued candidates
@@ -327,7 +327,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
           })
         } else if (iceCandidate) {
           if (pc.remoteDescription) {
-            pc.addIceCandidate(new RTCIceCandidate(iceCandidate))
+            pc.addIceCandidate(new RTCIceCandidate(iceCandidate)).catch(e => console.warn("ICE error", e))
           } else {
             if (!iceCandidateQueues.current[from]) iceCandidateQueues.current[from] = []
             iceCandidateQueues.current[from].push(iceCandidate)
@@ -459,6 +459,16 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
             >
                 INVITE
+            </button>
+            <button 
+              onClick={() => {
+                setJoinedPlayers([])
+                supabase.channel(roomId).track({ refresh: Date.now() })
+                alert("Синхронизация запущена...")
+              }}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/50 rounded-xl text-[10px] font-bold transition-all"
+            >
+                RECONNECT
             </button>
             {gameState === 'waiting' && joinedPlayers[0]?.id === (user?.id || user?.display_name) && (
                 <button 
