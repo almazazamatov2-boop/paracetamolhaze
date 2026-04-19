@@ -45,6 +45,7 @@ export default function PokerTable({ settings, onBack }: TableProps) {
   const [communityCards, setCommunityCards] = useState<{ suit: string, value: string }[]>([])
   const [pot, setPot] = useState(0)
   const [gameState, setGameState] = useState<'waiting' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('waiting')
+  const [raiseAmount, setRaiseAmount] = useState(40)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [user, setUser] = useState<{ id: string, display_name: string, profile_image_url: string } | null>(null)
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
@@ -216,13 +217,9 @@ export default function PokerTable({ settings, onBack }: TableProps) {
     }))
     setPlayers(mockPlayers)
 
-    // In a real app, we'd start the game logic here
-    setCommunityCards([
-        { suit: 'D', value: 'T' },
-        { suit: 'H', value: 'K' },
-        { suit: 'C', value: 'A' }
-    ])
-    setPot(450)
+    // Initially pot is 0, no cards on table
+    setCommunityCards([])
+    setPot(0)
   }, [settings])
 
   // Setup webcam
@@ -253,14 +250,15 @@ export default function PokerTable({ settings, onBack }: TableProps) {
 
   // Hand Evaluation Hint (Simplified for Demo)
   const handHint = useMemo(() => {
-    const myCards = players.find(p => p.id === 'me')?.cards || []
-    if (myCards.length === 0) return null
+    const me = players.find(p => p.id === (user?.id || user?.display_name || 'me'))
+    const myCards = me?.cards || []
+    if (myCards.length === 0 || me?.folded) return null
 
-    // Real logic would combine myCards + communityCards
-    // For demo, we just look at our hand
-    if (myCards[0].value === myCards[1].value) return "У вас ПАРА (Тройка тузов с учетом стола)"
-    return "Высокая карта"
-  }, [players, communityCards])
+    if (myCards.length >= 2 && myCards[0].value === myCards[1].value) {
+        return `ПАРА (${myCards[0].value}, ${myCards[1].value})`
+    }
+    return null
+  }, [players, communityCards, user])
 
   return (
     <div className="relative w-full h-full flex flex-col items-center justify-start pt-16 md:pt-24 p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505]">
@@ -281,10 +279,6 @@ export default function PokerTable({ settings, onBack }: TableProps) {
         </div>
 
         <div className="flex items-center gap-3">
-            <div className="px-4 py-2 bg-black/40 border border-white/10 rounded-xl backdrop-blur-md">
-                <span className="text-primary font-black italic mr-2">HINT:</span>
-                <span className="text-white/80 animate-pulse">{handHint}</span>
-            </div>
             <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"><History className="w-5 h-5" /></button>
             <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"><MessageSquare className="w-5 h-5" /></button>
         </div>
@@ -384,11 +378,11 @@ export default function PokerTable({ settings, onBack }: TableProps) {
 
                     {/* Hand Cards (Visible if Me or Showdown) - MOVED TO THE RIGHT */}
                     {isMe && player.cards.length > 0 && !player.folded && (
-                         <div className="absolute left-[110%] top-1/2 -translate-y-1/2 flex gap-1 scale-50 md:scale-75 origin-left z-30">
+                         <div className="absolute left-[110%] top-1/2 -translate-y-1/2 flex gap-4 scale-50 md:scale-75 origin-left z-30">
                             {player.cards.map((card, ci) => (
                                 <motion.div
                                     key={ci}
-                                    initial={{ x: -20, opacity: 0, rotate: -10 + ci * 20 }}
+                                    initial={{ x: -20, opacity: 0, rotate: -5 + ci * 10 }}
                                     animate={{ x: 0, opacity: 1 }}
                                     transition={{ delay: 0.5 + ci * 0.1 }}
                                 >
@@ -422,18 +416,27 @@ export default function PokerTable({ settings, onBack }: TableProps) {
               
               <div className="flex flex-col gap-1 min-w-[200px]">
                 <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5">
-                    <button className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors">-</button>
-                    <span className="text-[10px] font-black tracking-widest text-primary">RAISE 2.5X</span>
-                    <button className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors">+</button>
+                    <button 
+                      onClick={() => setRaiseAmount(Math.max(settings.blind * 2, raiseAmount - 10))}
+                      className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors"
+                    >-</button>
+                    <span className="text-[10px] font-black tracking-widest text-primary">RAISE {raiseAmount}</span>
+                    <button 
+                      onClick={() => setRaiseAmount(raiseAmount + 10)}
+                      className="w-6 h-6 rounded bg-white/5 hover:bg-white/10 transition-colors"
+                    >+</button>
                 </div>
                 <button 
                   onClick={() => {
-                    setPot(prev => prev + 40)
-                    setPlayers(prev => prev.map(p => p.id === 'me' ? {...p, chips: p.chips - 40, bet: p.bet + 40} : p))
+                    const me = players.find(p => p.id === (user?.id || user?.display_name || 'me'))
+                    if (me && me.chips >= raiseAmount) {
+                      setPot(prev => prev + raiseAmount)
+                      setPlayers(prev => prev.map(p => p.id === (user?.id || user?.display_name || 'me') ? {...p, chips: p.chips - raiseAmount, bet: p.bet + raiseAmount} : p))
+                    }
                   }}
                   className="w-full py-4 bg-primary hover:bg-primary/90 text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 border border-primary/20 uppercase"
                 >
-                  RAISE 40
+                  RAISE {raiseAmount}
                 </button>
               </div>
             </div>
@@ -443,10 +446,21 @@ export default function PokerTable({ settings, onBack }: TableProps) {
             <div className="flex items-center gap-6">
                 <div className="flex flex-col">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-widest">ВАШ СТЕК</span>
-                    <span className="text-xl font-black italic text-yellow-500 flex items-center gap-2 tracking-tight"><Coins className="w-5 h-5" /> 1,450</span>
+                    <span className="text-xl font-black italic text-yellow-500 flex items-center gap-2 tracking-tight">
+                        <Coins className="w-5 h-5" /> 
+                        {players.find(p => p.id === (user?.id || user?.display_name || 'me'))?.chips?.toLocaleString() || '0'}
+                    </span>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex gap-4 items-center">
+                    {handHint && (
+                        <div className="px-4 py-2 bg-primary/10 border border-primary/20 rounded-xl backdrop-blur-md">
+                            <span className="text-[10px] font-black italic text-primary mr-2 uppercase">HINT:</span>
+                            <span className="text-xs font-bold text-white tracking-widest">{handHint}</span>
+                        </div>
+                    )}
+
+                    <div className="flex gap-2">
                     <button 
                       onClick={toggleMic}
                       className={`p-4 rounded-xl transition-all ${isMicOn ? 'bg-twitch-purple/20 text-twitch-purple hover:bg-twitch-purple/30' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
