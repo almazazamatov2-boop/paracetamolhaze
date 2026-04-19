@@ -516,7 +516,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
           {gameState === 'waiting' && isHost && (
             <button
               onClick={startNewGame}
-              className="px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg shadow-primary/20 animate-pulse"
+              className="px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg shadow-primary/20"
             >
               START GAME
             </button>
@@ -594,7 +594,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               )}
 
               {/* Player Card (Webcam or Avatar) */}
-              <div className={`relative w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${player.isCurrent ? 'border-primary ring-4 ring-primary/20 scale-110 shadow-[0_0_30px_rgba(255,69,0,0.4)]' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}>
+              <div className={`relative w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${player.isCurrent ? 'border-primary scale-110' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}>
                 {settings.withWebcams ? (
                   <div className="relative w-full h-full bg-black">
                     {isMe ? (
@@ -786,7 +786,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-primary/20 border border-primary text-primary px-8 py-2 rounded-full font-black italic animate-bounce shadow-[0_0_30px_rgba(255,69,0,0.5)] backdrop-blur-sm"
+            className="bg-primary/20 border border-primary text-primary px-8 py-2 rounded-full font-black italic backdrop-blur-sm"
           >
             ВАШ ХОД!
           </motion.div>
