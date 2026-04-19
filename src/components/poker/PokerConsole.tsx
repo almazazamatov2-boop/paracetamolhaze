@@ -92,7 +92,7 @@ export default function PokerConsole() {
                 <h2 className="text-2xl font-bold mb-4">Вход в игру</h2>
                 <p className="text-muted-foreground mb-8 text-sm">Для игры в покер с вебкамерами необходимо авторизоваться через Twitch.</p>
                 <button 
-                  onClick={() => window.location.href = '/api/auth/twitch'}
+                  onClick={() => window.location.href = '/auth/twitch'}
                   className="w-full bg-twitch-purple hover:bg-twitch-purple/90 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-twitch-purple/20"
                 >
                     АВТОРИЗОВАТЬСЯ ЧЕРЕЗ TWITCH
