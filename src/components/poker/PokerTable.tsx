@@ -17,11 +17,11 @@ import {
 import { supabase } from '@/lib/supabase'
 import PokerCard from './PokerCard'
 
+const SUITS = ['H', 'D', 'C', 'S']
 const VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A']
 
 interface TableProps {
   roomId: string
-  settings: {
   settings: {
     name: string
     size: number
