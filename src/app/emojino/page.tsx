@@ -356,8 +356,8 @@ function EmojinoContent() {
             >
               {/* Left Column: Menu */}
               <div className="lg:col-span-5 space-y-12">
-                <div className="space-y-2 pr-12">
-                  <h1 className="text-7xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none uppercase italic drop-shadow-2xl pr-8 overflow-visible">
+                <div className="space-y-4">
+                  <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none uppercase italic drop-shadow-2xl whitespace-nowrap -ml-4 pr-10 overflow-visible">
                     Угадай <br/> Эмоджи
                   </h1>
                 </div>
