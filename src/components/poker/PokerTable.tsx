@@ -57,12 +57,11 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const [isVideoOn, setIsVideoOn] = useState(true)
   
   const videoRef = useRef<HTMLVideoElement>(null)
-  const peerConnections = useRef<Record<string, RTCPeerConnection>>({})
+  const peerConnections = useRef<Record<string, any>>({})
   const deckRef = useRef<{ suit: string, value: string }[]>([])
   const [currentTurn, setCurrentTurn] = useState<string | null>(null)
   const [currentBet, setCurrentBet] = useState(0)
   const [joinedPlayers, setJoinedPlayers] = useState<any[]>([])
-  const iceCandidateQueues = useRef<Record<string, RTCIceCandidateInit[]>>({})
 
   // --- TOGGLE HANDLERS ---
   const toggleMic = () => {
@@ -211,131 +210,68 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     })
   }, [joinedPlayers, settings.buyIn])
 
-  // Setup WebRTC and Supabase Signaling
+  // Setup PeerJS and Supabase Presence
   useEffect(() => {
     if (!user || !roomId) return
+    
+    let peer: any = null
+    const myId = `poker-${roomId}-${(user.id || user.display_name).toString().replace(/\s+/g, '_')}`
+
+    const initPeer = async () => {
+        const { default: Peer } = await import('peerjs')
+        peer = new Peer(myId, {
+            debug: 1,
+            config: {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            }
+        })
+
+        // Handle incoming calls
+        peer.on('call', (call: any) => {
+            console.log('Incoming call from:', call.peer)
+            call.answer(localStream || undefined)
+            
+            call.on('stream', (remoteStream: MediaStream) => {
+                const remoteUserId = call.peer.replace(`poker-${roomId}-`, '').replace(/_/g, ' ')
+                setRemoteStreams(prev => ({ ...prev, [remoteUserId]: remoteStream }))
+            })
+        })
+
+        peer.on('error', (err: any) => console.error('PeerJS error:', err))
+    }
+
+    initPeer()
 
     const channel = supabase.channel(roomId, {
       config: { presence: { key: (user.id || user.display_name).toString() } }
     })
 
-
-
-    const createPeerConnection = (targetId: string, isInitiator: boolean) => {
-      const pc = new RTCPeerConnection({
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' },
-            { urls: 'stun:stun.services.mozilla.com' }
-        ]
-      })
-
-      if (localStream) {
-        localStream.getTracks().forEach(track => pc.addTrack(track, localStream))
-      }
-
-      pc.ontrack = (event) => {
-        setRemoteStreams(prev => ({ ...prev, [targetId]: event.streams[0] }))
-      }
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          channel.send({
-            type: 'broadcast',
-            event: 'signal',
-            payload: { to: String(targetId), from: String(user.id || user.display_name), iceCandidate: event.candidate }
-          })
-        }
-      }
-
-      if (isInitiator) {
-        pc.createOffer().then(offer => {
-            pc.setLocalDescription(offer)
-            channel.send({
-                type: 'broadcast',
-                event: 'signal',
-                payload: { to: String(targetId), from: String(user.id || user.display_name), offer }
-            })
-        })
-      }
-
-      return pc
-    }
-
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState()
         const onlineUsers = Object.values(state).flat() as any[]
-        
-        // Deduplicate users (Prevents ghost avatars)
         const uniqueUsers = Array.from(new Map(onlineUsers.map(u => [u.id, u])).values())
         setJoinedPlayers(uniqueUsers)
 
-        const onlineIds = Object.keys(state)
-        // Connect to new peers...
-
-        // Lexicographical ID comparison to determine initiator (Prevents glare/collision)
-        onlineIds.forEach(pid => {
-            if (pid !== (user.id || user.display_name) && !peerConnections.current[pid]) {
-                const isInitiator = (user.id || user.display_name).toString() > pid.toString()
-                peerConnections.current[pid] = createPeerConnection(pid, isInitiator)
+        // Find people to call
+        uniqueUsers.forEach(u => {
+            const remoteUserId = u.id.toString()
+            const remotePeerId = `poker-${roomId}-${remoteUserId.replace(/\s+/g, '_')}`
+            
+            if (remoteUserId !== (user.id || user.display_name).toString() && peer && !remoteStreams[remoteUserId]) {
+                // Initiator logic
+                if (myId > remotePeerId && localStream) {
+                    console.log('Calling peer:', remotePeerId)
+                    const call = peer.call(remotePeerId, localStream)
+                    call.on('stream', (remoteStream: MediaStream) => {
+                        setRemoteStreams(prev => ({ ...prev, [remoteUserId]: remoteStream }))
+                    })
+                }
             }
         })
-
-        // Cleanup disconnected peers
-        Object.keys(peerConnections.current).forEach(pid => {
-            if (!onlineIds.includes(pid)) {
-                peerConnections.current[pid].close()
-                delete peerConnections.current[pid]
-                setRemoteStreams(prev => {
-                    const next = { ...prev }
-                    delete next[pid]
-                    return next
-                })
-            }
-        })
-      })
-      .on('broadcast', { event: 'signal' }, (payload) => {
-        const { to, from, offer, answer, iceCandidate } = payload.payload
-        if (String(to) !== String(user.id || user.display_name)) return
-
-        let pc = peerConnections.current[from]
-        if (!pc) {
-            pc = createPeerConnection(from, false)
-            peerConnections.current[from] = pc
-        }
-
-        if (offer) {
-          pc.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
-            pc.createAnswer().then(ans => {
-                pc.setLocalDescription(ans)
-                channel.send({
-                    type: 'broadcast',
-                    event: 'signal',
-                    payload: { to: String(from), from: String(user.id || user.display_name), answer: ans }
-                })
-            })
-            // Process queued candidates
-            const queue = iceCandidateQueues.current[from] || []
-            queue.forEach(cand => pc.addIceCandidate(new RTCIceCandidate(cand)))
-            delete iceCandidateQueues.current[from]
-          })
-        } else if (answer) {
-          pc.setRemoteDescription(new RTCSessionDescription(answer)).then(() => {
-             // Process queued candidates
-             const queue = iceCandidateQueues.current[from] || []
-             queue.forEach(cand => pc.addIceCandidate(new RTCIceCandidate(cand)))
-             delete iceCandidateQueues.current[from]
-          })
-        } else if (iceCandidate) {
-          if (pc.remoteDescription) {
-            pc.addIceCandidate(new RTCIceCandidate(iceCandidate)).catch(e => console.warn("ICE error", e))
-          } else {
-            if (!iceCandidateQueues.current[from]) iceCandidateQueues.current[from] = []
-            iceCandidateQueues.current[from].push(iceCandidate)
-          }
-        }
       })
       .on('broadcast', { event: 'game_logic' }, (payload) => {
         handleGameMessage(payload.payload)
@@ -353,10 +289,9 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
     return () => {
       channel.unsubscribe()
-      Object.values(peerConnections.current).forEach(pc => pc.close())
-      peerConnections.current = {}
+      peer?.destroy()
     }
-  }, [user, roomId, settings.withWebcams]) // REMOVED localStream to prevent loop
+  }, [user, roomId, localStream, settings.withWebcams])
 
   // Unified webcam initialization
   useEffect(() => {
@@ -374,21 +309,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
   }, [settings.withWebcams])
 
-  // ADD TRACKS DYNAMICALLY
-  useEffect(() => {
-    if (!localStream) return
-    
-    Object.values(peerConnections.current).forEach(pc => {
-        // Only add if not already added
-        const senders = pc.getSenders()
-        localStream.getTracks().forEach(track => {
-            const alreadyExists = senders.find(s => s.track?.id === track.id)
-            if (!alreadyExists) {
-                pc.addTrack(track, localStream)
-            }
-        })
-    })
-  }, [localStream])
 
   // Sync state logic (Dynamic players)
   const playersWithState = useMemo(() => {
