@@ -231,12 +231,17 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
         // Handle incoming calls
         peer.on('call', (call: any) => {
-            console.log('Incoming call from:', call.peer)
+            const remoteUserId = call.peer.replace(`poker-${roomId}-`, '').replace(/_/g, ' ')
+            console.log('Incoming call from user:', remoteUserId)
+            
             call.answer(localStream || undefined)
             
             call.on('stream', (remoteStream: MediaStream) => {
-                const remoteUserId = call.peer.replace(`poker-${roomId}-`, '').replace(/_/g, ' ')
-                setRemoteStreams(prev => ({ ...prev, [remoteUserId]: remoteStream }))
+                setRemoteStreams(prev => {
+                    // Only update if stream changed or not present to avoid AbortError
+                    if (prev[remoteUserId]?.id === remoteStream.id) return prev
+                    return { ...prev, [remoteUserId]: remoteStream }
+                })
             })
         })
 
@@ -258,10 +263,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
         // Find people to call
         uniqueUsers.forEach(u => {
-            const remoteUserId = u.id.toString()
+            if (!u?.id) return
+            const remoteUserId = String(u.id)
             const remotePeerId = `poker-${roomId}-${remoteUserId.replace(/\s+/g, '_')}`
             
-            if (remoteUserId !== (user.id || user.display_name).toString() && peer && !remoteStreams[remoteUserId]) {
+            const myCurrentId = String(user.id || user.display_name)
+            if (remoteUserId !== myCurrentId && peer && !remoteStreams[remoteUserId]) {
                 // Initiator logic
                 if (myId > remotePeerId && localStream) {
                     console.log('Calling peer:', remotePeerId)
@@ -317,7 +324,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         const presencePlayer = joinedPlayers[i]
         if (!presencePlayer) return null
         
-        const gameStatePlayer = players.find(p => p.id === presencePlayer.id)
+        const presenceId = String(presencePlayer.id)
+        const gameStatePlayer = players.find(p => String(p.id) === presenceId)
         return {
             id: presencePlayer.id,
             name: presencePlayer.display_name,
