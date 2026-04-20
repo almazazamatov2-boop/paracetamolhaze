@@ -140,11 +140,12 @@
       gap: 32px;
       align-items: start;
       margin-bottom: 64px;
-      background: var(--surface);
-      border: 1px solid var(--border);
+      background: #1a1a1a; /* Even lighter for maximum visibility */
+      border: 1px solid rgba(255,255,255,0.25); /* Strong, visible border */
       border-radius: 20px;
       padding: 48px;
       position: relative;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     }
 
     .overlay-info { padding-right: 20px; }
@@ -309,10 +310,6 @@
 
   <!-- HERO -->
   <div class="hero">
-    <div class="hero-badge">
-      <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      Premium Twitch Stream Tools
-    </div>
     <h1>Привлекай аудиторию<br>мини-игрой на стриме</h1>
     <p class="hero-desc">
       Оверлеи для стримеров. Зрители активируют награду за баллы канала, выбирают число и испытывают удачу прямо на стриме.
