@@ -146,11 +146,17 @@
                             </div>
                             <input type="hidden" name="reward_name" id="reward-name-hidden">
                         </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
                             <div><label class="label">Мин. число</label><input type="number" name="min_val" value="1"></div>
                             <div><label class="label">Макс. число</label><input type="number" name="max_val" value="100"></div>
                         </div>
-                        <button type="submit" id="save-btn" class="btn btn-purple" style="width: 100%;">СОХРАНИТЬ НАСТРОЙКИ</button>
+                        <div style="display: flex; gap: 12px; margin-bottom: 0;">
+                            <button type="submit" id="save-btn" class="btn btn-purple" style="flex: 2;">СОХРАНИТЬ НАСТРОЙКИ</button>
+                            <button type="button" class="btn btn-icon" onclick="reconnectTwitch()" title="Переподключить Twitch (если не работает за баллы)" style="flex: 1; background: #eab30820; color: #eab308; border: 1px solid #eab30840;">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0114.08 0"/><path d="M1.42 9a16 16 0 0121.16 0"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+                                СВЯЗЬ
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -243,6 +249,24 @@
                 showToast('Список наград обновлен');
             } catch (e) {
                 showToast('Ошибка загрузки наград', true);
+            } finally {
+                btn.style.opacity = '1';
+            }
+        }
+
+        async function reconnectTwitch() {
+            const btn = event.currentTarget;
+            btn.style.opacity = '0.5';
+            try {
+                const res = await fetch('/api/ov_subscribe', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Интеграция подключена!');
+                } else {
+                    showToast(data.error || 'Ошибка подключения', true);
+                }
+            } catch (e) {
+                showToast('Ошибка сети', true);
             } finally {
                 btn.style.opacity = '1';
             }

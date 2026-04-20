@@ -29,7 +29,7 @@ async function getUserAvatar(userId: string, appToken: string) {
 
 export async function POST(req: NextRequest) {
   const data = await req.json();
-  if (data.challenge) return new NextResponse(data.challenge);
+  if (data.challenge) return new Response(data.challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } });
 
   const { subscription, event } = data;
   if (subscription?.type === 'channel.channel_points_custom_reward_redemption.add') {
