@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Slots Overlay</title>
+    <title>3D Slots Overlay</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@900&display=swap');
         
         body { margin: 0; overflow: hidden; background: transparent; font-family: 'Outfit', sans-serif; }
         
@@ -14,128 +14,133 @@
             transform: translate(-50%, -50%);
             width: 800px;
             height: 600px;
+            perspective: 1000px; /* Essential for 3D */
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        /* The machine frame image you provided */
         #machine-frame {
             position: absolute;
-            width: 700px;
+            width: 650px;
             height: 500px;
-            background: url('https://i.ibb.co/vz19777/slots-frame.png') no-repeat center;
+            /* Using the high quality gold frame */
+            background: url('gold_machine.png') no-repeat center;
             background-size: contain;
             pointer-events: none;
-            z-index: 10;
+            z-index: 20;
         }
 
-        .reels-wrapper {
-            position: absolute;
-            top: 198px; /* Precise alignment to match frame windows */
-            left: 174px;
+        .reels-container {
             display: flex;
-            gap: 12px;
-            z-index: 5;
+            gap: 25px;
+            z-index: 10;
+            transform: translateY(20px);
         }
 
-        .reel-window {
-            width: 142px;
-            height: 190px;
-            background: #fff;
-            overflow: hidden;
+        .reel-viewport {
+            width: 130px;
+            height: 160px;
             position: relative;
-            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+            overflow: hidden;
+            background: #fff;
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
             border-radius: 4px;
         }
 
-        .reel-strip {
+        .reel-drum {
             position: absolute;
-            top: 0;
+            top: 50%;
             left: 0;
             width: 100%;
-            transition: top 3s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+            height: 160px;
+            margin-top: -80px;
+            transform-style: preserve-3d;
+            transition: transform 3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .symbol {
-            width: 142px;
-            height: 190px;
+        .face {
+            position: absolute;
+            width: 100%;
+            height: 160px;
             display: flex;
             align-items: center;
             justify-content: center;
+            backface-visibility: hidden;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.05);
         }
 
-        .symbol img {
-            width: 110px;
-            height: 110px;
+        .face img {
+            width: 100px;
+            height: 100px;
             object-fit: contain;
         }
 
-        #lever-container {
-            position: absolute;
-            right: 0;
-            top: 150px;
-            width: 100px;
-            height: 300px;
-            z-index: 11;
-        }
+        /* 5-sided prism math: 360/5 = 72deg. translateZ = height / (2 * tan(PI/5)) */
+        /* height 160 / (2 * 0.726) = ~110px */
+        .face:nth-child(1) { transform: rotateX(0deg) translateZ(110px); }
+        .face:nth-child(2) { transform: rotateX(72deg) translateZ(110px); }
+        .face:nth-child(3) { transform: rotateX(144deg) translateZ(110px); }
+        .face:nth-child(4) { transform: rotateX(216deg) translateZ(110px); }
+        .face:nth-child(5) { transform: rotateX(288deg) translateZ(110px); }
 
         #lever-stick {
             position: absolute;
-            top: 100px;
-            left: 30px;
+            right: 40px;
+            top: 150px;
             width: 12px;
             height: 140px;
-            background: linear-gradient(to right, #666, #eee, #666);
+            background: linear-gradient(to right, #444, #ccc, #444);
             border-radius: 6px;
             transform-origin: bottom center;
-            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 21;
+            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
 
         #lever-ball {
             position: absolute;
-            top: -25px;
+            top: -24px;
             left: -14px;
             width: 40px;
             height: 40px;
-            background: radial-gradient(circle at 30% 30%, #ff4b2b, #9e0e0e);
+            background: radial-gradient(circle at 30% 30%, #ff4b2b, #8b0000);
             border-radius: 50%;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
 
-        #win-label {
+        #win-banner {
             position: absolute;
-            top: 40px;
+            top: 50px;
             width: 100%;
             text-align: center;
-            color: #ffcc00;
-            font-size: 60px;
-            font-weight: 800;
+            color: #ffd700;
+            font-size: 70px;
+            font-weight: 900;
             text-transform: uppercase;
             text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
-            z-index: 20;
+            z-index: 30;
             opacity: 0;
             transition: 0.5s;
-            transform: scale(0.5);
+            transform: scale(0.2);
+            pointer-events: none;
         }
 
-        .win-active { opacity: 1 !important; transform: scale(1.1) !important; }
+        .show-win { opacity: 1 !important; transform: scale(1) !important; }
     </style>
 </head>
 <body>
     <div id="machine-container">
-        <h1 id="win-label">WINNER!</h1>
+        <div id="win-banner">WINNER!</div>
         <div id="machine-frame"></div>
         
-        <div class="reels-wrapper">
-            <div class="reel-window"><div class="reel-strip" id="reel-0"></div></div>
-            <div class="reel-window"><div class="reel-strip" id="reel-1"></div></div>
-            <div class="reel-window"><div class="reel-strip" id="reel-2"></div></div>
+        <div class="reels-container">
+            <div class="reel-viewport"><div class="reel-drum" id="drum-0"></div></div>
+            <div class="reel-viewport"><div class="reel-drum" id="drum-1"></div></div>
+            <div class="reel-viewport"><div class="reel-drum" id="drum-2"></div></div>
         </div>
 
-        <div id="lever-container">
-            <div id="lever-stick"><div id="lever-ball"></div></div>
-        </div>
+        <div id="lever-stick"><div id="lever-ball"></div></div>
     </div>
 
     <script>
@@ -164,8 +169,7 @@
             if (!streamerId) return;
             try {
                 const res = await fetch(`/api/ov_settings?userId=${streamerId}&type=slots`);
-                const data = await res.json();
-                config = data;
+                config = await res.json();
 
                 const assets = config.assets || {};
                 sounds.lever.src = assets.s_lever || 'https://assets.mixkit.co/active_storage/sfx/2042/2042-preview.mp3';
@@ -174,89 +178,86 @@
                 sounds.jackpot.src = assets.s_jackpot || 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3';
                 sounds.lose.src = assets.s_lose || 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3';
 
-                setupReels();
+                setupDrums();
                 setInterval(checkTrigger, 2000);
             } catch(e) {}
         }
 
-        function setupReels(results = null) {
+        function setupDrums(results = null) {
             const symbols = (config.symbols && config.symbols.length >= 5) ? config.symbols : defaultIcons.map(url => ({url}));
             
             for (let i = 0; i < 3; i++) {
-                const strip = document.getElementById(`reel-${i}`);
-                strip.style.transition = 'none';
-                strip.style.top = '0px';
-                strip.innerHTML = '';
-
-                // We create a very long strip for the spin effect
-                // Final result will be at the very bottom
-                const count = 40; 
-                for (let j = 0; j < count; j++) {
-                    const sym = symbols[j % symbols.length];
-                    const div = document.createElement('div');
-                    div.className = 'symbol';
-                    // The very last symbol in the strip is our target result
-                    const imgUrl = (j === count - 1 && results) ? results[i] : sym.url;
-                    div.innerHTML = `<img src="${imgUrl}">`;
-                    strip.insertBefore(div, strip.firstChild);
-                }
+                const drum = document.getElementById(`drum-${i}`);
+                drum.innerHTML = '';
                 
-                // Position it so the first symbol is visible
-                strip.style.top = `-${(count - 1) * 190}px`;
+                // If results are provided, rotation should end on the correct face
+                // Face indices 0..4 match the symbols
+                for (let j = 0; j < 5; j++) {
+                    const face = document.createElement('div');
+                    face.className = 'face';
+                    face.innerHTML = `<img src="${symbols[j].url}">`;
+                    drum.appendChild(face);
+                }
             }
         }
 
         function pullLever() {
             sounds.lever.play();
             const stick = document.getElementById('lever-stick');
-            stick.style.transform = 'rotateX(80deg)';
-            setTimeout(() => {
-                stick.style.transform = 'rotateX(0deg)';
-            }, 600);
+            stick.style.transform = 'rotateX(70deg)';
+            setTimeout(() => { stick.style.transform = 'rotateX(0deg)'; }, 600);
         }
 
         async function startSpin(payload) {
             if (isSpinning) return;
             isSpinning = true;
-            document.getElementById('win-label').classList.remove('win-active');
+            document.getElementById('win-banner').classList.remove('show-win');
 
-            // Reset reels with new target
-            setupReels(payload.result);
+            sounds.spin.currentTime = 0;
+            sounds.spin.play();
 
-            setTimeout(() => {
-                sounds.spin.currentTime = 0;
-                sounds.spin.play();
+            const symbols = config.symbols || [];
+            
+            for (let i = 0; i < 3; i++) {
+                const drum = document.getElementById(`drum-${i}`);
+                
+                // Find index of result symbol in current symbols config
+                const resultUrl = payload.result[i];
+                let targetIndex = symbols.findIndex(s => s.url === resultUrl);
+                if (targetIndex === -1) targetIndex = 0;
 
-                for (let i = 0; i < 3; i++) {
-                    const strip = document.getElementById(`reel-${i}`);
-                    strip.style.transition = `top ${2.5 + i * 0.5}s cubic-bezier(0.45, 0.05, 0.55, 0.95)`;
-                    strip.style.top = '0px';
-                }
+                // 5 faces = 72deg each
+                // Multiplier 5 or more for "many full rotations"
+                const rotations = 10 + (i * 3);
+                // The angle to show face X is = - (X * 72)
+                const targetAngle = - (rotations * 360 + targetIndex * 72);
+                
+                drum.style.transition = `transform ${2 + i * 0.5}s cubic-bezier(0.45, 0.05, 0.55, 0.95)`;
+                drum.style.transform = `rotateX(${targetAngle}deg)`;
+            }
 
-                setTimeout(() => finalize(payload), 4000);
-            }, 100);
+            setTimeout(() => finalize(payload), 4000);
         }
 
         function finalize(payload) {
             isSpinning = false;
-            const label = document.getElementById('win-label');
+            sounds.spin.pause();
             
+            const banner = document.getElementById('win-banner');
             if (payload.isWin) {
                 if (payload.isJackpot) {
                     sounds.jackpot.play();
-                    label.innerText = "JACKPOT!";
+                    banner.innerText = "JACKPOT!";
                 } else {
                     sounds.win.play();
-                    label.innerText = "BIG WIN!";
+                    banner.innerText = "BIG WIN!";
                 }
-                label.classList.add('win-active');
+                banner.classList.add('show-win');
             } else {
                 sounds.lose.play();
             }
-
-            setTimeout(() => {
-                label.classList.remove('win-active');
-            }, 6000);
+            
+            setTimeout(() => banner.classList.remove('show-win'), 6000);
         }
 
         let lastTriggerId = null;
