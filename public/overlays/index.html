@@ -339,32 +339,15 @@
       </div>
       
       <div class="overlay-preview-container">
-        <!-- REAL OVERLAY MOCKUP -->
-        <div class="real-overlay-mock" id="mock-panel">
-          <div class="mock-left">
-            <div class="mock-nick">Viewer</div>
-            <div class="mock-avatar" id="mock-avatar"></div>
-          </div>
-          
-          <div class="mock-center">
-            <div class="mock-col">
-              <div class="mock-label-wrap"><div class="mock-col-title">ЧИСЛО ЗРИТЕЛЯ</div></div>
-              <div class="mock-col-val" id="mock-choice">50</div>
-            </div>
-            <div class="mock-vs">VS</div>
-            <div class="mock-col">
-              <div class="mock-label-wrap"><div class="mock-col-title">ЧИСЛО РАНДОМА</div></div>
-              <div class="mock-col-val" id="mock-random">00</div>
-            </div>
-          </div>
-
-          <div class="mock-right">
-            <div class="mock-reward-title">RANDOM SKIN<br>CS2</div>
-            <div class="mock-reward-img">🔫</div>
-          </div>
-
-          <div class="mock-badge" id="mock-win-badge">ПОБЕДА!</div>
-        </div>
+        <!-- REAL VIDEO PREVIEW -->
+        <video 
+          src="/overlays/preview.mp4" 
+          autoplay 
+          muted 
+          loop 
+          playsinline 
+          style="width: 100%; height: 100%; object-fit: cover;">
+        </video>
       </div>
     </div>
 
@@ -397,70 +380,7 @@
   </footer>
 
   <script>
-    // Audio Context (Mock Sounds)
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    let audioEnabled = false;
-    
-    function playNote(freq, dur, type = 'sine') {
-      if (!audioEnabled) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + dur);
-    }
-
-    // Enable audio on first interaction
-    document.addEventListener('click', () => { audioEnabled = true; }, { once: true });
-
-    // Mock Overlay Animation Cycle
-    const panel = document.getElementById('mock-panel');
-    const randomEl = document.getElementById('mock-random');
-    const badge = document.getElementById('mock-win-badge');
-    const choice = 50;
-    
-    async function runCycle() {
-      // 1. IN
-      panel.classList.remove('exit');
-      panel.classList.add('active');
-      await new Promise(r => setTimeout(r, 1000));
-
-      // 2. ROLL
-      let count = 0;
-      const interval = setInterval(() => {
-        randomEl.textContent = Math.floor(Math.random() * 99 + 1).toString().padStart(2, '0');
-        count++;
-        if (count > 30) {
-          clearInterval(interval);
-          finishCycle();
-        }
-      }, 100);
-    }
-
-    async function finishCycle() {
-      // 3. RESULT
-      randomEl.textContent = choice.toString().padStart(2, '0');
-      randomEl.style.color = '#22c55e';
-      badge.classList.add('active');
-      await new Promise(r => setTimeout(r, 4000));
-      
-      // 4. OUT
-      badge.classList.remove('active');
-      panel.classList.remove('active');
-      panel.classList.add('exit');
-      
-      await new Promise(r => setTimeout(r, 2000));
-      randomEl.style.color = '#fff';
-      runCycle(); // Restart
-    }
-    
-    window.onload = () => setTimeout(runCycle, 2000);
+    // Audio Context and animations removed - now using video preview
   </script>
 
 </body>
