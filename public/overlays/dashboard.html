@@ -256,7 +256,10 @@
                 const res = await fetch('/api/ov_test', { method: 'POST' });
                 if (res.ok) {
                     showToast('Тест запущен!');
-                    const obsPath = document.getElementById('obs-url').textContent;
+                    let obsPath = document.getElementById('obs-url').textContent;
+                    if (!obsPath.includes('.html')) {
+                        obsPath = obsPath.replace('/overlays/roll', '/overlays/roll.html');
+                    }
                     // Open a popup window with overlay dimensions
                     window.open(obsPath, 'FatePreview', 'width=1620,height=310,menubar=no,toolbar=no,location=no,status=no');
                 }

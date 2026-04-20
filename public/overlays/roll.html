@@ -323,11 +323,22 @@
                 const res = await fetch(`/api/ov_trigger?userId=${userId}&t=${Date.now()}`);
                 const data = await res.json();
                 if (data && data.triggerId && data.triggerId !== lastTriggerId) {
-                    const isFresh = data.timestamp && (Date.now() - data.timestamp < 10000);
+                    // Increased threshold to 60 seconds to account for server/client clock drift
+                    const isFresh = data.timestamp && (Math.abs(Date.now() - data.timestamp) < 60000);
                     lastTriggerId = data.triggerId;
                     
-                    // If it's the initial call, only animate if it happened in the last 10 seconds
-                    if (!isInitial || isFresh) animate(data);
+                    if (!isInitial || isFresh) {
+                        const loadingHint = document.getElementById('loading-hint');
+                        if (loadingHint) loadingHint.style.display = 'none';
+                        animate(data);
+                    }
+                } else if (isInitial) {
+                    // Show a hint that we are waiting
+                    const hint = document.createElement('div');
+                    hint.id = 'loading-hint';
+                    hint.innerHTML = 'ОЖИДАНИЕ ТЕСТА...<br><small style="font-size:12px;opacity:0.6;">Кликните здесь, если нет звука</small>';
+                    hint.style.cssText = 'position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:rgba(255,255,255,0.2); font-weight:900; letter-spacing:2px; text-align:center; pointer-events:none;';
+                    document.body.appendChild(hint);
                 }
             } catch (e) { }
         }
