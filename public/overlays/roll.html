@@ -34,7 +34,7 @@
             width: 1620px;
             height: 290px;
             overflow: hidden;
-            background: transparent;
+            background: #080808; /* Dark background so it's visible in browser */
             font-family: 'Inter', sans-serif;
             color: white;
         }
@@ -322,6 +322,7 @@
             try {
                 const res = await fetch(`/api/ov_trigger?userId=${userId}&t=${Date.now()}`);
                 const data = await res.json();
+                console.log('Trigger poll:', data);
                 if (data && data.triggerId && data.triggerId !== lastTriggerId) {
                     // Increased threshold to 60 seconds to account for server/client clock drift
                     const isFresh = data.timestamp && (Math.abs(Date.now() - data.timestamp) < 60000);
@@ -336,8 +337,8 @@
                     // Show a hint that we are waiting
                     const hint = document.createElement('div');
                     hint.id = 'loading-hint';
-                    hint.innerHTML = 'ОЖИДАНИЕ ТЕСТА...<br><small style="font-size:12px;opacity:0.6;">Кликните здесь, если нет звука</small>';
-                    hint.style.cssText = 'position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:rgba(255,255,255,0.2); font-weight:900; letter-spacing:2px; text-align:center; pointer-events:none;';
+                    hint.innerHTML = 'СТАТУС: ОЖИДАНИЕ ТЕСТА...<br><small style="font-size:14px;opacity:0.8;">Кликните здесь (разрешить звук)</small>';
+                    hint.style.cssText = 'position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#a855f7; font-weight:900; letter-spacing:2px; text-align:center; background: #080808; z-index:9999;';
                     document.body.appendChild(hint);
                 }
             } catch (e) { }
