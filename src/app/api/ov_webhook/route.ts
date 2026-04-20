@@ -53,9 +53,14 @@ export async function POST(req: NextRequest) {
     const settings: any = config?.settings || {};
     const assets: any = config?.assets || {};
     
+    const dbRewardId = settings?.reward_id || "";
     const dbRewardName = (settings?.reward_name || "").toString().trim().toLowerCase();
+    const twitchRewardId = event.reward.id;
 
-    if (dbRewardName === rewardName) {
+    const isMatch = (dbRewardId && dbRewardId === twitchRewardId) || 
+                    (!dbRewardId && dbRewardName === rewardName);
+
+    if (isMatch) {
       const match = userMessage.match(/\d+/);
       const userChoice = match ? parseInt(match[0]) : null;
       
