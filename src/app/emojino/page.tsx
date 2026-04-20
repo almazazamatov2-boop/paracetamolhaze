@@ -11,7 +11,6 @@ import {
 import { Button } from '@/components/67/ui/button'; 
 import { AuthProvider, useSession, signIn, signOut } from '@/lib/67/authHook'; 
 import { supabase } from '@/lib/supabase';
-import { movies, Movie } from '@/data/movies';
 
 // ============ TYPES ============
 interface EmojinoState {
@@ -108,7 +107,7 @@ function ProfileModal({ isOpen, onClose, user, stats }: { isOpen: boolean, onClo
 function EmojinoContent() {
   const { data: session } = useSession();
   const [screen, setScreen] = useState<Screen>('home');
-  const [gameMovies, setGameMovies] = useState<Movie[]>([]);
+  const [gameMovies, setGameMovies] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [guessInput, setGuessInput] = useState('');
   const [state, setState] = useState<EmojinoState>({ 
@@ -127,7 +126,7 @@ function EmojinoContent() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userStats, setUserStats] = useState({ all: 0, film: 0, serial: 0 });
 
-  // Suggestions from Supabase instead of local file
+  // Suggestions from Supabase
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (guessInput.length < 2 || state.guessed) {
@@ -140,7 +139,7 @@ function EmojinoContent() {
         const { data } = await supabase
           .from('emojino_movies')
           .select('*')
-          .or(`title_ru.ilike.%${guessInput}%,description.ilike.%${guessInput}%`) // description if used, but title_ru is main
+          .or(`title_ru.ilike.%${guessInput}%`)
           .limit(5);
         
         if (data) {
@@ -148,7 +147,7 @@ function EmojinoContent() {
             name: m.title_ru,
             type: m.type,
             year: m.year,
-            aliases: [] // We use title_ru primarily
+            aliases: []
           }));
           setSuggestions(formatted);
           setShowSuggestions(true);
@@ -162,7 +161,7 @@ function EmojinoContent() {
     return () => clearTimeout(timer);
   }, [guessInput, state.guessed]);
 
-  // Load leaderboard (local storage or supabase if I had a table, but I'll use a specific tag for now)
+  // Load leaderboard
   useEffect(() => {
     fetchLeaderboard(lbMode);
   }, [lbMode]);
@@ -219,7 +218,7 @@ function EmojinoContent() {
       if (mode === 'film') query = query.eq('type', 'film');
       else if (mode === 'serial') query = query.eq('type', 'serial');
       
-      const { data, error } = await query.limit(200);
+      const { data, error } = await query;
       
       if (data && data.length > 0) {
         return data.sort(() => Math.random() - 0.5).slice(0, 10);
@@ -231,19 +230,10 @@ function EmojinoContent() {
   };
 
   const startNewGame = async (mode: string) => {
-    let pool: any[] = [];
-    
-    // Try to get from Supabase first
     const dbData = await fetchMoviesSupabase(mode);
-    if (dbData) {
-      pool = dbData;
-    } else {
-      // Fallback to local data
-      const localPool = mode === 'all' ? movies : movies.filter(m => m.type === mode);
-      pool = [...localPool].sort(() => Math.random() - 0.5).slice(0, 10);
-    }
+    if (!dbData) return;
 
-    setGameMovies(pool);
+    setGameMovies(dbData);
     setScreen('game');
     setCurrentIndex(0);
     setState({ 
@@ -264,14 +254,12 @@ function EmojinoContent() {
 
   const checkAnswer = (input: string, movie: any): boolean => {
     const normalized = normalizeAnswer(input);
-    // Support both local 'name' and DB 'title_ru'
     const mainTitle = movie.title_ru || movie.name || '';
     const possibleAnswers = [mainTitle, ...(movie.aliases || [])];
     
     for (const alias of possibleAnswers) {
       const normAlias = normalizeAnswer(alias);
       if (normalized === normAlias) return true;
-      // Partial match for longer titles
       if (normalized.length >= 4 && (normAlias.includes(normalized) || normalized.includes(normAlias))) return true;
     }
     return false;
@@ -280,15 +268,10 @@ function EmojinoContent() {
   const handleGuess = (inputOverride?: string) => {
     const input = (inputOverride || guessInput).trim();
     if (state.guessed) return;
-    
-    if (!input) {
-      // Maybe add a shake effect here later
-      return;
-    }
+    if (!input) return;
     
     const current = gameMovies[currentIndex];
     const isCorrect = checkAnswer(input, current);
-
     const earned = isCorrect ? SCORE_FOR_HINTS[state.hintsUsed] : 0;
     
     setState(prev => ({ 
@@ -338,7 +321,7 @@ function EmojinoContent() {
     }
   };
 
-  const selectSuggestion = (s: Movie) => {
+  const selectSuggestion = (s: any) => {
     setGuessInput(s.name);
     setShowSuggestions(false);
     handleGuess(s.name);
@@ -392,7 +375,7 @@ function EmojinoContent() {
                 </button>
              ) : (
                 <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-xl h-11 px-6 text-sm font-bold shadow-lg shadow-purple-500/20" onClick={twitchLogin}>
-                  Войти через Twitch
+                   Войти через Twitch
                 </Button>
              )}
           </div>
@@ -400,22 +383,22 @@ function EmojinoContent() {
       </header>
 
       {/* Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 overflow-y-auto custom-scrollbar">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6">
         <AnimatePresence mode="wait">
           {screen === 'home' && (
             <motion.div 
               key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pt-10"
+              className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-start"
             >
               {/* Left Column: Menu */}
-              <div className="lg:col-span-6 space-y-12">
-                <div className="space-y-0 overflow-visible w-full py-10">
-                  <div className="flex flex-col items-start space-y-[-2rem] overflow-visible w-full">
-                    <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[1.1] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible px-4">
-                      Угадай
+              <div className="lg:col-span-6 space-y-8">
+                <div className="space-y-0 overflow-visible w-full py-2">
+                  <div className="flex flex-col items-start space-y-[-1.5rem] overflow-visible w-full">
+                    <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[1.1] uppercase italic drop-shadow-2xl px-4">
+                      УГАДАЙ
                     </h1>
-                    <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[1.1] uppercase italic drop-shadow-2xl whitespace-nowrap overflow-visible -ml-4 px-4 pb-4">
-                      Эмоджи
+                    <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-[1.1] uppercase italic drop-shadow-2xl -ml-4 px-4 pb-4">
+                      ЭМОДЗИ
                     </h1>
                   </div>
                 </div>
@@ -445,18 +428,18 @@ function EmojinoContent() {
               </div>
 
               {/* Right Column: Embedded Leaderboard */}
-              <div className="lg:col-span-6 bg-[#0c0c0e]/50 backdrop-blur-xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[600px] shadow-2xl">
+              <div className="lg:col-span-6 bg-[#0c0c0e]/50 backdrop-blur-xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[520px] shadow-2xl relative overflow-hidden">
                  <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
-                       <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shadow-inner">
-                          <Trophy className="w-6 h-6" />
+                       <div className="w-10 h-10 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shadow-inner">
+                          <Trophy className="w-5 h-5" />
                        </div>
-                       <h2 className="text-3xl font-black uppercase italic tracking-tighter">Рейтинг</h2>
+                       <h2 className="text-2xl font-black uppercase italic tracking-tighter">Рейтинг</h2>
                     </div>
 
-                    <div className="flex gap-1 bg-white/[0.03] p-1 rounded-2xl border border-white/[0.06]">
+                    <div className="flex gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.06]">
                       {['all', 'film', 'serial'].map(m => (
-                          <button key={m} onClick={() => setLbMode(m)} className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${lbMode === m ? 'bg-white/10 text-white shadow-lg' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                          <button key={m} onClick={() => setLbMode(m)} className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${lbMode === m ? 'bg-amber-500 text-black shadow-lg' : 'text-neutral-500 hover:text-neutral-300'}`}>
                             {m === 'all' ? 'КОМБО' : m === 'film' ? 'ФИЛЬМЫ' : 'СЕРИАЛЫ'}
                           </button>
                       ))}
@@ -495,7 +478,10 @@ function EmojinoContent() {
               <div className="relative aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl flex items-center justify-center group p-8">
                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-red-500/10 opacity-50" />
                  
-                 <div className="relative z-10 text-4xl sm:text-5xl md:text-6xl tracking-[0.1em] flex flex-wrap justify-center items-center gap-4 md:gap-6 text-center">
+                 <div 
+                    className="relative z-10 text-4xl sm:text-5xl md:text-6xl tracking-[0.1em] flex flex-wrap justify-center items-center gap-4 md:gap-6 text-center"
+                    style={{ fontFamily: '"Twemoji Mozilla", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", sans-serif' }}
+                 >
                     {Array.from(gameMovies[currentIndex].emoji).map((char, i) => (
                       <motion.span
                         key={i}
@@ -509,13 +495,13 @@ function EmojinoContent() {
                  </div>
                  
                  <div className="absolute top-5 left-5 z-20">
-                     <span className="px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest flex items-center h-7 shadow-lg">
+                    <span className="px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest flex items-center h-7 shadow-lg">
                       {gameMovies[currentIndex].type === 'film' ? 'Фильм' : 'Сериал'} {gameMovies[currentIndex].year ? `• ${gameMovies[currentIndex].year}` : ''}
                     </span>
                  </div>
 
                  {!state.guessed && (
-                    <div className="absolute top-5 right-5 animate-pulse z-20 cursor-default">
+                    <div className="absolute top-5 right-5 animate-pulse z-20">
                        <div className="bg-amber-500 text-black px-4 py-2.5 rounded-2xl font-black text-2xl shadow-lg shadow-amber-500/30">
                           +{SCORE_FOR_HINTS[state.hintsUsed]}
                        </div>
@@ -593,7 +579,9 @@ function EmojinoContent() {
                              <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${state.correct ? 'text-emerald-400' : 'text-rose-400'}`}>
                                {state.correct ? 'Верно!' : 'Правильный ответ:'}
                             </p>
-                            <p className="text-xl font-black leading-tight">{gameMovies[currentIndex]?.title_ru || gameMovies[currentIndex]?.name || '---'}</p>
+                            <p className="text-xl font-black leading-tight truncate">
+                               {gameMovies[currentIndex]?.title_ru || gameMovies[currentIndex]?.name || '---'}
+                            </p>
                          </div>
                       </div>
                       <div className="text-right ml-4">
