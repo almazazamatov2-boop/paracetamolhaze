@@ -2,11 +2,9 @@
 <html>
 <head>
     <title>Slots Overlay</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@800&display=swap');
+        
         body { margin: 0; overflow: hidden; background: transparent; font-family: 'Outfit', sans-serif; }
         
         #machine-container {
@@ -15,38 +13,40 @@
             left: 50%;
             transform: translate(-50%, -50%);
             width: 800px;
-            height: 450px;
+            height: 600px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
+        /* The machine frame image you provided */
         #machine-frame {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            background: url('gold_machine.png') no-repeat center;
-            background-size: cover;
+            width: 700px;
+            height: 500px;
+            background: url('https://i.ibb.co/vz19777/slots-frame.png') no-repeat center;
+            background-size: contain;
             pointer-events: none;
             z-index: 10;
         }
 
-        .reels-container {
+        .reels-wrapper {
+            position: absolute;
+            top: 198px; /* Precise alignment to match frame windows */
+            left: 174px;
             display: flex;
-            gap: 15px;
-            padding-bottom: 30px;
+            gap: 12px;
             z-index: 5;
-            padding-right: 35px; /* Alignment for the offset of the handle in the frame */
         }
 
         .reel-window {
-            width: 140px;
-            height: 180px;
+            width: 142px;
+            height: 190px;
             background: #fff;
-            border-radius: 8px;
             overflow: hidden;
             position: relative;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.8);
+            border-radius: 4px;
         }
 
         .reel-strip {
@@ -54,79 +54,88 @@
             top: 0;
             left: 0;
             width: 100%;
-            display: flex;
-            flex-direction: column;
+            transition: top 3s cubic-bezier(0.45, 0.05, 0.55, 0.95);
         }
 
         .symbol {
-            width: 140px;
-            height: 180px;
+            width: 142px;
+            height: 190px;
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
         }
 
         .symbol img {
-            width: 100px;
-            height: 100px;
+            width: 110px;
+            height: 110px;
             object-fit: contain;
+        }
+
+        #lever-container {
+            position: absolute;
+            right: 0;
+            top: 150px;
+            width: 100px;
+            height: 300px;
+            z-index: 11;
         }
 
         #lever-stick {
             position: absolute;
-            right: 40px;
             top: 100px;
-            width: 15px;
-            height: 120px;
-            background: linear-gradient(90deg, #888, #ddd, #888);
-            border-radius: 10px;
+            left: 30px;
+            width: 12px;
+            height: 140px;
+            background: linear-gradient(to right, #666, #eee, #666);
+            border-radius: 6px;
             transform-origin: bottom center;
-            z-index: 5;
-            transition: transform 0.3s ease;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         #lever-ball {
             position: absolute;
-            top: -20px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: -25px;
+            left: -14px;
             width: 40px;
             height: 40px;
-            background: radial-gradient(circle at 30% 30%, #ff4d4d, #8b0000);
+            background: radial-gradient(circle at 30% 30%, #ff4b2b, #9e0e0e);
             border-radius: 50%;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
         }
 
-        #status-text {
+        #win-label {
             position: absolute;
-            bottom: 40px;
+            top: 40px;
             width: 100%;
             text-align: center;
-            color: #ffd700;
-            font-size: 32px;
-            text-shadow: 0 4px 10px rgba(0,0,0,1);
+            color: #ffcc00;
+            font-size: 60px;
+            font-weight: 800;
+            text-transform: uppercase;
+            text-shadow: 0 0 20px #ff0000, 0 0 40px #ff0000;
             z-index: 20;
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: 0.5s;
+            transform: scale(0.5);
         }
-        
-        /* Animation Classes */
-        .pulling { transform: rotateX(60deg) scaleY(0.5); }
+
+        .win-active { opacity: 1 !important; transform: scale(1.1) !important; }
     </style>
 </head>
 <body>
     <div id="machine-container">
+        <h1 id="win-label">WINNER!</h1>
         <div id="machine-frame"></div>
         
-        <div class="reels-container">
+        <div class="reels-wrapper">
             <div class="reel-window"><div class="reel-strip" id="reel-0"></div></div>
             <div class="reel-window"><div class="reel-strip" id="reel-1"></div></div>
             <div class="reel-window"><div class="reel-strip" id="reel-2"></div></div>
         </div>
 
-        <div id="lever-stick"><div id="lever-ball"></div></div>
-        <div id="status-text">WINNER!</div>
+        <div id="lever-container">
+            <div id="lever-stick"><div id="lever-ball"></div></div>
+        </div>
     </div>
 
     <script>
@@ -134,14 +143,6 @@
         const streamerId = params.get('id');
         let config = { symbols: [], assets: {} };
         let isSpinning = false;
-
-        const sounds = {
-            lever: new Audio(),
-            spin: new Audio(),
-            win: new Audio(),
-            jackpot: new Audio(),
-            lose: new Audio()
-        };
 
         const defaultIcons = [
             'https://img.icons8.com/color/96/apple.png',
@@ -151,124 +152,111 @@
             'https://img.icons8.com/color/96/7-ball.png'
         ];
 
+        const sounds = {
+            lever: new Audio(),
+            spin: new Audio(),
+            win: new Audio(),
+            jackpot: new Audio(),
+            lose: new Audio()
+        };
+
         async function init() {
             if (!streamerId) return;
-            const res = await fetch(`/api/ov_settings?userId=${streamerId}&type=slots`);
-            const data = await res.json();
-            config = data;
+            try {
+                const res = await fetch(`/api/ov_settings?userId=${streamerId}&type=slots`);
+                const data = await res.json();
+                config = data;
 
-            const assets = config.assets || {};
-            sounds.lever.src = assets.s_lever || 'https://assets.mixkit.co/active_storage/sfx/2042/2042-preview.mp3';
-            sounds.spin.src = assets.s_spin || 'https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3';
-            sounds.win.src = assets.s_win || 'https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3';
-            sounds.jackpot.src = assets.s_jackpot || 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3';
-            sounds.lose.src = assets.s_lose || 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3';
+                const assets = config.assets || {};
+                sounds.lever.src = assets.s_lever || 'https://assets.mixkit.co/active_storage/sfx/2042/2042-preview.mp3';
+                sounds.spin.src = assets.s_spin || 'https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3';
+                sounds.win.src = assets.s_win || 'https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3';
+                sounds.jackpot.src = assets.s_jackpot || 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3';
+                sounds.lose.src = assets.s_lose || 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3';
 
-            buildReels();
-            animate();
-            setInterval(checkTrigger, 2000);
+                setupReels();
+                setInterval(checkTrigger, 2000);
+            } catch(e) {}
         }
 
-        function buildReels(targetUrls = null) {
-            const symbols = config.symbols && config.symbols.length >= 5 ? config.symbols : defaultIcons.map(url => ({url}));
+        function setupReels(results = null) {
+            const symbols = (config.symbols && config.symbols.length >= 5) ? config.symbols : defaultIcons.map(url => ({url}));
             
             for (let i = 0; i < 3; i++) {
                 const strip = document.getElementById(`reel-${i}`);
+                strip.style.transition = 'none';
+                strip.style.top = '0px';
                 strip.innerHTML = '';
-                
-                // Create a strip with many symbols for scrolling
-                // We need at least symbols for the "rest" state and many for the "spin"
-                const list = [];
-                // Fill with 30 symbols for the spin effect
-                for(let j=0; j<40; j++) {
-                    const sym = symbols[j % symbols.length];
-                    list.push(sym.url);
-                }
-                
-                // If we have a target, make sure the last few symbols lead to it
-                if (targetUrls) {
-                    list[list.length - 1] = targetUrls[i];
-                }
 
-                list.forEach(url => {
+                // We create a very long strip for the spin effect
+                // Final result will be at the very bottom
+                const count = 40; 
+                for (let j = 0; j < count; j++) {
+                    const sym = symbols[j % symbols.length];
                     const div = document.createElement('div');
                     div.className = 'symbol';
-                    div.innerHTML = `<img src="${url}">`;
-                    strip.appendChild(div);
-                });
+                    // The very last symbol in the strip is our target result
+                    const imgUrl = (j === count - 1 && results) ? results[i] : sym.url;
+                    div.innerHTML = `<img src="${imgUrl}">`;
+                    strip.insertBefore(div, strip.firstChild);
+                }
                 
-                // Reset position to bottom (initial)
-                strip.style.top = `-${(list.length - 1) * 180}px`;
+                // Position it so the first symbol is visible
+                strip.style.top = `-${(count - 1) * 190}px`;
             }
         }
 
-        function pullLever(callback) {
+        function pullLever() {
             sounds.lever.play();
             const stick = document.getElementById('lever-stick');
-            stick.style.transform = 'rotateX(60deg) scaleY(0.5)';
+            stick.style.transform = 'rotateX(80deg)';
             setTimeout(() => {
-                stick.style.transform = 'rotateX(0deg) scaleY(1)';
-                callback();
-            }, 500);
+                stick.style.transform = 'rotateX(0deg)';
+            }, 600);
         }
 
-        function spin(payload) {
+        async function startSpin(payload) {
             if (isSpinning) return;
             isSpinning = true;
-            document.getElementById('status-text').style.opacity = '0';
-            
-            // Rebuild reels with target result at the end
-            buildReels(payload.result);
-            
-            sounds.spin.currentTime = 0;
-            sounds.spin.play();
+            document.getElementById('win-label').classList.remove('win-active');
 
-            for (let i = 0; i < 3; i++) {
-                const strip = document.getElementById(`reel-${i}`);
-                const startTime = Date.now();
-                const duration = 3000 + i * 800;
-                
-                new TWEEN.Tween({ y: parseInt(strip.style.top) })
-                    .to({ y: 0 }, duration)
-                    .easing(TWEEN.Easing.Quadratic.InOut)
-                    .onUpdate((obj) => {
-                        strip.style.top = `${obj.y}px`;
-                    })
-                    .onComplete(() => {
-                        if (i === 2) finalize(payload);
-                    })
-                    .start();
-            }
+            // Reset reels with new target
+            setupReels(payload.result);
+
+            setTimeout(() => {
+                sounds.spin.currentTime = 0;
+                sounds.spin.play();
+
+                for (let i = 0; i < 3; i++) {
+                    const strip = document.getElementById(`reel-${i}`);
+                    strip.style.transition = `top ${2.5 + i * 0.5}s cubic-bezier(0.45, 0.05, 0.55, 0.95)`;
+                    strip.style.top = '0px';
+                }
+
+                setTimeout(() => finalize(payload), 4000);
+            }, 100);
         }
 
         function finalize(payload) {
             isSpinning = false;
-            sounds.spin.pause();
+            const label = document.getElementById('win-label');
             
-            const status = document.getElementById('status-text');
             if (payload.isWin) {
                 if (payload.isJackpot) {
                     sounds.jackpot.play();
-                    status.innerText = "JACKPOT!";
+                    label.innerText = "JACKPOT!";
                 } else {
                     sounds.win.play();
-                    status.innerText = "WINNER!";
+                    label.innerText = "BIG WIN!";
                 }
-                status.style.opacity = '1';
-                status.style.color = '#ffd700';
+                label.classList.add('win-active');
             } else {
                 sounds.lose.play();
-                status.innerText = "TRY AGAIN";
-                status.style.opacity = '1';
-                status.style.color = '#fff';
             }
-            
-            // Auto hide after 5s
+
             setTimeout(() => {
-                status.style.opacity = '0';
-                // Reset reels for next time? 
-                // We keep them at top: 0, which shows the result symbol.
-            }, 5000);
+                label.classList.remove('win-active');
+            }, 6000);
         }
 
         let lastTriggerId = null;
@@ -279,14 +267,10 @@
                 const data = await res.json();
                 if (data.triggerId && data.triggerId !== lastTriggerId) {
                     lastTriggerId = data.triggerId;
-                    pullLever(() => spin(data));
+                    pullLever();
+                    setTimeout(() => startSpin(data), 600);
                 }
             } catch (e) {}
-        }
-
-        function animate(time) {
-            requestAnimationFrame(animate);
-            TWEEN.update(time);
         }
 
         init();
