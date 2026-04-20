@@ -1,61 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId');
   if (!userId) return NextResponse.json({});
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
   const { data, error } = await supabase
     .from('overlay_configs')
     .select('assets')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (error || !data) return NextResponse.json({});
   return NextResponse.json(data.assets || {});
 }
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get('twitch_token')?.value;
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try {
+    const token = req.cookies.get('twitch_token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const clientId = process.env.TWITCH_CLIENT_ID;
-  const authRes = await fetch('https://api.twitch.tv/helix/users', {
-    headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId! },
-  });
-  const authData = await authRes.json();
-  const userId = authData.data?.[0]?.id;
-  if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
+    const clientId = process.env.TWITCH_CLIENT_ID;
+    const authRes = await fetch('https://api.twitch.tv/helix/users', {
+      headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId! },
+    });
+    const authData = await authRes.json();
+    const userId = authData.data?.[0]?.id;
+    if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
 
-  const { key, asset } = await req.json();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  // Fetch current to merge (safe check)
-  const { data: configs } = await supabase
-    .from('overlay_configs')
-    .select('settings, assets, trigger')
-    .eq('user_id', userId);
-  
-  const current = configs && configs.length > 0 ? configs[0] : null;
+    const { key, asset } = await req.json();
 
-  const baseAssets = current?.assets || {};
-  const newAssets = { ...baseAssets, [key]: asset };
+    const { data: configs } = await supabase
+      .from('overlay_configs')
+      .select('settings, assets, trigger')
+      .eq('user_id', userId);
+    
+    const current = configs && configs.length > 0 ? configs[0] : null;
 
-  const { error } = await supabase
-    .from('overlay_configs')
-    .upsert({ 
-      user_id: userId, 
-      assets: newAssets,
-      settings: current?.settings || {},
-      trigger: current?.trigger || {},
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' });
+    const baseAssets = current?.assets || {};
+    const newAssets = { ...baseAssets, [key]: asset };
 
-  if (error) {
-    console.error('Supabase error:', error);
-    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    const { error } = await supabase
+      .from('overlay_configs')
+      .upsert({ 
+        user_id: userId, 
+        assets: newAssets,
+        settings: current?.settings || {},
+        trigger: current?.trigger || {},
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-  
-  return NextResponse.json({ success: true });
 }

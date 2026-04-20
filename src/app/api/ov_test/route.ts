@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'edge';
+// Используем обычный рантайм для стабильности
+export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,11 +20,16 @@ export async function POST(req: NextRequest) {
     const userName = authData.data[0].display_name;
     const userAvatar = authData.data[0].profile_image_url;
 
-    const { data: config } = await supabase
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const { data: configs } = await supabase
       .from('overlay_configs')
       .select('settings, assets')
-      .eq('user_id', userId)
-      .maybeSingle();
+      .eq('user_id', userId);
+
+    const config = configs && configs.length > 0 ? configs[0] : null;
 
     const settings: any = config?.settings || {};
     const userChoice = Math.floor(Math.random() * ((Number(settings.max_val) || 100) - (Number(settings.min_val) || 1) + 1)) + (Number(settings.min_val) || 1);
