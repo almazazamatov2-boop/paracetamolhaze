@@ -1,179 +1,274 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>3D Slots Overlay</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>Slots Overlay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: transparent; font-family: 'Inter', sans-serif; }
-        #container { width: 100vw; height: 100vh; }
-        #status { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px; font-size: 10px; pointer-events: none; }
+        body { margin: 0; overflow: hidden; background: transparent; font-family: 'Outfit', sans-serif; }
+        
+        #machine-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 450px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #machine-frame {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: url('gold_machine.png') no-repeat center;
+            background-size: cover;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .reels-container {
+            display: flex;
+            gap: 15px;
+            padding-bottom: 30px;
+            z-index: 5;
+            padding-right: 35px; /* Alignment for the offset of the handle in the frame */
+        }
+
+        .reel-window {
+            width: 140px;
+            height: 180px;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .reel-strip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .symbol {
+            width: 140px;
+            height: 180px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .symbol img {
+            width: 100px;
+            height: 100px;
+            object-fit: contain;
+        }
+
+        #lever-stick {
+            position: absolute;
+            right: 40px;
+            top: 100px;
+            width: 15px;
+            height: 120px;
+            background: linear-gradient(90deg, #888, #ddd, #888);
+            border-radius: 10px;
+            transform-origin: bottom center;
+            z-index: 5;
+            transition: transform 0.3s ease;
+        }
+
+        #lever-ball {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle at 30% 30%, #ff4d4d, #8b0000);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        #status-text {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            text-align: center;
+            color: #ffd700;
+            font-size: 32px;
+            text-shadow: 0 4px 10px rgba(0,0,0,1);
+            z-index: 20;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        /* Animation Classes */
+        .pulling { transform: rotateX(60deg) scaleY(0.5); }
     </style>
 </head>
 <body>
-    <div id="container"></div>
-    <div id="status">Ready</div>
+    <div id="machine-container">
+        <div id="machine-frame"></div>
+        
+        <div class="reels-container">
+            <div class="reel-window"><div class="reel-strip" id="reel-0"></div></div>
+            <div class="reel-window"><div class="reel-strip" id="reel-1"></div></div>
+            <div class="reel-window"><div class="reel-strip" id="reel-2"></div></div>
+        </div>
+
+        <div id="lever-stick"><div id="lever-ball"></div></div>
+        <div id="status-text">WINNER!</div>
+    </div>
 
     <script>
         const params = new URLSearchParams(window.location.search);
         const streamerId = params.get('id');
-        let config = {};
+        let config = { symbols: [], assets: {} };
         let isSpinning = false;
-        
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('container').appendChild(renderer.domElement);
 
-        // Lights
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-        scene.add(ambientLight);
-        const pointLight = new THREE.PointLight(0xffffff, 1);
-        pointLight.position.set(5, 5, 5);
-        scene.add(pointLight);
+        const sounds = {
+            lever: new Audio(),
+            spin: new Audio(),
+            win: new Audio(),
+            jackpot: new Audio(),
+            lose: new Audio()
+        };
 
-        // Slot Machine Body
-        const bodyGeom = new THREE.BoxGeometry(4.5, 3.5, 0.8);
-        const bodyMat = new THREE.MeshPhongMaterial({ color: 0x1a1a1a, shininess: 100 });
-        const body = new THREE.Mesh(bodyGeom, bodyMat);
-        scene.add(body);
+        const defaultIcons = [
+            'https://img.icons8.com/color/96/apple.png',
+            'https://img.icons8.com/color/96/lemon.png',
+            'https://img.icons8.com/color/96/cherry.png',
+            'https://img.icons8.com/color/96/jingle-bell.png',
+            'https://img.icons8.com/color/96/7-ball.png'
+        ];
 
-        // Handle (Lever)
-        const leverGroup = new THREE.Group();
-        leverGroup.position.set(2.4, -0.5, 0);
-        scene.add(leverGroup);
-
-        const baseGeom = new THREE.CylinderGeometry(0.1, 0.1, 0.4, 16);
-        const baseMat = new THREE.MeshPhongMaterial({ color: 0x444444 });
-        const base = new THREE.Mesh(baseGeom, baseMat);
-        base.rotation.z = Math.PI / 2;
-        leverGroup.add(base);
-
-        const stickGeom = new THREE.CylinderGeometry(0.05, 0.05, 1.2, 16);
-        const stickMat = new THREE.MeshPhongMaterial({ color: 0x888888 });
-        const stick = new THREE.Mesh(stickGeom, stickMat);
-        stick.position.y = 0.6;
-        leverGroup.add(stick);
-
-        const knobGeom = new THREE.SphereGeometry(0.2, 16, 16);
-        const knobMat = new THREE.MeshPhongMaterial({ color: 0xff0000 });
-        const knob = new THREE.Mesh(knobGeom, knobMat);
-        knob.position.y = 1.2;
-        leverGroup.add(knob);
-
-        // Reels
-        const reels = [];
-        const reelCount = 3;
-        const reelGeometry = new THREE.CylinderGeometry(0.9, 0.9, 1, 32);
-        
-        for (let i = 0; i < reelCount; i++) {
-            const reel = new THREE.Group();
-            reel.position.x = (i - 1) * 1.3;
-            
-            const drum = new THREE.Mesh(reelGeometry, new THREE.MeshPhongMaterial({ color: 0xffffff }));
-            drum.rotation.z = Math.PI / 2;
-            reel.add(drum);
-            
-            scene.add(reel);
-            reels.push({ group: reel, drum: drum });
-        }
-
-        camera.position.z = 6;
-        camera.position.y = 0.5;
-
-        // Sounds
-        let soundLever = new Audio();
-        let soundSpin = new Audio();
-        let soundWin = new Audio();
-        let soundJackpot = new Audio();
-        let soundLose = new Audio();
-
-        async function loadConfig() {
+        async function init() {
             if (!streamerId) return;
             const res = await fetch(`/api/ov_settings?userId=${streamerId}&type=slots`);
             const data = await res.json();
             config = data;
 
-            if (config.s_lever) soundLever.src = config.s_lever;
-            if (config.s_spin) soundSpin.src = config.s_spin;
-            if (config.s_win) soundWin.src = config.s_win;
-            if (config.s_jackpot) soundJackpot.src = config.s_jackpot;
-            if (config.s_lose) soundLose.src = config.s_lose;
-            
-            updateReelSymbols(['','','']); // Initial state with placeholder reel textures if needed
+            const assets = config.assets || {};
+            sounds.lever.src = assets.s_lever || 'https://assets.mixkit.co/active_storage/sfx/2042/2042-preview.mp3';
+            sounds.spin.src = assets.s_spin || 'https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3';
+            sounds.win.src = assets.s_win || 'https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3';
+            sounds.jackpot.src = assets.s_jackpot || 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3';
+            sounds.lose.src = assets.s_lose || 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3';
+
+            buildReels();
+            animate();
+            setInterval(checkTrigger, 2000);
         }
 
-        const textureLoader = new THREE.TextureLoader();
-        function updateReelSymbols(urls) {
-            reels.forEach((r, i) => {
-                const url = urls[i] || '/overlays/defaults/slots/cherry.png';
-                textureLoader.load(url, (tex) => {
-                    r.drum.material = new THREE.MeshPhongMaterial({ map: tex });
+        function buildReels(targetUrls = null) {
+            const symbols = config.symbols && config.symbols.length >= 5 ? config.symbols : defaultIcons.map(url => ({url}));
+            
+            for (let i = 0; i < 3; i++) {
+                const strip = document.getElementById(`reel-${i}`);
+                strip.innerHTML = '';
+                
+                // Create a strip with many symbols for scrolling
+                // We need at least symbols for the "rest" state and many for the "spin"
+                const list = [];
+                // Fill with 30 symbols for the spin effect
+                for(let j=0; j<40; j++) {
+                    const sym = symbols[j % symbols.length];
+                    list.push(sym.url);
+                }
+                
+                // If we have a target, make sure the last few symbols lead to it
+                if (targetUrls) {
+                    list[list.length - 1] = targetUrls[i];
+                }
+
+                list.forEach(url => {
+                    const div = document.createElement('div');
+                    div.className = 'symbol';
+                    div.innerHTML = `<img src="${url}">`;
+                    strip.appendChild(div);
                 });
-            });
+                
+                // Reset position to bottom (initial)
+                strip.style.top = `-${(list.length - 1) * 180}px`;
+            }
         }
 
         function pullLever(callback) {
-            if (soundLever.src) soundLever.play();
-            new TWEEN.Tween(leverGroup.rotation)
-                .to({ z: -Math.PI / 3 }, 300)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .chain(
-                    new TWEEN.Tween(leverGroup.rotation)
-                        .to({ z: 0 }, 500)
-                        .easing(TWEEN.Easing.Bounce.Out)
-                        .onComplete(callback)
-                )
-                .start();
-        }
-
-        function spinReels(payload) {
-            isSpinning = true;
-            if (soundSpin.src) {
-                soundSpin.currentTime = 0;
-                soundSpin.play();
-            }
-
-            reels.forEach((r, i) => {
-                const targetRot = Math.PI * 8 + (i * Math.PI * 2);
-                new TWEEN.Tween(r.group.rotation)
-                    .to({ x: targetRot }, 2500 + i * 500)
-                    .easing(TWEEN.Easing.Quadratic.InOut)
-                    .onComplete(() => {
-                        if (i === 2) finalizeSpin(payload);
-                    })
-                    .start();
-            });
-        }
-
-        function finalizeSpin(payload) {
-            isSpinning = false;
-            updateReelSymbols(payload.result);
-            
+            sounds.lever.play();
+            const stick = document.getElementById('lever-stick');
+            stick.style.transform = 'rotateX(60deg) scaleY(0.5)';
             setTimeout(() => {
-                if (payload.isWin) {
-                    if (payload.isJackpot) {
-                        if (soundJackpot.src) soundJackpot.play();
-                        document.getElementById('status').innerText = "JACKPOT!";
-                    } else {
-                        if (soundWin.src) soundWin.play();
-                        document.getElementById('status').innerText = "WIN!";
-                    }
-                    showWinAnimation();
-                } else {
-                    if (soundLose.src) soundLose.play();
-                    document.getElementById('status').innerText = "Try Again";
-                }
+                stick.style.transform = 'rotateX(0deg) scaleY(1)';
+                callback();
             }, 500);
         }
 
-        function showWinAnimation() {
-            new TWEEN.Tween(body.scale)
-                .to({ x: 1.1, y: 1.1 }, 200)
-                .yoyo(true)
-                .repeat(5)
-                .start();
+        function spin(payload) {
+            if (isSpinning) return;
+            isSpinning = true;
+            document.getElementById('status-text').style.opacity = '0';
+            
+            // Rebuild reels with target result at the end
+            buildReels(payload.result);
+            
+            sounds.spin.currentTime = 0;
+            sounds.spin.play();
+
+            for (let i = 0; i < 3; i++) {
+                const strip = document.getElementById(`reel-${i}`);
+                const startTime = Date.now();
+                const duration = 3000 + i * 800;
+                
+                new TWEEN.Tween({ y: parseInt(strip.style.top) })
+                    .to({ y: 0 }, duration)
+                    .easing(TWEEN.Easing.Quadratic.InOut)
+                    .onUpdate((obj) => {
+                        strip.style.top = `${obj.y}px`;
+                    })
+                    .onComplete(() => {
+                        if (i === 2) finalize(payload);
+                    })
+                    .start();
+            }
+        }
+
+        function finalize(payload) {
+            isSpinning = false;
+            sounds.spin.pause();
+            
+            const status = document.getElementById('status-text');
+            if (payload.isWin) {
+                if (payload.isJackpot) {
+                    sounds.jackpot.play();
+                    status.innerText = "JACKPOT!";
+                } else {
+                    sounds.win.play();
+                    status.innerText = "WINNER!";
+                }
+                status.style.opacity = '1';
+                status.style.color = '#ffd700';
+            } else {
+                sounds.lose.play();
+                status.innerText = "TRY AGAIN";
+                status.style.opacity = '1';
+                status.style.color = '#fff';
+            }
+            
+            // Auto hide after 5s
+            setTimeout(() => {
+                status.style.opacity = '0';
+                // Reset reels for next time? 
+                // We keep them at top: 0, which shows the result symbol.
+            }, 5000);
         }
 
         let lastTriggerId = null;
@@ -184,7 +279,7 @@
                 const data = await res.json();
                 if (data.triggerId && data.triggerId !== lastTriggerId) {
                     lastTriggerId = data.triggerId;
-                    pullLever(() => spinReels(data));
+                    pullLever(() => spin(data));
                 }
             } catch (e) {}
         }
@@ -192,12 +287,9 @@
         function animate(time) {
             requestAnimationFrame(animate);
             TWEEN.update(time);
-            renderer.render(scene, camera);
         }
 
-        loadConfig();
-        animate();
-        setInterval(checkTrigger, 2000);
+        init();
     </script>
 </body>
 </html>

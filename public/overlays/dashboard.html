@@ -196,10 +196,11 @@
                 <div class="card" style="display: flex; flex-direction: column;">
                     <div class="card-title">Управление Ассетами</div>
                     <div class="section-scroll" style="padding-right: 5px;">
-                        <div class="nav-label" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <div class="nav-label" style="margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
                             Символы (Выигрыш)
                             <button class="btn btn-outline" style="padding: 4px 10px; font-size: 10px; border-radius: 4px;" onclick="addSlotSymbol()">+ ДОБАВИТЬ</button>
                         </div>
+                        <div style="font-size: 9px; color: var(--text-dim); margin-bottom: 12px;">Рекомендуемый размер: 256x256 px (PNG/JPG)</div>
                         <div id="slots-symbols-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px;">
                             <!-- Symbols cards -->
                         </div>
@@ -390,11 +391,10 @@
 
                 if (!s.symbols || s.symbols.length === 0) {
                     slotSymbols = [
-                        { key: 'sym_cherry', name: 'Вишня', url: 'https://img.icons8.com/color/96/cherry.png', chance: 15 },
+                        { key: 'sym_apple', name: 'Яблоко', url: 'https://img.icons8.com/color/96/apple.png', chance: 15 },
                         { key: 'sym_lemon', name: 'Лимон', url: 'https://img.icons8.com/color/96/lemon.png', chance: 10 },
-                        { key: 'sym_watermelon', name: 'Арбуз', url: 'https://img.icons8.com/color/96/watermelon.png', chance: 8 },
+                        { key: 'sym_cherry', name: 'Вишня', url: 'https://img.icons8.com/color/96/cherry.png', chance: 8 },
                         { key: 'sym_bell', name: 'Колокольчик', url: 'https://img.icons8.com/color/96/jingle-bell.png', chance: 5 },
-                        { key: 'sym_diamond', name: 'Алмаз', url: 'https://img.icons8.com/color/96/diamond.png', chance: 2 },
                         { key: 'jackpot', name: 'ДЖЕКПОТ (777)', url: 'https://img.icons8.com/color/96/7-ball.png', chance: 0.1, isJackpot: true }
                     ];
                 } else {
@@ -464,8 +464,15 @@
         }
 
         function previewSlotSound(id) {
-            const url = slotAssets[id];
-            if (!url) { showToast('Это стандартный звук'); return; }
+            const defaults = {
+                s_lever: 'https://assets.mixkit.co/active_storage/sfx/2042/2042-preview.mp3',
+                s_spin: 'https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3',
+                s_win: 'https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3',
+                s_jackpot: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3',
+                s_lose: 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3'
+            };
+            const url = slotAssets[id] || defaults[id];
+            if (!url) { showToast('Звук не найден'); return; }
             const a = new Audio(url);
             a.volume = 0.5;
             a.play().catch(e => showToast('Ошибка звука', true));
