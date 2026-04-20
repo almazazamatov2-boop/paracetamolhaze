@@ -3,6 +3,30 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
+// GET: Fetch current asset list for the user
+export async function GET(req: NextRequest) {
+  try {
+    const userId = req.nextUrl.searchParams.get('userId');
+    if (!userId) return NextResponse.json({ error: 'No user ID' }, { status: 400 });
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    const { data, error } = await supabase
+      .from('overlay_configs')
+      .select('assets')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return NextResponse.json(data?.assets || {});
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
+// POST: Upload new file to Storage and update DB
 export async function POST(req: NextRequest) {
   try {
     const token = req.cookies.get('twitch_token')?.value;
