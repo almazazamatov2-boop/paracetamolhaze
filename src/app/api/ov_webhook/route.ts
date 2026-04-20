@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 async function getAppToken() {
   const res = await fetch('https://id.twitch.tv/oauth2/token', {
@@ -39,21 +39,25 @@ export async function POST(req: NextRequest) {
     const userName = event.user_name;
     const userMessage = event.user_input || '';
 
-    // Fetch streamer config
-    const { data: config } = await supabase
-      .from('overlay_configs')
-      .select('settings')
-      .eq('user_id', streamerId)
-      .single();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+    // Fetch streamer config
+    const { data: configs } = await supabase
+      .from('overlay_configs')
+      .select('settings, assets')
+      .eq('user_id', streamerId);
+
+    const config = configs && configs.length > 0 ? configs[0] : null;
     const settings: any = config?.settings || {};
+    const assets: any = config?.assets || {};
     
     if (settings?.reward_name === rewardName) {
       const match = userMessage.match(/\d+/);
       const userChoice = match ? parseInt(match[0]) : null;
       
       if (userChoice !== null) {
-        // Fetch avatar for the redeemer
         const appToken = await getAppToken();
         const userAvatar = await getUserAvatar(userId, appToken);
 
@@ -65,22 +69,15 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now()
         };
         
-        // Fetch current to merge (safe check)
-        const { data: configs } = await supabase
-          .from('overlay_configs')
-          .select('settings, assets')
-          .eq('user_id', streamerId);
-        
-        const current = configs && configs.length > 0 ? configs[0] : null;
+        // Store in assets because trigger column is missing
+        const updatedAssets = { ...assets, last_trigger: payload };
 
-        // Update trigger in Supabase (don't wipe settings!)
         await supabase
           .from('overlay_configs')
           .upsert({ 
             user_id: streamerId, 
-            trigger: payload,
-            settings: current?.settings || {},
-            assets: current?.assets || {},
+            assets: updatedAssets,
+            settings: settings,
             updated_at: new Date().toISOString()
           }, { onConflict: 'user_id' });
       }

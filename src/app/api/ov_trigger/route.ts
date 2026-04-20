@@ -13,10 +13,12 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('overlay_configs')
-    .select('trigger')
+    .select('assets')
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error || !data) return NextResponse.json(null);
-  return NextResponse.json(data.trigger || null);
+  if (error || !data || !data.assets) return NextResponse.json(null);
+  
+  // Return the trigger stored inside assets
+  return NextResponse.json(data.assets.last_trigger || null);
 }

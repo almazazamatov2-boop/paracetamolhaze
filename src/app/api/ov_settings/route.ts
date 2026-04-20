@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Используем обычный рантайм для стабильности
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
@@ -43,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: configs } = await supabase
       .from('overlay_configs')
-      .select('assets, trigger')
+      .select('assets') // only select what we have
       .eq('user_id', userId);
     
     const existing = configs && configs.length > 0 ? configs[0] : null;
@@ -53,9 +52,8 @@ export async function POST(req: NextRequest) {
       .upsert({ 
         user_id: userId, 
         settings: body,
-        updated_at: new Date().toISOString(),
         assets: existing?.assets || {},
-        trigger: existing?.trigger || {}
+        updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 
     if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Используем обычный рантайм для стабильности
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
@@ -30,8 +29,9 @@ export async function POST(req: NextRequest) {
       .eq('user_id', userId);
 
     const config = configs && configs.length > 0 ? configs[0] : null;
-
     const settings: any = config?.settings || {};
+    const assets: any = config?.assets || {};
+
     const userChoice = Math.floor(Math.random() * ((Number(settings.max_val) || 100) - (Number(settings.min_val) || 1) + 1)) + (Number(settings.min_val) || 1);
 
     const payload = {
@@ -43,13 +43,15 @@ export async function POST(req: NextRequest) {
       isTest: true
     };
 
+    // Store trigger INSIDE assets because 'trigger' column is missing in DB
+    const updatedAssets = { ...assets, last_trigger: payload };
+
     const { error: upsertError } = await supabase
       .from('overlay_configs')
       .upsert({ 
         user_id: userId, 
-        trigger: payload,
-        settings: config?.settings || {},
-        assets: config?.assets || {},
+        assets: updatedAssets,
+        settings: settings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 
