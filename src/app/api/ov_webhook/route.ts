@@ -65,12 +65,21 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now()
         };
         
-        // Update trigger in Supabase
+        // Fetch current to merge
+        const { data: current } = await supabase
+          .from('overlay_configs')
+          .select('settings, assets')
+          .eq('user_id', streamerId)
+          .single();
+
+        // Update trigger in Supabase (don't wipe settings!)
         await supabase
           .from('overlay_configs')
           .upsert({ 
             user_id: streamerId, 
             trigger: payload,
+            settings: current?.settings || {},
+            assets: current?.assets || {},
             updated_at: new Date().toISOString()
           }, { onConflict: 'user_id' });
       }

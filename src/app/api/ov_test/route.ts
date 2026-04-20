@@ -36,11 +36,20 @@ export async function POST(req: NextRequest) {
     isTest: true
   };
 
+  // Fetch existing to prevent wiping
+  const { data: existing } = await supabase
+    .from('overlay_configs')
+    .select('settings, assets')
+    .eq('user_id', userId)
+    .single();
+
   const { error } = await supabase
     .from('overlay_configs')
     .upsert({ 
       user_id: userId, 
       trigger: payload,
+      settings: existing?.settings || {},
+      assets: existing?.assets || {},
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
 

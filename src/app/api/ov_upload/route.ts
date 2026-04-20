@@ -31,10 +31,10 @@ export async function POST(req: NextRequest) {
 
   const { key, asset } = await req.json();
 
-  // Fetch current assets to merge
+  // Fetch current to merge
   const { data: current } = await supabase
     .from('overlay_configs')
-    .select('assets')
+    .select('settings, assets, trigger')
     .eq('user_id', userId)
     .single();
 
@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
     .upsert({ 
       user_id: userId, 
       assets: newAssets,
+      settings: current?.settings || {},
+      trigger: current?.trigger || {},
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
 

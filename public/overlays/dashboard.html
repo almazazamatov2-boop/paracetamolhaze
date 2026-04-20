@@ -162,7 +162,7 @@
             flex: 1;
             margin-left: 240px;
             padding: 40px 60px;
-            max-width: 1600px; /* Increased to fill space */
+            max-width: 1600px;
             width: calc(100% - 240px);
         }
 
@@ -261,7 +261,7 @@
 
         .btn-icon { padding: 8px 12px; background: rgba(255,255,255,0.05); }
 
-        /* Asset Grid */
+        /* Asset Rows */
         .asset-list { display: grid; gap: 12px; }
         .asset-row {
             display: flex;
@@ -293,7 +293,6 @@
         .status-ok { color: var(--green); }
         .status-err { color: var(--red); }
 
-        /* Color Inputs */
         .color-pickers {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -389,7 +388,6 @@
     <main>
         <h1 class="page-title fade-in">ДАШБОРД</h1>
 
-        <!-- OBS Section -->
         <div class="card fade-in" style="animation-delay: 0.1s;">
             <div class="card-header">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
@@ -405,7 +403,6 @@
             </div>
         </div>
 
-        <!-- Settings Section -->
         <div class="card fade-in" style="animation-delay: 0.2s;">
             <div class="card-header">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -429,20 +426,41 @@
                     </div>
                 </div>
 
+                <div class="color-pickers" style="margin-bottom: 32px;">
+                    <div class="input-group">
+                        <label class="label">Фон</label>
+                        <div class="color-item">
+                            <input type="color" name="color_bg" onchange="updateColorTexts()">
+                            <span id="text-color_bg" style="font-size:10px; font-family:monospace; opacity:0.5;">#111111</span>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="label">Текст</label>
+                        <div class="color-item">
+                            <input type="color" name="color_name" onchange="updateColorTexts()">
+                            <span id="text-color_name" style="font-size:10px; font-family:monospace; opacity:0.5;">#FFFFFF</span>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="label">Цифры</label>
+                        <div class="color-item">
+                            <input type="color" name="color_num" onchange="updateColorTexts()">
+                            <span id="text-color_num" style="font-size:10px; font-family:monospace; opacity:0.5;">#9146FF</span>
+                        </div>
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-purple" style="margin-top: 12px; width: 100%;">СОХРАНИТЬ НАСТРОЙКИ</button>
             </form>
         </div>
 
-        <!-- Assets Section -->
         <div class="card fade-in" style="animation-delay: 0.3s;">
             <div class="card-header">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 <div class="card-title">Ассеты</div>
             </div>
-
-            <div class="asset-list">
-                <!-- Asset Rows -->
-                <div class="asset-row">
+            <div class="asset-list" id="asset-list">
+                 <div class="asset-row">
                     <div class="asset-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
                     <div class="asset-info"><div class="asset-name">Фон панели (1600х210)</div><div class="asset-ext">PNG, JPG</div></div>
                     <div class="asset-status" id="status-panel_bg"></div>
@@ -460,7 +478,7 @@
                     <div class="asset-status" id="status-s_in"></div>
                     <label class="asset-upload-btn">ВЫБРАТЬ<input type="file" hidden onchange="uploadFile(this, 's_in')" accept="audio/*"></label>
                 </div>
-                <div class="asset-row">
+                 <div class="asset-row">
                     <div class="asset-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></div>
                     <div class="asset-info"><div class="asset-name">Звук рандома (3 сек)</div><div class="asset-ext">MP3, WAV</div></div>
                     <div class="asset-status" id="status-s_roll"></div>
@@ -493,13 +511,11 @@
     <script>
         let currentUser = null;
 
-        // Load data
         async function init() {
             try {
                 const res = await fetch('/api/auth_me');
                 if (!res.ok) { 
-                    const text = await res.text();
-                    document.getElementById('preloader').innerHTML = `<div style="color:var(--red); text-align:center; padding:20px;">Ошибка авторизации: ${res.status}<br><br>Попробуйте зайти через главную страницу или проверьте интернет.</div>`;
+                    window.location.href = '/auth/twitch';
                     return; 
                 }
                 currentUser = await res.json();
@@ -518,11 +534,13 @@
                 await loadSettings();
                 await loadAssetStatuses();
             } catch (e) {
-                console.error(e);
-                showToast('Ошибка загрузки профиля', true);
+                console.error('Init error:', e);
             } finally {
-                document.getElementById('preloader').style.opacity = '0';
-                setTimeout(() => document.getElementById('preloader').remove(), 400);
+                const preloader = document.getElementById('preloader');
+                if (preloader) {
+                  preloader.style.opacity = '0';
+                  setTimeout(() => preloader.remove(), 400);
+                }
             }
         }
 
@@ -537,9 +555,19 @@
                 form.color_bg.value = s.color_bg || '#111111';
                 form.color_name.value = s.color_name || '#ffffff';
                 form.color_num.value = s.color_num || '#9146ff';
-                
                 updateColorTexts();
-            } catch (e) {}
+            } catch (e) {
+                console.error('loadSettings error:', e);
+            }
+        }
+
+        function updateColorTexts() {
+            const form = document.getElementById('settings-form');
+            ['color_bg', 'color_name', 'color_num'].forEach(key => {
+                const input = form[key];
+                const text = document.getElementById(`text-${key}`);
+                if (input && text) text.textContent = input.value.toUpperCase();
+            });
         }
 
         async function saveSettings(e) {
@@ -570,9 +598,9 @@
             const file = input.files[0];
             if (!file) return;
 
-            const status = document.getElementById(`status-${key}`);
-            status.textContent = '...';
-            status.className = 'asset-status';
+            const statusEl = document.getElementById(`status-${key}`);
+            statusEl.textContent = '...';
+            statusEl.className = 'asset-status';
 
             const reader = new FileReader();
             reader.onload = async () => {
@@ -583,13 +611,13 @@
                         body: JSON.stringify({ asset: reader.result, key })
                     });
                     if (res.ok) {
-                        status.textContent = '✓ Загружено';
-                        status.className = 'asset-status status-ok';
+                        statusEl.textContent = '✓ Загружено';
+                        statusEl.className = 'asset-status status-ok';
                         showToast('Файл успешно загружен');
                     } else throw new Error();
                 } catch (e) {
-                    status.textContent = '✗ Ошибка';
-                    status.className = 'asset-status status-err';
+                    statusEl.textContent = '✗ Ошибка';
+                    statusEl.className = 'asset-status status-err';
                     showToast('Ошибка загрузки файла', true);
                 }
             };
@@ -640,6 +668,7 @@
 
         function showToast(msg, error = false) {
             const t = document.getElementById('toast');
+            if (!t) return;
             t.textContent = msg;
             t.style.borderColor = error ? 'var(--red)' : 'var(--green)';
             t.style.color = error ? 'var(--red)' : 'var(--green)';

@@ -31,18 +31,29 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
 
+  // Fetch existing config to prevent wiping assets/trigger
+  const { data: existing } = await supabase
+    .from('overlay_configs')
+    .select('assets, trigger')
+    .eq('user_id', userId)
+    .single();
+
   const { error } = await supabase
     .from('overlay_configs')
     .upsert({ 
       user_id: userId, 
       settings: body,
+      assets: existing?.assets || {},
+      trigger: existing?.trigger || {},
       updated_at: new Date().toISOString()
     }, { onConflict: 'user_id' });
 
   if (error) {
     console.error('Supabase error:', error);
-    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed' }, { status: 500 });
   }
+
+  return NextResponse.json({ success: true });
 
   return NextResponse.json({ success: true });
 }
