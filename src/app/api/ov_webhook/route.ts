@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
 
   const { subscription, event } = data;
   if (subscription?.type === 'channel.channel_points_custom_reward_redemption.add') {
-    const streamerId = event.broadcaster_user_id;
-    const rewardName = event.reward.title;
+    const streamerId = event.broadcaster_user_id || event.broadcaster_id;
+    const rewardName = (event.reward.title || "").toString().trim().toLowerCase();
     const userId = event.user_id;
-    const userName = event.user_name;
-    const userMessage = event.user_input || '';
+    const userName = event.user_name || event.user_login;
+    const userMessage = event.user_input || "";
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
@@ -53,7 +53,9 @@ export async function POST(req: NextRequest) {
     const settings: any = config?.settings || {};
     const assets: any = config?.assets || {};
     
-    if (settings?.reward_name === rewardName) {
+    const dbRewardName = (settings?.reward_name || "").toString().trim().toLowerCase();
+
+    if (dbRewardName === rewardName) {
       const match = userMessage.match(/\d+/);
       const userChoice = match ? parseInt(match[0]) : null;
       

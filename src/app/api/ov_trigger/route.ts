@@ -18,24 +18,24 @@ export async function GET(req: NextRequest) {
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error || !data) return NextResponse.json(null);
+  if (!data) return NextResponse.json({});
 
-  // Try to find trigger in 'trigger' column or 'assets.last_trigger'
-  let trigger = data.trigger;
-  if (!trigger || Object.keys(trigger).length === 0) {
-    trigger = data.assets?.last_trigger;
-  }
+  // Detect whichever trigger is newer (from dedicated column or legacy assets field)
+  const trigger1 = (typeof data.trigger === 'string' ? JSON.parse(data.trigger || '{}') : data.trigger) || {};
+  const trigger2 = (typeof data.assets?.last_trigger === 'string' ? JSON.parse(data.assets?.last_trigger || '{}') : data.assets?.last_trigger) || {};
   
-  if (typeof trigger === 'string') {
-    try { trigger = JSON.parse(trigger); } catch (e) {}
+  let finalTrigger = trigger1;
+  if ((trigger2.timestamp || 0) > (trigger1.timestamp || 0)) {
+    finalTrigger = trigger2;
   }
 
-  return new NextResponse(JSON.stringify(trigger || null), {
+  return NextResponse.json(finalTrigger || {}, {
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',
+      'Surrogate-Control': 'no-store'
     }
   });
 }
