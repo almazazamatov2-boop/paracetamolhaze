@@ -160,59 +160,6 @@
             </div>
         </div>
 
-        <div id="slots-view" style="display: none;">
-            <div class="main-grid">
-                <div style="display: flex; flex-direction: column; gap: 24px;">
-                    <div class="card">
-                        <div class="card-title">OBS Browser Source (Slots)</div>
-                        <div class="obs-box" id="obs-url-slots">...</div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                            <button class="btn btn-outline" onclick="copyUrl('slots')">КОПИРОВАТЬ</button>
-                            <button class="btn" style="background: #22c55e;" onclick="testOverlay('slots')">ТЕСТ</button>
-                        </div>
-                    </div>
-                    <div class="card" style="flex: 1;">
-                        <div class="card-title">Слоты — Награда</div>
-                        <div class="section-scroll">
-                            <form id="slots-settings-form" onsubmit="saveSlotsSettings(event)">
-                                <label class="label">Выбери Награду Twitch</label>
-                                <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-                                    <select id="slots-reward-select" name="reward_id" style="margin-bottom: 0;"></select>
-                                    <button type="button" class="btn btn-outline" onclick="fetchRewards()" style="padding: 10px;">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-                                    </button>
-                                </div>
-                                <button type="submit" id="save-slots-btn" class="btn" style="width: 100%; margin-top: 20px;">СОХРАНИТЬ ВСЁ</button>
-                            </form>
-                            <div style="margin-top: 30px; font-size: 11px; color: var(--text-dim); line-height: 1.6;">
-                                <p>• Шансы настраиваются индивидуально для каждого символа справа.</p>
-                                <p>• Шанс джекпота настраивается у специального символа 777.</p>
-                                <p>• Не забудь нажать "СОХРАНИТЬ ВСЁ" после изменений.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card" style="display: flex; flex-direction: column;">
-                    <div class="card-title">Управление Ассетами</div>
-                    <div class="section-scroll" style="padding-right: 5px;">
-                        <div class="nav-label" style="margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                            Символы (Выигрыш)
-                            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 10px; border-radius: 4px;" onclick="addSlotSymbol()">+ ДОБАВИТЬ</button>
-                        </div>
-                        <div style="font-size: 9px; color: var(--text-dim); margin-bottom: 12px;">Рекомендуемый размер: 256x256 px (PNG/JPG)</div>
-                        <div id="slots-symbols-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px;">
-                            <!-- Symbols cards -->
-                        </div>
-                        
-                        <div class="nav-label" style="margin-bottom: 12px;">Озвучка</div>
-                        <div id="slots-sounds-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-                            <!-- Sounds rows -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <div id="toast" class="toast"></div>
