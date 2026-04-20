@@ -49,38 +49,32 @@ function verifyTwitchSignature(req: NextRequest, rawBody: string): boolean {
 }
 
 function getWeightedResult(settings: any) {
-    const symbols = settings.symbols || [];
-    const jackpot = settings.jackpot || { url: '', chance: 0.1 };
-    
-    const roll = Math.random() * 100;
-    let cumulative = 0;
+  const symbols = (settings.symbols || []).length > 0 ? settings.symbols : [
+    { name: 'Вишня', url: 'https://cdn-icons-png.flaticon.com/512/1135/1135520.png', chance: 15 },
+    { name: 'Лимон', url: 'https://cdn-icons-png.flaticon.com/512/1135/1135540.png', chance: 10 },
+    { name: 'ДЖЕКПОТ', url: 'https://cdn-icons-png.flaticon.com/512/1135/1135640.png', chance: 0.1, isJackpot: true }
+  ];
   
-    // 1. Check Jackpot
-    cumulative += Number(jackpot.chance) || 0;
+  const roll = Math.random() * 100;
+  let cumulative = 0;
+
+  for (const s of symbols) {
+    cumulative += Number(s.chance) || 0;
     if (roll < cumulative) {
-      return { result: [jackpot.url, jackpot.url, jackpot.url], isJackpot: true, isWin: true };
+      return { result: [s.url, s.url, s.url], isJackpot: !!s.isJackpot, isWin: true };
     }
+  }
+
+  const allUrls = symbols.map((s: any) => s.url);
+  const pool = allUrls.length >= 2 ? allUrls : ['https://cdn-icons-png.flaticon.com/512/1135/1135520.png', 'https://cdn-icons-png.flaticon.com/512/1135/1135540.png'];
   
-    // 2. Check Symbols
-    for (const s of symbols) {
-      cumulative += Number(s.chance) || 0;
-      if (roll < cumulative) {
-        return { result: [s.url, s.url, s.url], isJackpot: false, isWin: true };
-      }
-    }
-  
-    // 3. Loss - Generate 3 random non-identical symbols
-    const allUrls = symbols.map((s: any) => s.url);
-    if (jackpot.url) allUrls.push(jackpot.url);
-    const pool = allUrls.length >= 2 ? allUrls : ['/overlays/defaults/slots/cherry.png', '/overlays/defaults/slots/lemon.png', '/overlays/defaults/slots/seven.png'];
-    
-    const r1 = pool[Math.floor(Math.random() * pool.length)];
-    let r2 = pool[Math.floor(Math.random() * pool.length)];
-    let r3 = pool[Math.floor(Math.random() * pool.length)];
-    if (r1 === r2 && r2 === r3) {
-      r3 = pool.find(u => u !== r1) || pool[0];
-    }
-    return { result: [r1, r2, r3], isJackpot: false, isWin: false };
+  const r1 = pool[Math.floor(Math.random() * pool.length)];
+  let r2 = pool[Math.floor(Math.random() * pool.length)];
+  let r3 = pool[Math.floor(Math.random() * pool.length)];
+  if (r1 === r2 && r2 === r3) {
+    r3 = pool.find(u => u !== r1) || pool[0];
+  }
+  return { result: [r1, r2, r3], isJackpot: false, isWin: false };
 }
 
 export async function POST(req: NextRequest) {

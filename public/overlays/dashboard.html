@@ -164,41 +164,39 @@
                         </div>
                     </div>
                     <div class="card" style="flex: 1;">
-                        <div class="card-title">Слоты — Награда и Шансы</div>
+                        <div class="card-title">Слоты — Награда</div>
                         <div class="section-scroll">
                             <form id="slots-settings-form" onsubmit="saveSlotsSettings(event)">
-                                <label class="label">ID Награды Twitch</label>
-                                <input type="text" id="slots-reward-id" placeholder="0000-0000-0000...">
-                                
-                                <div style="margin-top: 15px;">
-                                    <label class="label">Шанс Джекпота (777) %</label>
-                                    <input type="number" id="slots-jp-chance" value="0.1" step="0.1">
+                                <label class="label">Выбери Награду Twitch</label>
+                                <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                                    <select id="slots-reward-select" name="reward_id" style="margin-bottom: 0;"></select>
+                                    <button type="button" class="btn btn-outline" onclick="fetchRewards()" style="padding: 10px;">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                                    </button>
                                 </div>
-
-                                <div style="margin-top: 15px;">
-                                    <label class="label">Новый Символ (Выигрыш)</label>
-                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                                        <input type="number" id="new-sym-chance" placeholder="Шанс %" value="2">
-                                        <button type="button" class="btn btn-outline" onclick="document.getElementById('file-new-sym').click()">ФОТО</button>
-                                        <input type="file" id="file-new-sym" hidden onchange="uploadSymbol(this)">
-                                    </div>
-                                </div>
-
                                 <button type="submit" id="save-slots-btn" class="btn" style="width: 100%; margin-top: 20px;">СОХРАНИТЬ ВСЁ</button>
                             </form>
+                            <div style="margin-top: 30px; font-size: 11px; color: var(--text-dim); line-height: 1.6;">
+                                <p>• Шансы настраиваются индивидуально для каждого символа справа.</p>
+                                <p>• Шанс джекпота настраивается у специального символа 777.</p>
+                                <p>• Не забудь нажать "СОХРАНИТЬ ВСЁ" после изменений.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card">
-                    <div class="card-title">Ассеты Слотов</div>
+                    <div class="card-title">Управление Символами и Звуками</div>
                     <div class="section-scroll">
-                        <div id="slots-status-list" style="margin-bottom: 20px;">
-                            <!-- Jackpot and Audio status -->
+                        <div class="nav-label" style="margin-bottom: 12px;">Символы (Выигрыш)</div>
+                        <div id="slots-symbols-container" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                            <!-- Symbols rows -->
                         </div>
-                        <label class="label">Список активных символов</label>
-                        <div id="slots-symbols-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;">
-                            <!-- Symbols list -->
+                        <button class="btn btn-outline" style="width: 100%; margin-bottom: 32px; font-size: 11px;" onclick="addSlotSymbol()">+ ДОБАВИТЬ СИМВОЛ</button>
+                        
+                        <div class="nav-label" style="margin-bottom: 12px;">Озвучка Слотов</div>
+                        <div id="slots-sounds-container" style="display: flex; flex-direction: column; gap: 10px;">
+                            <!-- Sounds rows -->
                         </div>
                     </div>
                 </div>
@@ -231,6 +229,8 @@
             document.getElementById('nav-roll').classList.toggle('active', type === 'fate');
             document.getElementById('nav-slots').classList.toggle('active', type === 'slots');
             document.getElementById('page-title').textContent = type === 'fate' ? 'ДАШБОРД — РОЛЛ' : 'ДАШБОРД — СЛОТЫ';
+            
+            fetchRewards();
             if (type === 'slots') loadSlotsConfig();
         }
 
@@ -240,8 +240,6 @@
                 const data = await res.json();
                 if (!data.id) { window.location.href = '/auth/twitch'; return; }
                 currentUser = data;
-                document.getElementById('username').textContent = data.display_name;
-                document.getElementById('user-avatar').src = data.profile_image_url;
                 document.getElementById('username').textContent = data.display_name;
                 document.getElementById('user-avatar').src = data.profile_image_url;
                 document.getElementById('obs-url').textContent = `${window.location.origin}/overlays/roll.html?id=${data.id}`;
@@ -290,15 +288,21 @@
             try {
                 const res = await fetch('/api/ov_rewards');
                 const rewards = await res.json();
-                const sel = document.getElementById('reward-select');
-                const cur = sel.value;
-                sel.innerHTML = '<option value="">Выберите награду...</option>';
-                rewards.forEach(r => {
-                    const opt = document.createElement('option');
-                    opt.value = r.id; opt.textContent = r.title;
-                    if(r.id === cur) opt.selected = true;
-                    sel.appendChild(opt);
-                });
+                
+                const selRoll = document.getElementById('reward-select');
+                const selSlots = document.getElementById('slots-reward-select');
+                
+                const curRoll = selRoll.value;
+                const curSlots = selSlots.value;
+
+                const html = '<option value="">Выберите награду...</option>' + 
+                    rewards.map(r => `<option value="${r.id}" ${r.id === (currentOverlayType === 'fate' ? curRoll : curSlots) ? 'selected' : ''}>${r.title}</option>`).join('');
+                
+                selRoll.innerHTML = html;
+                selSlots.innerHTML = html;
+                
+                if (currentOverlayType === 'fate') selRoll.value = curRoll;
+                else selSlots.value = curSlots;
             } catch (e) {}
         }
 
@@ -368,17 +372,131 @@
             try {
                 const res = await fetch(`/api/ov_settings?userId=${currentUser.id}&type=slots`);
                 const s = await res.json();
-                document.getElementById('slots-reward-id').value = s.reward_id || '';
-                document.getElementById('slots-jp-chance').value = s.jackpot?.chance || 0.1;
-                slotSymbols = s.symbols || [];
+                
+                if (s.reward_id) {
+                    const sel = document.getElementById('slots-reward-select');
+                    sel.innerHTML = `<option value="${s.reward_id}">${s.reward_name || 'Привязанная награда'}</option>`;
+                }
+
+                // Default symbols if empty
+                if (!s.symbols || s.symbols.length === 0) {
+                    slotSymbols = [
+                        { key: 'sym_cherry', name: 'Вишня', url: '/overlays/defaults/slots/cherry.png', chance: 15 },
+                        { key: 'sym_lemon', name: 'Лимон', url: '/overlays/defaults/slots/lemon.png', chance: 10 },
+                        { key: 'sym_watermelon', name: 'Арбуз', url: '/overlays/defaults/slots/watermelon.png', chance: 8 },
+                        { key: 'sym_bell', name: 'Колокольчик', url: '/overlays/defaults/slots/bell.png', chance: 5 },
+                        { key: 'sym_diamond', name: 'Алмаз', url: '/overlays/defaults/slots/diamond.png', chance: 2 },
+                        { key: 'jackpot', name: 'ДЖЕКПОТ (777)', url: '/overlays/defaults/slots/seven.png', chance: 0.1, isJackpot: true }
+                    ];
+                } else {
+                    slotSymbols = s.symbols;
+                }
+
+                slotAssets = s.assets || {};
                 renderSlotSymbols();
-                renderSlotAssetsStatus(s);
+                renderSlotSounds();
             } catch (e) {}
+        }
+
+        function renderSlotSymbols() {
+            const container = document.getElementById('slots-symbols-container');
+            container.innerHTML = slotSymbols.map((s, idx) => `
+                <div class="asset-row" style="background: var(--card); border: 1px solid var(--border); grid-template-columns: 50px 1fr 80px 100px 30px; align-items: center; gap: 4px;">
+                    <div style="padding-left: 10px; display: flex; align-items: center;"><img src="${s.url}" style="width: 32px; height: 32px; object-fit: contain;"></div>
+                    <div class="asset-info" style="padding: 12px 10px;">
+                        <div class="asset-name" style="font-size: 11px;">${s.name}</div>
+                        <div class="asset-meta" style="font-size: 9px;">${s.isJackpot ? 'ОСОБЫЙ ТИП' : 'СИМВОЛ'}</div>
+                    </div>
+                    <div style="padding: 12px 0;">
+                        <label class="label" style="font-size: 8px; margin-bottom: 4px;">Шанс %</label>
+                        <input type="number" step="0.1" value="${s.chance}" onchange="updateSymbolChance(${idx}, this.value)" style="margin-bottom: 0; padding: 4px; font-size: 11px;">
+                    </div>
+                    <div class="asset-action" style="padding: 12px;">
+                        <button class="file-btn" style="width: 100%; border-radius: 4px; font-size: 10px; padding: 6px;" onclick="document.getElementById('file-slot-${idx}').click()">ФОТО</button>
+                        <input type="file" id="file-slot-${idx}" hidden onchange="uploadSlotSymbolFile(this, ${idx})">
+                    </div>
+                    <button class="btn btn-outline" style="padding: 4px; border-color: #ef4444; color: #ef4444; font-size: 14px; margin-right: 8px;" onclick="removeSlotSymbol(${idx})">×</button>
+                </div>
+            `).join('');
+        }
+
+        function addSlotSymbol() {
+            slotSymbols.push({ key: 'sym_' + Date.now(), name: 'Новый символ', url: 'https://cdn-icons-png.flaticon.com/512/1135/1135520.png', chance: 1.0 });
+            renderSlotSymbols();
+        }
+
+        function removeSlotSymbol(idx) {
+            slotSymbols.splice(idx, 1);
+            renderSlotSymbols();
+        }
+
+        function renderSlotSounds() {
+            const sounds = [
+                { id: 's_lever', name: 'Рычаг' },
+                { id: 's_spin', name: 'Прокрутка' },
+                { id: 's_win', name: 'Победа' },
+                { id: 's_jackpot', name: 'ДЖЕКПОТ' },
+                { id: 's_lose', name: 'Промах' }
+            ];
+            const container = document.getElementById('slots-sounds-container');
+            container.innerHTML = sounds.map(s => `
+                <div class="asset-row" style="background: var(--card); border: 1px solid var(--border); grid-template-columns: 36px 1fr 110px;">
+                    <div class="asset-type-icon" style="font-size: 14px;">🔊</div>
+                    <div class="asset-info" style="padding: 12px 16px;">
+                        <div class="asset-name" style="font-size: 12px;">${s.name}</div>
+                        <div id="status-slot-${s.id}" class="asset-status ${slotAssets[s.id] ? '' : 'none'}" style="margin-top: 2px;">
+                            ${slotAssets[s.id] ? '✓ Загружено' : 'Дефолт'}
+                        </div>
+                    </div>
+                    <div class="asset-action" style="padding: 12px;">
+                        <button class="file-btn" style="width: 100%; border-radius: 4px;" onclick="document.getElementById('file-snd-${s.id}').click()">ЗВУК</button>
+                        <input type="file" id="file-snd-${s.id}" hidden onchange="uploadSlotSoundFile(this, '${s.id}')">
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateSymbolChance(idx, val) { slotSymbols[idx].chance = parseFloat(val); }
+
+        async function uploadSlotSymbolFile(input, idx) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const res = await fetch('/api/ov_upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key: 'slot_img_' + idx })
+                });
+                const d = await res.json();
+                if (d.url) { slotSymbols[idx].url = d.url; renderSlotSymbols(); showToast('Картинка обновлена'); }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function uploadSlotSoundFile(input, key) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async () => {
+                const res = await fetch('/api/ov_upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key })
+                });
+                const d = await res.json();
+                if (d.url) { 
+                    slotAssets[key] = d.url; 
+                    renderSlotSounds(); 
+                    showToast('Звук обновлен'); 
+                }
+            };
+            reader.readAsDataURL(file);
         }
 
         async function saveSlotsSettings(e) {
             e.preventDefault();
             const btn = document.getElementById('save-slots-btn');
+            const sel = document.getElementById('slots-reward-select');
+            const opt = sel.options[sel.selectedIndex];
             btn.style.opacity = '0.5'; btn.textContent = '...';
             try {
                 await fetch('/api/ov_settings', {
@@ -387,56 +505,16 @@
                     body: JSON.stringify({
                         type: 'slots',
                         settings: {
-                            reward_id: document.getElementById('slots-reward-id').value,
-                            jackpot: { chance: document.getElementById('slots-jp-chance').value },
-                            symbols: slotSymbols
+                            reward_id: sel.value,
+                            reward_name: opt ? opt.textContent : '',
+                            symbols: slotSymbols,
+                            assets: slotAssets
                         }
                     })
                 });
-                showToast('Настройки слотов сохранены');
+                showToast('Настройки Слотов сохранены');
             } catch (e) { showToast('Ошибка!', true); }
             finally { btn.style.opacity = '1'; btn.textContent = 'СОХРАНИТЬ ВСЁ'; }
-        }
-
-        async function uploadSymbol(input) {
-            const file = input.files[0]; if (!file) return;
-            const chance = document.getElementById('new-sym-chance').value;
-            const reader = new FileReader();
-            reader.onload = async () => {
-                try {
-                    const res = await fetch('/api/ov_upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key: 'slot_sym_' + Date.now() })
-                    });
-                    const d = await res.json();
-                    if (d.url) { 
-                        slotSymbols.push({ url: d.url, chance });
-                        renderSlotSymbols();
-                        showToast('Символ добавлен');
-                    }
-                } catch (e) { showToast('Ошибка!', true); }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function renderSlotSymbols() {
-            const container = document.getElementById('slots-symbols-list');
-            container.innerHTML = slotSymbols.map((s, idx) => `
-                <div style="background: #1c1c21; padding: 10px; border-radius: 8px; border: 1px solid var(--border); position: relative; text-align: center;">
-                    <img src="${s.url}" style="width: 50px; height: 50px; object-fit: contain;">
-                    <div style="font-size: 11px; color: var(--accent); font-weight: bold; margin-top: 5px;">${s.chance}%</div>
-                    <div style="position: absolute; top: 4px; right: 4px; color: #ef4444; cursor: pointer; font-size: 14px;" onclick="removeSlotSymbol(${idx})">×</div>
-                </div>
-            `).join('');
-        }
-
-        function removeSlotSymbol(idx) { slotSymbols.splice(idx, 1); renderSlotSymbols(); }
-
-        function renderSlotAssetsStatus(config) {
-            // Placeholder for sound/jackpot icon management if needed in this design
-            const container = document.getElementById('slots-status-list');
-            container.innerHTML = `<div style="font-size: 11px; color: var(--text-dim);">Добавьте картинки и настройте шансы. Джекпот использует стандарт или настроенную картинку.</div>`;
         }
 
         function copyUrl(type = 'fate') {
@@ -447,12 +525,20 @@
         }
 
         async function testOverlay(type = 'fate') {
-            try { await fetch('/api/ov_test', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ type }) }); showToast('Тест запущен'); }
+            try { 
+                await fetch('/api/ov_test', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ type }) 
+                }); 
+                showToast('Тест запущен'); 
+            }
             catch (e) {}
         }
 
         function showToast(msg, isError = false) {
             const t = document.getElementById('toast');
+            if(!t) return;
             t.textContent = msg; t.style.background = isError ? '#ef4444' : 'var(--accent)';
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 3000);
