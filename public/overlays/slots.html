@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Slots Overlay</title>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --machine-bg: #1a1a1a;
+            --machine-border: #ffd700;
+            --reel-bg: #fff;
+            --gold: #ffcc00;
+            --silver: #e0e0e0;
+            --bronze: #cd7f32;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            width: 800px;
+            height: 600px;
+            background: transparent;
+            font-family: 'Montserrat', sans-serif;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 3D Slot Machine Container */
+        #slot-machine {
+            position: relative;
+            width: 500px;
+            height: 450px;
+            background: linear-gradient(145deg, #2a2a2a, #111);
+            border-radius: 40px;
+            padding: 30px;
+            box-shadow: 
+                0 20px 50px rgba(0,0,0,0.8),
+                inset 0 2px 5px rgba(255,255,255,0.1);
+            border: 8px solid #222;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform: perspective(1000px) rotateX(5deg);
+            opacity: 0;
+            transform: scale(0.8) translateY(200px);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        #slot-machine.show {
+            opacity: 1;
+            transform: scale(1) translateY(0) rotateX(5deg);
+        }
+
+        /* The Gold Frame */
+        #frame {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            background: #000;
+            border-radius: 20px;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            border: 4px solid var(--gold);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+            overflow: hidden;
+        }
+
+        /* Individual Reel */
+        .reel {
+            flex: 1;
+            height: 100%;
+            background: var(--reel-bg);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .reel-inner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            transition: top 3s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+        }
+
+        .symbol {
+            width: 100%;
+            height: 196px; /* slightly less than reel height to show centered */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .symbol img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Lever (Рычаг) */
+        #lever-container {
+            position: absolute;
+            right: -80px;
+            top: 150px;
+            width: 80px;
+            height: 200px;
+            z-index: -1;
+        }
+
+        #lever-base {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 40px;
+            height: 40px;
+            background: #333;
+            border-radius: 50%;
+        }
+
+        #lever-arm {
+            position: absolute;
+            left: 15px;
+            top: 20px;
+            width: 12px;
+            height: 120px;
+            background: linear-gradient(to bottom, #777, #333);
+            border-radius: 6px;
+            transform-origin: top center;
+            transition: transform 0.4s ease-in-out;
+        }
+
+        #lever-knob {
+            position: absolute;
+            bottom: -20px;
+            left: -14px;
+            width: 40px;
+            height: 40px;
+            background: radial-gradient(circle at 30% 30%, #ff4d4d, #990000);
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        #lever-arm.pull {
+            transform: rotateX(160deg);
+        }
+
+        /* User Info Above */
+        #user-info {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        #avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid var(--gold);
+            box-shadow: 0 0 15px rgba(255,215,0,0.5);
+        }
+
+        #username {
+            font-size: 32px;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            text-transform: uppercase;
+        }
+
+        /* Result Text */
+        #result {
+            margin-top: 25px;
+            font-size: 48px;
+            font-weight: 900;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+        }
+
+        #result.show { opacity: 1; }
+        #result.win { color: #28d17c; text-shadow: 0 0 20px rgba(40,209,124,0.6); }
+
+        /* Lighting effects */
+        .light {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #fff;
+            animation: blink 0.5s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 0.3; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1.1); }
+        }
+    </style>
+</head>
+<body>
+    <div id="slot-machine">
+        <div id="user-info">
+            <img id="avatar" src="">
+            <div id="username">PLAYER</div>
+        </div>
+
+        <div id="frame">
+            <div class="reel" id="reel1"><div class="reel-inner" id="inner1"></div></div>
+            <div class="reel" id="reel2"><div class="reel-inner" id="inner2"></div></div>
+            <div class="reel" id="reel3"><div class="reel-inner" id="inner3"></div></div>
+        </div>
+
+        <div id="lever-container">
+            <div id="lever-base"></div>
+            <div id="lever-arm">
+                <div id="lever-knob"></div>
+            </div>
+        </div>
+
+        <div id="result">WINNER!</div>
+
+        <!-- Decorative lights -->
+        <div class="light" style="top: 10px; left: 10px;"></div>
+        <div class="light" style="top: 10px; right: 10px;"></div>
+        <div class="light" style="bottom: 10px; left: 10px;"></div>
+        <div class="light" style="bottom: 10px; right: 10px;"></div>
+        <div class="light" style="top: 50%; left: -5px;"></div>
+        <div class="light" style="top: 50%; right: -5px;"></div>
+    </div>
+
+    <audio id="sLever" src="/overlays/defaults/sounds/lever.mp3" preload="auto"></audio>
+    <audio id="sSpin" src="/overlays/defaults/sounds/spin.mp3" preload="auto"></audio>
+    <audio id="sWin" src="/overlays/defaults/sounds/win.mp3" preload="auto"></audio>
+    <audio id="sLose" src="/overlays/defaults/sounds/lose.mp3" preload="auto"></audio>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const userId = urlParams.get('id');
+        let isRunning = false;
+        let lastTriggerId = null;
+
+        // Default symbols if user hasn't uploaded any
+        const DEFAULT_SYMBOLS = [
+            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
+            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',
+            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/ultra-ball.png',
+            'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png'
+        ];
+
+        let configAssets = {};
+
+        async function loadAssets() {
+            if (!userId) return;
+            try {
+                const res = await fetch(`/api/ov_upload?userId=${userId}`);
+                configAssets = await res.json();
+                
+                // Audio customization
+                if (configAssets.s_lever) document.getElementById('sLever').src = configAssets.s_lever;
+                if (configAssets.s_spin) document.getElementById('sSpin').src = configAssets.s_spin;
+                if (configAssets.s_win) document.getElementById('sWin').src = configAssets.s_win;
+                if (configAssets.s_lose) document.getElementById('sLose').src = configAssets.s_lose;
+            } catch (e) { }
+        }
+
+        function play(id) {
+            const a = document.getElementById(id);
+            if (a && a.src) { a.currentTime = 0; a.play().catch(e => { }); }
+        }
+
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+        async function checkTrigger() {
+            if (isRunning || !userId) return;
+            try {
+                const res = await fetch(`/api/ov_trigger?userId=${userId}&t=${Date.now()}`);
+                const data = await res.json();
+                if (data && data.triggerId) {
+                    if (lastTriggerId === null) {
+                        lastTriggerId = data.triggerId;
+                        return;
+                    }
+                    if (data.triggerId !== lastTriggerId) {
+                        lastTriggerId = data.triggerId;
+                        // Distinction: Only start if the reward matches some keyword or is the only one
+                        // For now, we trigger on any redemption
+                        animate(data);
+                    }
+                }
+            } catch (e) { }
+        }
+
+        async function animate(data) {
+            isRunning = true;
+            const machine = document.getElementById('slot-machine');
+            const lever = document.getElementById('lever-arm');
+            const result = document.getElementById('result');
+            const avatar = document.getElementById('avatar');
+            const username = document.getElementById('username');
+            
+            // Setup user
+            username.textContent = data.userName;
+            if (data.userAvatar) avatar.src = data.userAvatar; else avatar.style.display='none';
+
+            // Reset UI
+            result.className = "";
+            result.textContent = "";
+            machine.classList.add('show');
+            await sleep(800);
+
+            // 1. Pull Lever
+            play('sLever');
+            lever.classList.add('pull');
+            await sleep(400);
+            lever.classList.remove('pull');
+            await sleep(200);
+
+            // 2. Prep symbols
+            // Use custom symbols if available, else default
+            const userSymbols = configAssets.slot_symbols || DEFAULT_SYMBOLS;
+            const symbolCount = 20; // Number of symbols in the belt for animation
+            
+            // Pick outcome
+            // Logic: we want to know if it's a win
+            // We can determine win based on chances or just random for now
+            const isWin = Math.random() < 0.3; // 30% chance win by default
+            let finalIdx1, finalIdx2, finalIdx3;
+            
+            if (isWin) {
+                finalIdx1 = finalIdx2 = finalIdx3 = Math.floor(Math.random() * userSymbols.length);
+            } else {
+                finalIdx1 = Math.floor(Math.random() * userSymbols.length);
+                finalIdx2 = Math.floor(Math.random() * userSymbols.length);
+                finalIdx3 = Math.floor(Math.random() * userSymbols.length);
+                if (finalIdx1 === finalIdx2 && finalIdx2 === finalIdx3) {
+                     // Force lose if it accidentally rolled win
+                     finalIdx3 = (finalIdx3 + 1) % userSymbols.length;
+                }
+            }
+
+            const populateReel = (id, targetIdx) => {
+                const inner = document.getElementById(`inner${id}`);
+                inner.innerHTML = "";
+                // Fill with random symbols and put target at the very end
+                for(let i=0; i<symbolCount; i++) {
+                    const s = document.createElement('div');
+                    s.className = "symbol";
+                    const imgIdx = (i === symbolCount - 1) ? targetIdx : Math.floor(Math.random() * userSymbols.length);
+                    s.innerHTML = `<img src="${userSymbols[imgIdx]}">`;
+                    inner.appendChild(s);
+                }
+                inner.style.transition = 'none';
+                inner.style.top = '0px';
+            };
+
+            populateReel(1, finalIdx1);
+            populateReel(2, finalIdx2);
+            populateReel(3, finalIdx3);
+
+            await sleep(50);
+            play('sSpin');
+
+            // 3. Spin!
+            const symbolHeight = 196;
+            const offset = (symbolCount - 1) * symbolHeight;
+            
+            const spinReel = async (id, delay) => {
+                await sleep(delay);
+                const inner = document.getElementById(`inner${id}`);
+                inner.style.transition = `top ${2 + id*0.5}s cubic-bezier(0.45, 0.05, 0.55, 0.95)`;
+                inner.style.top = `-${offset}px`;
+            };
+
+            await Promise.all([spinReel(1, 0), spinReel(2, 200), spinReel(3, 400)]);
+            await sleep(3500);
+
+            // 4. Show Result
+            if (isWin) {
+                result.textContent = "JACKPOT!";
+                result.classList.add('show', 'win');
+                play('sWin');
+            } else {
+                result.textContent = "TRY AGAIN";
+                result.classList.add('show');
+                play('sLose');
+            }
+
+            await sleep(4000);
+            
+            // Hide
+            machine.classList.remove('show');
+            await sleep(600);
+            isRunning = false;
+        }
+
+        if (userId) {
+            loadAssets();
+            setInterval(checkTrigger, 1500);
+        }
+    </script>
+</body>
+</html>

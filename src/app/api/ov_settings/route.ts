@@ -5,6 +5,7 @@ export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get('userId');
+  const type = req.nextUrl.searchParams.get('type'); // "fate" or "slots"
   if (!userId) return NextResponse.json({});
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -18,7 +19,17 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (error || !data) return NextResponse.json({});
-  return NextResponse.json(data.settings || {});
+  const settings = data.settings || {};
+  
+  if (type) {
+    // If we have type but it's not in the new format yet, return the root settings as "fate"
+    if (type === 'fate' && !settings.fate && settings.reward_id) {
+       return NextResponse.json(settings);
+    }
+    return NextResponse.json(settings[type] || {});
+  }
+
+  return NextResponse.json(settings);
 }
 
 export async function POST(req: NextRequest) {
@@ -39,20 +50,28 @@ export async function POST(req: NextRequest) {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const body = await req.json();
+    const { type, ...settingsToSave } = body;
 
     const { data: configs } = await supabase
       .from('overlay_configs')
-      .select('assets') // only select what we have
+      .select('settings, assets')
       .eq('user_id', userId);
     
-    const existing = configs && configs.length > 0 ? configs[0] : null;
+    const config = configs && configs.length > 0 ? configs[0] : null;
+    let finalSettings = config?.settings || {};
+
+    if (type) {
+      finalSettings[type] = settingsToSave;
+    } else {
+      finalSettings = { ...finalSettings, ...settingsToSave };
+    }
 
     const { error: upsertError } = await supabase
       .from('overlay_configs')
       .upsert({ 
         user_id: userId, 
-        settings: body,
-        assets: existing?.assets || {},
+        settings: finalSettings,
+        assets: config?.assets || {},
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 

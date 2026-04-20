@@ -86,9 +86,13 @@
         </div>
         <div class="nav-section">
             <span class="nav-label">Оверлеи</span>
-            <a href="#" class="nav-item active">
+            <a href="javascript:void(0)" class="nav-item active" onclick="switchTab('fate')">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                 РОЛЛ
+            </a>
+            <a href="javascript:void(0)" class="nav-item" onclick="switchTab('slots')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                СЛОТЫ
             </a>
         </div>
         <div class="nav-section">
@@ -105,24 +109,26 @@
     </div>
 
     <div class="content">
-        <div class="header"><h2>ДАШБОРД</h2></div>
-        <div class="main-grid">
+        <div class="header"><h2 id="view-title">ОВЕРЛЕЙ РОЛЛ</h2></div>
+        
+        <!-- FATE VIEW -->
+        <div id="view-fate" class="main-grid">
             <div style="display: flex; flex-direction: column; gap: 24px;">
                 <div class="card">
                     <div class="card-title">OBS Browser Source</div>
-                    <div class="obs-box" id="obs-url">...</div>
+                    <div class="obs-box" id="obs-url-fate">...</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <button class="btn btn-outline" onclick="copyUrl()">КОПИРОВАТЬ</button>
-                        <button class="btn" style="background: #22c55e;" onclick="testOverlay()">ТЕСТ</button>
+                        <button class="btn btn-outline" onclick="copyUrl('fate')">КОПИРОВАТЬ</button>
+                        <button class="btn" style="background: #22c55e;" onclick="testOverlay('fate')">ТЕСТ</button>
                     </div>
                 </div>
                 <div class="card" style="flex: 1;">
-                    <div class="card-title">Настройки</div>
+                    <div class="card-title">Настройки Roll</div>
                     <div class="section-scroll">
-                        <form id="settings-form" onsubmit="saveSettings(event)">
+                        <form onsubmit="saveSettings(event, 'fate')">
                             <label class="label">Награда Twitch</label>
                             <div style="display: flex; gap: 8px; margin-bottom: 20px;">
-                                <select id="reward-select" name="reward_id" style="margin-bottom: 0;"></select>
+                                <select id="reward-select-fate" name="reward_id" style="margin-bottom: 0;"></select>
                                 <button type="button" class="btn btn-outline" onclick="fetchRewards()" style="padding: 10px;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
                                 </button>
@@ -131,17 +137,55 @@
                                 <div><label class="label">Мин Число</label><input type="number" name="min_val" value="1"></div>
                                 <div><label class="label">Макс Число</label><input type="number" name="max_val" value="100"></div>
                             </div>
-                            <button type="submit" id="save-btn" class="btn" style="width: 100%;">СОХРАНИТЬ ВЫБОР</button>
+                            <button type="submit" class="btn" style="width: 100%;">СОХРАНИТЬ РОЛЛ</button>
                         </form>
                     </div>
                 </div>
             </div>
-
             <div class="card">
-                <div class="card-title">Ассеты</div>
-                <div class="section-scroll" id="asset-list">
-                    <!-- Dynamic Assets -->
+                <div class="card-title">Ассеты Roll</div>
+                <div class="section-scroll" id="asset-list-fate"></div>
+            </div>
+        </div>
+
+        <!-- SLOTS VIEW -->
+        <div id="view-slots" class="main-grid" style="display: none;">
+            <div style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card">
+                    <div class="card-title">OBS Browser Source</div>
+                    <div class="obs-box" id="obs-url-slots">...</div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <button class="btn btn-outline" onclick="copyUrl('slots')">КОПИРОВАТЬ</button>
+                        <button class="btn" style="background: #22c55e;" onclick="testOverlay('slots')">ТЕСТ</button>
+                    </div>
                 </div>
+                <div class="card" style="flex: 1;">
+                    <div class="card-title">Настройки Слотов</div>
+                    <div class="section-scroll">
+                        <form onsubmit="saveSettings(event, 'slots')">
+                            <label class="label">Награда Twitch</label>
+                            <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+                                <select id="reward-select-slots" name="reward_id" style="margin-bottom: 0;"></select>
+                                <button type="button" class="btn btn-outline" onclick="fetchRewards()" style="padding: 10px;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+                                </button>
+                            </div>
+                            <button type="submit" class="btn" style="width: 100%;">СОХРАНИТЬ СЛОТЫ</button>
+                        </form>
+
+                        <div style="margin-top: 32px;">
+                            <label class="label">Символы Барабана</label>
+                            <div id="symbol-manager" style="display: flex; flex-direction: column; gap: 12px;">
+                                <!-- Symbol slots -->
+                            </div>
+                            <button class="btn btn-outline" onclick="addSymbolSlot()" style="width: 100%; margin-top: 12px; border-style: dashed;">+ ДОБАВИТЬ СИМВОЛ</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-title">Звуки Слотов</div>
+                <div class="section-scroll" id="asset-list-slots"></div>
             </div>
         </div>
     </div>
@@ -150,14 +194,23 @@
 
     <script>
         let currentUser = null;
-        const assetTemplates = [
-            { id: 'panel_bg', name: 'Фон панели', meta: 'Рекомендуемо: 1600x210' },
-            { id: 'reward_icon', name: 'Иконка награды', meta: 'Рекомендуемо: 200x200' },
-            { id: 'sound_in', name: 'Звук появления', meta: 'Длительность: 1 сек' },
-            { id: 'sound_loop', name: 'Звук рандома', meta: 'Длительность: 3 сек (под цикл)' },
-            { id: 'sound_win', name: 'Звук победы', meta: 'Длительность: 2 сек' },
-            { id: 'sound_lose', name: 'Звук проигрыша', meta: 'Длительность: 2 сек' },
-            { id: 'sound_out', name: 'Звук исчезновения', meta: 'Длительность: 1 сек' }
+        let globalAssets = {};
+        let slotSymbols = []; 
+
+        const fateAssets = [
+            { id: 'panel_bg', name: 'Фон панели', meta: '1600x210' },
+            { id: 'sound_in', name: 'Звук появления', meta: '1 сек' },
+            { id: 'sound_loop', name: 'Звук рандома', meta: '3 сек' },
+            { id: 'sound_win', name: 'Звук победы', meta: '2 сек' },
+            { id: 'sound_lose', name: 'Звук проигрыша', meta: '2 сек' },
+            { id: 'sound_out', name: 'Звук исчезновения', meta: '1 сек' }
+        ];
+
+        const slotsAssets = [
+            { id: 's_lever', name: 'Звук рычага', meta: '1 сек' },
+            { id: 's_spin', name: 'Звук вращения', meta: '3 сек' },
+            { id: 's_win', name: 'Звук джекпота', meta: '3 сек' },
+            { id: 's_lose', name: 'Звук неудачи', meta: '2 сек' }
         ];
 
         async function init() {
@@ -168,26 +221,48 @@
                 currentUser = data;
                 document.getElementById('username').textContent = data.display_name;
                 document.getElementById('user-avatar').src = data.profile_image_url;
-                document.getElementById('obs-url').textContent = `${window.location.origin}/overlays/roll?id=${data.id}`;
                 
-                renderAssets();
-                loadSettings();
-                loadAssetStatuses();
+                document.getElementById('obs-url-fate').textContent = `${window.location.origin}/overlays/roll.html?id=${data.id}`;
+                document.getElementById('obs-url-slots').textContent = `${window.location.origin}/overlays/slots.html?id=${data.id}`;
+                
+                await loadAllData();
                 fetchRewards();
             } catch (e) { window.location.href = '/auth/twitch'; }
         }
 
-        function renderAssets() {
-            const container = document.getElementById('asset-list');
-            container.innerHTML = assetTemplates.map(a => `
+        async function loadAllData() {
+            const res = await fetch(`/api/ov_upload?userId=${currentUser.id}`);
+            globalAssets = await res.json();
+            slotSymbols = globalAssets.slot_symbols || [];
+            
+            renderAssetList('fate', fateAssets);
+            renderAssetList('slots', slotsAssets);
+            renderSymbolManager();
+            loadSettings('fate');
+            loadSettings('slots');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            const activeNav = Array.from(document.querySelectorAll('.nav-item')).find(i => i.textContent.includes(tab === 'fate' ? 'РОЛЛ' : 'СЛОТЫ'));
+            if(activeNav) activeNav.classList.add('active');
+            
+            document.getElementById('view-fate').style.display = tab === 'fate' ? 'grid' : 'none';
+            document.getElementById('view-slots').style.display = tab === 'slots' ? 'grid' : 'none';
+            document.getElementById('view-title').textContent = tab === 'fate' ? 'ОВЕРЛЕЙ РОЛЛ' : 'ОВЕРЛЕЙ СЛОТЫ';
+        }
+
+        function renderAssetList(prefix, templates) {
+            const container = document.getElementById(`asset-list-${prefix}`);
+            container.innerHTML = templates.map(a => `
                 <div class="asset-row">
                     <div class="asset-info">
                         <div class="asset-name">${a.name}</div>
                         <div class="asset-meta">${a.meta}</div>
                     </div>
-                    <div id="status-${a.id}" class="status-badge">
+                    <div id="status-${a.id}" class="status-badge ${globalAssets[a.id] ? 'loaded' : ''}">
                         <div class="dot"></div>
-                        <span class="status-text">Ожидание</span>
+                        <span class="status-text">${globalAssets[a.id] ? 'Загружено' : 'Ожидание'}</span>
                     </div>
                     <button class="btn btn-outline" onclick="document.getElementById('file-${a.id}').click()" style="padding: 10px 20px; font-size: 13px;">ВЫБРАТЬ</button>
                     <input type="file" id="file-${a.id}" hidden onchange="uploadFile(this, '${a.id}')">
@@ -195,25 +270,77 @@
             `).join('');
         }
 
-        async function loadSettings() {
+        function renderSymbolManager() {
+            const container = document.getElementById('symbol-manager');
+            container.innerHTML = slotSymbols.map((s, i) => `
+                <div class="asset-row" style="padding: 8px 16px;">
+                    <img src="${s.url}" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px; background: #000;">
+                    <div style="flex: 1; margin: 0 16px; display: flex; align-items: center; gap: 10px;">
+                        <span class="label" style="margin:0">ВЕС:</span>
+                        <input type="number" value="${s.weight}" onchange="updateSymbolWeight(${i}, this.value)" style="width: 70px; margin:0; padding: 6px; background: #000; border: 1px solid var(--border); color: #fff;">
+                    </div>
+                    <button class="btn btn-outline" onclick="removeSymbol(${i})" style="padding: 6px; color: #ef4444;">УДАЛИТЬ</button>
+                </div>
+            `).join('');
+        }
+
+        function addSymbolSlot() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.onchange = async () => {
+                const file = input.files[0]; if(!file) return;
+                const reader = new FileReader();
+                reader.onload = async () => {
+                   const res = await fetch('/api/ov_upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key: `symbol_${Date.now()}` })
+                    });
+                    const d = await res.json();
+                    if(d.url) {
+                        slotSymbols.push({ url: d.url, weight: 10 });
+                        saveSlotSymbols();
+                    }
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        }
+
+        async function saveSlotSymbols() {
+            await fetch('/api/ov_upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'slot_symbols', data_raw: slotSymbols })
+            });
+            renderSymbolManager();
+            showToast('Символы обновлены');
+        }
+
+        function updateSymbolWeight(i, val) { slotSymbols[i].weight = parseInt(val); saveSlotSymbols(); }
+        function removeSymbol(i) { slotSymbols.splice(i, 1); saveSlotSymbols(); }
+
+        async function loadSettings(type) {
             try {
-                const res = await fetch(`/api/ov_settings?userId=${currentUser.id}`);
+                const res = await fetch(`/api/ov_settings?userId=${currentUser.id}&type=${type}`);
                 const s = await res.json();
-                const f = document.getElementById('settings-form');
+                const sel = document.getElementById(`reward-select-${type}`);
                 if (s.reward_id) {
-                    const sel = document.getElementById('reward-select');
-                    sel.innerHTML = `<option value="${s.reward_id}">${s.reward_name || 'Привязанная награда'}</option>`;
+                    sel.value = s.reward_id;
                 }
-                f.min_val.value = s.min_val || 1;
-                f.max_val.value = s.max_val || 100;
+                if (type === 'fate') {
+                    const f = document.querySelector('#view-fate form');
+                    f.min_val.value = s.min_val || 1;
+                    f.max_val.value = s.max_val || 100;
+                }
             } catch (e) {}
         }
 
         async function fetchRewards() {
-            try {
-                const res = await fetch('/api/ov_rewards');
-                const rewards = await res.json();
-                const sel = document.getElementById('reward-select');
+            const res = await fetch('/api/ov_rewards');
+            const rewards = await res.json();
+            ['fate', 'slots'].forEach(type => {
+                const sel = document.getElementById(`reward-select-${type}`);
                 const cur = sel.value;
                 sel.innerHTML = '<option value="">Выберите награду...</option>';
                 rewards.forEach(r => {
@@ -222,80 +349,58 @@
                     if(r.id === cur) opt.selected = true;
                     sel.appendChild(opt);
                 });
-            } catch (e) {}
+            });
         }
 
-        async function saveSettings(e) {
+        async function saveSettings(e, type) {
             e.preventDefault();
-            const btn = document.getElementById('save-btn');
-            btn.style.opacity = '0.5'; btn.textContent = '...';
             const f = e.target;
-            const sel = document.getElementById('reward-select');
+            const sel = document.getElementById(`reward-select-${type}`);
             const opt = sel.options[sel.selectedIndex];
             try {
                 await fetch('/api/ov_settings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        reward_id: f.reward_id.value,
+                        type: type,
+                        reward_id: sel.value,
                         reward_name: opt ? opt.textContent : '',
-                        min_val: f.min_val.value, max_val: f.max_val.value
+                        min_val: f.min_val?.value, max_val: f.max_val?.value
                     })
                 });
                 await fetch('/api/ov_subscribe', { method: 'POST' });
-                showToast('Настройки обновлены');
-            } catch (e) { showToast('Ошибка!', true); }
-            finally { btn.style.opacity = '1'; btn.textContent = 'СОХРАНИТЬ ВЫБОР'; }
+                showToast('Настройки сохранены');
+            } catch (e) { showToast('Ошибка', true); }
         }
 
         async function uploadFile(input, key) {
             const file = input.files[0]; if (!file) return;
             const badge = document.getElementById(`status-${key}`);
-            const text = badge.querySelector('.status-text');
-            text.textContent = 'Загрузка...';
-
             const reader = new FileReader();
             reader.onload = async () => {
-                try {
-                    const res = await fetch('/api/ov_upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key })
-                    });
-                    const d = await res.json();
-                    if (d.url) { 
-                        badge.classList.add('loaded');
-                        text.textContent = 'Загружено';
-                        showToast('Файл готов');
-                    }
-                } catch (e) { text.textContent = 'Ошибка'; }
+                const res = await fetch('/api/ov_upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key })
+                });
+                const d = await res.json();
+                if (d.url) { 
+                    badge.classList.add('loaded');
+                    badge.querySelector('.status-text').textContent = 'Загружено';
+                    showToast('Файл загружен');
+                }
             };
             reader.readAsDataURL(file);
         }
 
-        async function loadAssetStatuses() {
-            try {
-                const res = await fetch(`/api/ov_upload?userId=${currentUser.id}`);
-                const assets = await res.json();
-                Object.keys(assets).forEach(key => {
-                    const badge = document.getElementById(`status-${key}`);
-                    if (badge && assets[key]) {
-                        badge.classList.add('loaded');
-                        badge.querySelector('.status-text').textContent = 'Загружено';
-                    }
-                });
-            } catch (e) {}
+        function copyUrl(type) {
+            navigator.clipboard.writeText(document.getElementById(`obs-url-${type}`).textContent);
+            showToast('URL скопирован');
         }
 
-        function copyUrl() {
-            const url = document.getElementById('obs-url').textContent;
-            navigator.clipboard.writeText(url);
-            showToast('Скопировано');
-        }
-
-        async function testOverlay() {
-            try { await fetch('/api/ov_test', { method: 'POST' }); showToast('Тест запущен'); }
-            catch (e) {}
+        async function testOverlay(type) {
+            await fetch('/api/ov_test', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({type}) });
+            showToast('Тест запущен');
         }
 
         function showToast(msg, isError = false) {
