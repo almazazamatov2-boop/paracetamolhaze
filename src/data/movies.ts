@@ -1,87 +1,22 @@
-export interface Movie {
-  emoji: string
-  name: string
-  aliases: string[]
-  year: number
-  type: 'film' | 'serial'
-  genre: string
-  hints: string[]
+export interface MovieRecord {
+  emoji: string;
+  name: string;
+  aliases: string[];
+  year: number;
+  type: 'film' | 'serial';
+  genre: string;
+  hints: string[];
 }
 
-export const movies: Movie[] = [
-  { emoji: "👻🏠🔪👴🚪🪓❄️", name: "Сияние", aliases: ["The Shining"], year: 1980, type: "film", genre: "хоррор", hints: ["1980 год", "Ужасы", "Шелли Дювалл"] },
-  { emoji: "🚢💔🥶🌊🎻🚢⚓", name: "Титаник", aliases: ["Titanic"], year: 1997, type: "film", genre: "драма", hints: ["1997 год", "Мелодрама", "Кейт Уинслет"] },
-  { emoji: "👨‍💻🕶️💊🧱🛰️🔫💻", name: "Матрица", aliases: ["The Matrix"], year: 1999, type: "film", genre: "фантастика", hints: ["1999 год", "Боевик", "Лоренс Фишберн"] },
-  { emoji: "🔒🔨🌧️🕊️⛓️📖🪟", name: "Побег из Шоушенка", aliases: ["Shawshank"], year: 1994, type: "film", genre: "драма", hints: ["1994 год", "Драма", "Морган Фриман"] },
-  { emoji: "🚀🕳️🌍⏰🔭🪐👨‍🚀", name: "Интерстеллар", aliases: ["Interstellar"], year: 2014, type: "film", genre: "фантастика", hints: ["2014 год", "Приключения", "Энн Хэтэуэй"] },
-  { emoji: "🃏😭🦇🏙️🎭🤡🥃🔫", name: "Джокер", aliases: ["Joker"], year: 2019, type: "film", genre: "драма", hints: ["2019 год", "Криминал", "Роберт Де Ниро"] },
-  { emoji: "⚔️🦁🏟️👑🛡️🏛️🥀", name: "Гладиатор", aliases: ["Gladiator"], year: 2000, type: "film", genre: "боевик", hints: ["2000 год", "История", "Хоакин Феникс"] },
-  { emoji: "🏃💨🍫🪖🎖️🚣🏙️", name: "Форрест Гамп", aliases: ["Forrest Gump"], year: 1994, type: "film", genre: "драма", hints: ["1994 год", "Комедия", "Робин Райт"] },
-  { emoji: "🚗⚡🕰️🎸🛹🏎️🐶", name: "Назад в будущее", aliases: ["Back to the Future"], year: 1985, type: "film", genre: "фантастика", hints: ["1985 год", "Приключения", "Кристофер Ллойд"] },
-  { emoji: "🦖🦕🌴🥚🚙🚁🌋", name: "Парк Юрского периода", aliases: ["Jurassic Park"], year: 1993, type: "film", genre: "фантастика", hints: ["1993 год", "Приключения", "Лора Дерн"] },
-  { emoji: "💍🌋🧝‍♂️🗡️📜🏹🧙‍♂️👁️", name: "Властелин колец", aliases: ["Lord of the Rings", "ВК"], year: 2001, type: "film", genre: "фэнтези", hints: ["2001 год", "Приключения", "Иэн Маккеллен"] },
-  { emoji: "🌍💙🐉🌿🏹👣🌋☁️", name: "Аватар", aliases: ["Avatar"], year: 2009, type: "film", genre: "фантастика", hints: ["2009 год", "Боевик", "Зои Салдана"] },
-  { emoji: "💰🔫💃📊🍔💼🕶️🔫", name: "Криминальное чтиво", aliases: ["Pulp Fiction"], year: 1994, type: "film", genre: "криминал", hints: ["1994 год", "Криминал", "Сэмюэл Л. Джексон"] },
-  { emoji: "👊🧼🩸🏢🥊🌑🛁🕴️", name: "Бойцовский клуб", aliases: ["Fight Club"], year: 1999, type: "film", genre: "триллер", hints: ["1999 год", "Драма", "Эдвард Нортон"] },
-  { emoji: "🦁🌍🌅👑🐯🐗🐒🦒", name: "Король Лев", aliases: ["Lion King"], year: 1994, type: "film", genre: "мультфильм", hints: ["1994 год", "Приключения", "Джереми Айронс"] },
-  { emoji: "🏴‍☠️⚓💀🚢🦜🐚⛵🏝️", name: "Пираты Карибского моря", aliases: ["Pirates"], year: 2003, type: "film", genre: "фэнтези", hints: ["2003 год", "Приключения", "Джеффри Раш"] },
-  { emoji: "🤖🔫🔧💀🏍️🧥🕶️💣", name: "Терминатор", aliases: ["Terminator"], year: 1984, type: "film", genre: "фантастика", hints: ["1984 год", "Боевик", "Линда Хэмилтон"] },
-  { emoji: "💤🌀🏗️🏙️♟️☕🔫💤", name: "Начало", aliases: ["Inception"], year: 2010, type: "film", genre: "фантастика", hints: ["2010 год", "Боевик", "Джозеф Гордон-Левитт"] },
-  { emoji: "🎭😏💃🏙️🐕💍🎷💚", name: "Маска", aliases: ["The Mask"], year: 1994, type: "film", genre: "комедия", hints: ["1994 год", "Фэнтези", "Кэмерон Диаз"] },
-  { emoji: "🗡️🐺🏔️❄️🏰⛄👑🧙️", name: "Холодное сердце", aliases: ["Frozen"], year: 2013, type: "film", genre: "мультфильм", hints: ["2013 год", "Мюзикл", "Кристен Белл"] },
-  { emoji: "🚗💨🏁🇯🇵🌉🔥💥🏎️", name: "Форсаж", aliases: ["Fast and Furious"], year: 2001, type: "film", genre: "боевик", hints: ["2001 год", "Криминал", "Пол Уокер"] },
-  { emoji: "🦇🌙🏙️🦸🃏🏢💥🚁", name: "Темный рыцарь", aliases: ["The Dark Knight", "Бэтмен"], year: 2008, type: "film", genre: "боевик", hints: ["2008 год", "Криминал", "Хит Леджер"] },
-  { emoji: "🐝👩‍❤️‍👨🕸️🏙️🕷️🏨🧪🕸️", name: "Человек-паук", aliases: ["Spider-Man"], year: 2002, type: "film", genre: "боевик", hints: ["2002 год", "Фантастика", "Кирстен Данст"] },
-  { emoji: "🎹🌙🌊🌹🇫🇷🥖📸🚲", name: "Амели", aliases: ["Amelie"], year: 2001, type: "film", genre: "комедия", hints: ["2001 год", "Мелодрама", "Матьё Кассовиц"] },
-  { emoji: "🕵️‍♂️🎻🏢🔍🧥🇬🇧🚲🧪", name: "Шерлок", aliases: ["Sherlock"], year: 2010, type: "serial", genre: "детектив", hints: ["2010 год", "Криминал", "Мартин Фриман"] },
-  { emoji: "🧟‍♂️🏃🔫🏚️🚶‍♂️🌳🧟‍♀️🚁", name: "Ходячие мертвецы", aliases: ["Walking Dead"], year: 2010, type: "serial", genre: "хоррор", hints: ["2010 год", "Триллер", "Норман Ридус"] },
-  { emoji: "👑🐉⚔️🩸❄️🐺🦁🐲", name: "Игра престолов", aliases: ["Game of Thrones"], year: 2011, type: "serial", genre: "фэнтези", hints: ["2011 год", "Драма", "Эмилия Кларк"] },
-  { emoji: "📎💼😂🖨️☕📄🏢🖇️", name: "Офис", aliases: ["The Office"], year: 2005, type: "serial", genre: "комедия", hints: ["2005 год", "Комедия", "Рэйн Уилсон"] },
-  { emoji: "🧪💰😎💀⚗️💎🔫🏜️", name: "Во все тяжкие", aliases: ["Breaking Bad"], year: 2008, type: "serial", genre: "драма", hints: ["2008 год", "Криминал", "Аарон Пол"] },
-  { emoji: "☕🛋️😂🤗🍕💃🕺🛋️", name: "Друзья", aliases: ["Friends"], year: 1994, type: "serial", genre: "комедия", hints: ["1994 год", "Мелодрама", "Кортни Кокс"] },
-  { emoji: "🧠🌙🚲👾💡📻🚲🚲", name: "Очень странные дела", aliases: ["Stranger Things"], year: 2016, type: "serial", genre: "фантастика", hints: ["2016 год", "Ужасы", "Милли Бобби Браун"] },
-  { emoji: "🍕🔫👨‍👩‍👦‍👦💰👔🍝🔫🚤", name: "Клан Сопрано", aliases: ["Sopranos"], year: 1999, type: "serial", genre: "криминал", hints: ["1999 год", "Драма", "Лоррейн Бракко"] },
-  { emoji: "🔪🩸🔬🌙💉🩸🚤💀", name: "Декстер", aliases: ["Dexter"], year: 2006, type: "serial", genre: "триллер", hints: ["2006 год", "Криминал", "Дженнифер Карпентер"] },
-  { emoji: "🏥💊🔧🧠🎾🍭🩺🏥", name: "Доктор Хаус", aliases: ["House"], year: 2004, type: "serial", genre: "драма", hints: ["2004 год", "Детектив", "Роберт Шон Леонард"] },
-  { emoji: "🧔🏻‍♂️🗡️🏰🥶⚔️🐺🐉🕯️", name: "Ведьмак", aliases: ["The Witcher"], year: 2019, type: "serial", genre: "фэнтези", hints: ["2019 год", "Приключения", "Аня Чалотра"] },
-  { emoji: "🎭🏦💰🔫🎭🏦💰💵", name: "Бумажный дом", aliases: ["La Casa de Papel"], year: 2017, type: "serial", genre: "боевик", hints: ["2017 год", "Криминал", "Ициар Итуньо"] },
-  { emoji: "⚛️🍕🏢🎮🔭🍔🎮🎮", name: "Теория большого взрыва", aliases: ["The Big Bang Theory"], year: 2007, type: "serial", genre: "комедия", hints: ["2007 год", "Комедия", "Джонни Галэки"] },
-  { emoji: "🌴✈️💥🏝️🥥🌑👣💨", name: "Остаться в живых", aliases: ["Lost", "Лост"], year: 2004, type: "serial", genre: "фэнтези", hints: ["2004 год", "Детектив", "Эванджелин Лилли"] },
-  { emoji: "🍩👨‍👩‍👧‍👦🏠🍺🍩🧒🧺📻", name: "Симпсоны", aliases: ["The Simpsons"], year: 1989, type: "serial", genre: "мультфильм", hints: ["1989 год", "Комедия", "Джулия Кавнер"] },
-  { emoji: "🧪🌌🥒🌀🛸🔫🧪🔭", name: "Рик и Морти", aliases: ["Rick and Morty"], year: 2013, type: "serial", genre: "мультфильм", hints: ["2013 год", "Комедия", "Джастин Ройланд"] },
-  { emoji: "🎩🐎🥃🔪🔫🇬🇧🚬🤵", name: "Острые козырьки", aliases: ["Peaky Blinders"], year: 2013, type: "serial", genre: "драма", hints: ["2013 год", "Криминал", "Пол Андерсон"] },
-  { emoji: "📱👁️💀⚙️💻👁️🌑⚙️", name: "Черное зеркало", aliases: ["Black Mirror"], year: 2011, type: "serial", genre: "фантастика", hints: ["2011 год", "Драма", "Дэниэл Лапэйн"] },
-  { emoji: "🎧🧥🏙️🇷🇺🎸📼🧥🏢", name: "Брат", aliases: ["Brat"], year: 1997, type: "film", genre: "криминал", hints: ["1997 год", "Драма", "Виктор Сухоруков"] },
-  { emoji: "🗽🇺🇸🚁🫂🍔🏙️🗽🚁", name: "Брат 2", aliases: ["Brat 2"], year: 2000, type: "film", genre: "криминал", hints: ["2000 год", "Драма", "Виктор Сухоруков"] },
-  { emoji: "🕺🍔🎥🔫🍵🚬🇬🇧🤵", name: "Джентльмены", aliases: ["The Gentlemen"], year: 2019, type: "film", genre: "криминал", hints: ["2019 год", "Боевик", "Чарли Ханнэм"] },
-  { emoji: "🧱👢🤫📦🧱👢🤫📦", name: "Операция «Ы»", aliases: ["Операция Ы"], year: 1965, type: "film", genre: "комедия", hints: ["1965 год", "Мелодрама", "Георгий Вицин"] },
-  { emoji: "🤴🔬🧪👨‍🔬👑🧥🔬🧪", name: "Иван Васильевич меняет профессию", aliases: ["Иван Васильевич"], year: 1973, type: "film", genre: "комедия", hints: ["1973 год", "Приключения", "Юрий Яковлев"] },
-  { emoji: "👊🧢📼🥊🧢🥊🏙️📼", name: "Слово пацана. Кровь на асфальте", aliases: ["Слово пацана"], year: 2023, type: "serial", genre: "драма", hints: ["2023 год", "Криминал", "Рузиль Минекаев"] },
-  { emoji: "🚔💰🚁👔🚁🚔🚬💰", name: "Полицейский с Рублёвки", aliases: ["Полицейский"], year: 2016, type: "serial", genre: "комедия", hints: ["2016 год", "Драма", "Сергей Бурунов"] },
-  { emoji: "👨‍🍳🔪🏨👔🏨👨‍🍳🔪🥒", name: "Кухня", aliases: ["Kitchen"], year: 2012, type: "serial", genre: "комедия", hints: ["2012 год", "Мелодрама", "Дмитрий Нагиев"] },
-  { emoji: "🕵️‍♂️🎻🏢👞🎻👞🕵️‍♂️🔍", name: "Метод", aliases: ["The Method"], year: 2015, type: "serial", genre: "триллер", hints: ["2015 год", "Криминал", "Паулина Андреева"] },
-  { emoji: "🚔💰🏢👤💰🏢👤🚔", name: "Мажор", aliases: ["Silver Spoon"], year: 2014, type: "serial", genre: "драма", hints: ["2014 год", "Криминал", "Карина Разумовская"] },
-  { emoji: "🍊🧶👂🧺🍊🧶🏮🧺", name: "Чебурашка", aliases: ["Cheburashka"], year: 2023, type: "film", genre: "комедия", hints: ["2023 год", "Семейный", "Сергей Гармаш"] },
-  { emoji: "🏠🎄🧱🕸️🏡🎄🧛🧱", name: "Один дома", aliases: ["Home Alone"], year: 1990, type: "film", genre: "комедия", hints: ["1990 год", "Семейный", "Джо Пеши"] },
-  { emoji: "🦈🏊‍♂️🚢🌊🦈🏊‍♂️🛳️⚓", name: "Челюсти", aliases: ["Jaws"], year: 1975, type: "film", genre: "триллер", hints: ["1975 год", "Приключения", "Роберт Шоу"] },
-  { emoji: "🏙️🕸️🕷️❤️🕸️🕷️❤️🏨", name: "Человек-паук: Нет пути домой", aliases: ["Spider-Man: No Way Home"], year: 2021, type: "film", genre: "боевик", hints: ["2021 год", "Фантастика", "Зендея"] },
-  { emoji: "🏎️💨🏁🇯🇵🌉🔥💥🏙️", name: "Тройной форсаж: Токийский дрифт", aliases: ["Tokyo Drift"], year: 2006, type: "film", genre: "боевик", hints: ["2006 год", "Криминал", "Лукас Блэк"] },
-  { emoji: "🐺🌕🌲🏹🌕🌲🦇🏔️", name: "Сумерки", aliases: ["Twilight"], year: 2008, type: "film", genre: "фэнтези", hints: ["2008 год", "Мелодрама", "Роберт Паттинсон"] },
-];���⚙️", name: "Черное зеркало", aliases: ["Black Mirror"], year: 2011, type: "serial", genre: "фантастика", hints: ["Технологии будущего", "Антиутопия", "Свинья"] },
-  { emoji: "🎧🧥🏙️🇷🇺", name: "Брат", aliases: ["Brat"], year: 1997, type: "film", genre: "криминал", hints: ["Данила Багров", "В чем сила?", "Сергей Бодров"] },
-  { emoji: "🗽🇺🇸🚁🫂", name: "Брат 2", aliases: ["Brat 2"], year: 2000, type: "film", genre: "криминал", hints: ["Мы к вам заехали на час", "Русские не сдаются", "Чикаго"] },
-  { emoji: "🕺🍔🎥🔫", name: "Джентльмены", aliases: ["The Gentlemen"], year: 2019, type: "film", genre: "криминал", hints: ["Гай Ричи", "Марихуана", "Мэттью Макконахи"] },
-  { emoji: "🧱👢🤫📦", name: "Операция «Ы»", aliases: ["Операция Ы"], year: 1965, type: "film", genre: "комедия", hints: ["Трус, Балбес, Бывалый", "Шурик", "Гайдай"] },
-  { emoji: "🤴🔬🧪👨‍🔬", name: "Иван Васильевич меняет профессию", aliases: ["Иван Васильевич"], year: 1973, type: "film", genre: "комедия", hints: ["Машина времени", "Царь во дворе", "Надо, Федя, надо!"] },
-  { emoji: "👊🧢📼🥊", name: "Слово пацана. Кровь на асфальте", aliases: ["Слово пацана"], year: 2023, type: "serial", genre: "драма", hints: ["Казань 80-х", "Адидас", "Чушпан"] },
-  { emoji: "🚔💰🚁👔", name: "Полицейский с Рублёвки", aliases: ["Полицейский"], year: 2016, type: "serial", genre: "комедия", hints: ["Измайлов", "Яковлев", "Александр Петров"] },
-  { emoji: "👨‍🍳🔪🏨👔", name: "Кухня", aliases: ["Kitchen"], year: 2012, type: "serial", genre: "комедия", hints: ["Шеф-повар", "Огузок", "Клод Моне"] },
-  { emoji: "🕵️‍♂️🎻🏢👞", name: "Метод", aliases: ["The Method"], year: 2015, type: "serial", genre: "триллер", hints: ["Хабенский", "Серийные убийцы", "Константин"] },
-  { emoji: "🚔💰🏢👤", name: "Мажор", aliases: ["Silver Spoon"], year: 2014, type: "serial", genre: "драма", hints: ["Павел Прилучный", "Полиция", "Игорь Соколовский"] },
-  { emoji: "🍊🧶👂🧺", name: "Чебурашка", aliases: ["Cheburashka"], year: 2023, type: "film", genre: "комедия", hints: ["Апельсины", "Гена", "Самый кассовый фильм РФ"] },
-  { emoji: "🏠🎄🧱🕸️", name: "Один дома", aliases: ["Home Alone"], year: 1990, type: "film", genre: "комедия", hints: ["Кевин Маккаллистер", "Ловушки", "Рождество"] },
-  { emoji: "🦈🏊‍♂️🚢🌊", name: "Челюсти", aliases: ["Jaws"], year: 1975, type: "film", genre: "триллер", hints: ["Акула-людоед", "Стивен Спилберг", "Океан"] },
-  { emoji: "🏙️🕸️🕷️❤️", name: "Человек-паук: Нет пути домой", aliases: ["Spider-Man: No Way Home"], year: 2021, type: "film", genre: "боевик", hints: ["Мультивселенная", "Том Холланд", "Три паука"] },
-  { emoji: "🏎️💨🏁🇯🇵", name: "Тройной форсаж: Токийский дрифт", aliases: ["Tokyo Drift"], year: 2006, type: "film", genre: "боевик", hints: ["Дрифт", "Токио", "Хан"] },
-  { emoji: "🐺🌕🌲🏹", name: "Сумерки", aliases: ["Twilight"], year: 2008, type: "film", genre: "фэнтези", hints: ["Вампиры и оборотни", "Белла и Эдвард", "Форкс"] },
+export const movies: MovieRecord[] = [
+  { emoji: "🚢🧊🌊💔", name: "Титаник", aliases: ["Titanic"], year: 1997, type: "film", genre: "драма", hints: ["1997 год", "Драма", "Кейт Уинслет"] },
+  { emoji: "🧪🚐💎🚬", name: "Во все тяжкие", aliases: ["Breaking Bad"], year: 2008, type: "serial", genre: "криминал", hints: ["2008 год", "Криминал", "Аарон Пол"] },
+  { emoji: "⚔️🐉❄️👑", name: "Игра престолов", aliases: ["Game of Thrones"], year: 2011, type: "serial", genre: "фэнтези", hints: ["2011 год", "Фэнтези", "Эмилия Кларк"] },
+  { emoji: "🧳🍬🏃‍♂️🦐", name: "Форрест Гамп", aliases: ["Forrest Gump"], year: 1994, type: "film", genre: "драма", hints: ["1994 год", "Драма", "Робин Райт"] },
+  { emoji: "🏢🧬💊🕶️", name: "Матрица", aliases: ["The Matrix"], year: 1999, type: "film", genre: "фантастика", hints: ["1999 год", "Фантастика", "Лоренс Фишберн"] },
+  { emoji: "🌀💭🏙️💤", name: "Начало", aliases: ["Inception"], year: 2010, type: "film", genre: "фантастика", hints: ["2010 год", "Фантастика", "Джозеф Гордон-Левитт"] },
+  { emoji: "🛸🪐📡🚀", name: "Интерстеллар", aliases: ["Interstellar"], year: 2014, type: "film", genre: "фантастика", hints: ["2014 год", "Фантастика", "Энн Хэтэуэй"] },
+  { emoji: "🦇🤡🃏🏢", name: "Темный рыцарь", aliases: ["The Dark Knight"], year: 2008, type: "film", genre: "боевик", hints: ["2008 год", "Боевик", "Хит Леджер"] },
+  { emoji: "⚡️🧙‍♂️🏰👓", name: "Гарри Поттер", aliases: ["Harry Potter"], year: 2001, type: "film", genre: "фэнтези", hints: ["2001 год", "Фэнтези", "Эмма Уотсон"] },
+  { emoji: "🕵️‍♂️🔍🎻🏢", name: "Шерлок", aliases: ["Sherlock"], year: 2010, type: "serial", genre: "детектив", hints: ["2010 год", "Детектив", "Мартин Фриман"] }
 ];
