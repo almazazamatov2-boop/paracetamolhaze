@@ -48,16 +48,39 @@ function verifyTwitchSignature(req: NextRequest, rawBody: string): boolean {
   return expected === msgSignature;
 }
 
-function getWeightedRandom(items: any[]) {
-    if (!items || items.length === 0) return null;
-    const totalWeight = items.reduce((acc, item) => acc + (Number(item.weight) || 1), 0);
-    let random = Math.random() * totalWeight;
-    for (const item of items) {
-        const weight = Number(item.weight) || 1;
-        if (random < weight) return item;
-        random -= weight;
+function getWeightedResult(settings: any) {
+    const symbols = settings.symbols || [];
+    const jackpot = settings.jackpot || { url: '', chance: 0.1 };
+    
+    const roll = Math.random() * 100;
+    let cumulative = 0;
+  
+    // 1. Check Jackpot
+    cumulative += Number(jackpot.chance) || 0;
+    if (roll < cumulative) {
+      return { result: [jackpot.url, jackpot.url, jackpot.url], isJackpot: true, isWin: true };
     }
-    return items[0];
+  
+    // 2. Check Symbols
+    for (const s of symbols) {
+      cumulative += Number(s.chance) || 0;
+      if (roll < cumulative) {
+        return { result: [s.url, s.url, s.url], isJackpot: false, isWin: true };
+      }
+    }
+  
+    // 3. Loss - Generate 3 random non-identical symbols
+    const allUrls = symbols.map((s: any) => s.url);
+    if (jackpot.url) allUrls.push(jackpot.url);
+    const pool = allUrls.length >= 2 ? allUrls : ['/overlays/defaults/slots/cherry.png', '/overlays/defaults/slots/lemon.png', '/overlays/defaults/slots/seven.png'];
+    
+    const r1 = pool[Math.floor(Math.random() * pool.length)];
+    let r2 = pool[Math.floor(Math.random() * pool.length)];
+    let r3 = pool[Math.floor(Math.random() * pool.length)];
+    if (r1 === r2 && r2 === r3) {
+      r3 = pool.find(u => u !== r1) || pool[0];
+    }
+    return { result: [r1, r2, r3], isJackpot: false, isWin: false };
 }
 
 export async function POST(req: NextRequest) {
@@ -89,13 +112,12 @@ export async function POST(req: NextRequest) {
       .select('settings, assets')
       .eq('user_id', streamerId);
 
-    const config = configs && configs.length > 0 ? configs[0] : null;
+    const config = configs?.[0] || null;
     if (!config) return NextResponse.json({ ok: true });
 
     const allSettings: any = config.settings || {};
     const assets: any = config.assets || {};
 
-    // Check which overlay matches this reward
     let type: string | null = null;
     if (allSettings.fate?.reward_id === twitchRewardId) type = 'fate';
     else if (allSettings.slots?.reward_id === twitchRewardId) type = 'slots';
@@ -114,18 +136,11 @@ export async function POST(req: NextRequest) {
       };
 
       if (type === 'slots') {
-        const symbols = typeSettings.symbols || [];
-        if (symbols.length > 0) {
-          payload.result = [
-            getWeightedRandom(symbols).url,
-            getWeightedRandom(symbols).url,
-            getWeightedRandom(symbols).url
-          ];
-        } else {
-          payload.result = ['', '', ''];
-        }
+        const { result, isJackpot, isWin } = getWeightedResult(typeSettings);
+        payload.result = result;
+        payload.isJackpot = isJackpot;
+        payload.isWin = isWin;
       } else {
-        // Fate (Roll) logic
         const min = Number(typeSettings.min_val) || 1;
         const max = Number(typeSettings.max_val) || 100;
         const match = userMessage.match(/\d+/);

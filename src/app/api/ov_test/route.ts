@@ -3,16 +3,46 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-function getWeightedRandom(items: any[]) {
-  if (!items || items.length === 0) return null;
-  const totalWeight = items.reduce((acc, item) => acc + (Number(item.weight) || 1), 0);
-  let random = Math.random() * totalWeight;
-  for (const item of items) {
-    const weight = Number(item.weight) || 1;
-    if (random < weight) return item;
-    random -= weight;
+function getWeightedResult(settings: any) {
+  const symbols = settings.symbols || [];
+  const jackpot = settings.jackpot || { url: '', chance: 0.1 };
+  
+  const roll = Math.random() * 100;
+  let cumulative = 0;
+
+  // 1. Check Jackpot
+  cumulative += Number(jackpot.chance) || 0;
+  if (roll < cumulative) {
+    return { result: [jackpot.url, jackpot.url, jackpot.url], isJackpot: true, isWin: true };
   }
-  return items[0];
+
+  // 2. Check Symbols
+  for (const s of symbols) {
+    cumulative += Number(s.chance) || 0;
+    if (roll < cumulative) {
+      return { result: [s.url, s.url, s.url], isJackpot: false, isWin: true };
+    }
+  }
+
+  // 3. Loss - Generate 3 random non-identical symbols
+  // We need at least 2 different symbols to guarantee a loss
+  const allUrls = symbols.map((s: any) => s.url);
+  if (jackpot.url) allUrls.push(jackpot.url);
+  
+  // Fallback defaults if no symbols
+  const pool = allUrls.length >= 2 ? allUrls : ['/overlays/defaults/slots/cherry.png', '/overlays/defaults/slots/lemon.png', '/overlays/defaults/slots/seven.png'];
+  
+  const r1 = pool[Math.floor(Math.random() * pool.length)];
+  let r2 = pool[Math.floor(Math.random() * pool.length)];
+  let r3 = pool[Math.floor(Math.random() * pool.length)];
+
+  // Ensure it's not a win
+  if (r1 === r2 && r2 === r3) {
+    // Force r3 to be different
+    r3 = pool.find(u => u !== r1) || pool[0];
+  }
+
+  return { result: [r1, r2, r3], isJackpot: false, isWin: false };
 }
 
 export async function POST(req: NextRequest) {
@@ -25,33 +55,31 @@ export async function POST(req: NextRequest) {
       headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId! },
     });
     const authData = await authRes.json();
-    if (!authRes.ok || !authData.data?.[0]) return NextResponse.json({ error: 'Twitch Auth Failed' }, { status: 401 });
+    const userId = authData.data?.[0]?.id;
+    const userName = authData.data?.[0]?.display_name;
+    const userAvatar = authData.data?.[0]?.profile_image_url;
 
-    const userId = authData.data[0].id;
-    const userName = authData.data[0].display_name;
-    const userAvatar = authData.data[0].profile_image_url;
+    if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const body = await req.json();
-    const type = body.type || 'fate';
+    const type = body.type || 'slots';
 
     const { data: configs } = await supabase
       .from('overlay_configs')
       .select('settings, assets')
       .eq('user_id', userId);
 
-    const config = configs && configs.length > 0 ? configs[0] : null;
+    const config = configs?.[0] || null;
     const allSettings: any = config?.settings || {};
     const assets: any = config?.assets || {};
     
-    let settings = allSettings[type];
-    if (!settings && type === 'fate' && allSettings.reward_id) {
-       settings = allSettings;
-    }
-    settings = settings || {};
+    let settings = allSettings[type] || {};
+    // Migration fallback
+    if (!settings && type === 'fate' && allSettings.reward_id) settings = allSettings;
 
     let payload: any = {
       triggerId: Math.random().toString(36).substring(7),
@@ -63,22 +91,15 @@ export async function POST(req: NextRequest) {
     };
 
     if (type === 'slots') {
-      const symbols = settings.symbols || [];
-      if (symbols.length > 0) {
-        payload.result = [
-          getWeightedRandom(symbols).url,
-          getWeightedRandom(symbols).url,
-          getWeightedRandom(symbols).url
-        ];
-      } else {
-        payload.result = ['', '', ''];
-      }
+      const { result, isJackpot, isWin } = getWeightedResult(settings);
+      payload.result = result;
+      payload.isJackpot = isJackpot;
+      payload.isWin = isWin;
     } else {
       // Fate (Roll) logic
       const min = Number(settings.min_val) || 1;
       const max = Number(settings.max_val) || 100;
       payload.userChoice = Math.floor(Math.random() * (max - min + 1)) + min;
-      // In test, let's make it 30% chance to win for better visual feedback
       if (Math.random() < 0.3) {
         payload.result = payload.userChoice;
       } else {
@@ -86,7 +107,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { error: upsertError } = await supabase
+    await supabase
       .from('overlay_configs')
       .upsert({ 
         user_id: userId, 
@@ -95,7 +116,6 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 
-    if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 });
     return NextResponse.json({ success: true, payload });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
