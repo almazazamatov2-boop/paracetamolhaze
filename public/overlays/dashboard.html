@@ -71,8 +71,8 @@
         .asset-upload-btn { padding: 8px 16px; background: #252528; border: 1px solid var(--border); border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
         .asset-status { font-size: 13px; font-weight: 600; }
 
-        #toast { position: fixed; bottom: 32px; right: 32px; padding: 16px 24px; border-radius: 12px; background: #161618; border: 1px solid var(--border); color: #fff; transform: translateY(150%); transition: transform 0.3s; z-index: 1000; }
-        #toast.show { transform: translateY(0); }
+        #toast { position: fixed; bottom: -100px; right: 32px; padding: 16px 24px; border-radius: 12px; background: #161618; border: 1px solid var(--border); color: #fff; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 1000; opacity: 0; }
+        #toast.show { bottom: 32px; opacity: 1; }
         .fade-in { animation: fadeInUp 0.4s ease forwards; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -270,8 +270,10 @@
 
         function showToast(msg, error = false) {
             const t = document.getElementById('toast'); if (!t) return;
-            t.textContent = msg; t.style.borderColor = error ? 'var(--red)' : 'var(--green)';
-            t.style.color = error ? 'var(--red)' : 'var(--green)'; t.classList.add('show');
+            t.textContent = msg; 
+            t.style.borderColor = error ? 'var(--red)' : 'var(--green)';
+            t.style.color = error ? '#fff' : '#fff'; // White text is better on dark bg
+            t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 3000);
         }
 
