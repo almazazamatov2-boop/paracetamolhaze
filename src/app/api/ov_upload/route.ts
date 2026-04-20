@@ -3,24 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get('userId');
-  if (!userId) return NextResponse.json({});
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-  const { data, error } = await supabase
-    .from('overlay_configs')
-    .select('assets')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error || !data) return NextResponse.json({});
-  return NextResponse.json(data.assets || {});
-}
-
 export async function POST(req: NextRequest) {
   try {
     const token = req.cookies.get('twitch_token')?.value;
@@ -35,34 +17,48 @@ export async function POST(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { key, asset } = await req.json();
+    const { name, type, data, key } = await req.json();
+    if (!data || !key) return NextResponse.json({ error: 'Missing data' }, { status: 400 });
 
+    // 1. Upload to Storage
+    const fileName = `${userId}/${key}_${Date.now()}_${name}`;
+    const fileBuffer = Buffer.from(data, 'base64');
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('overlays')
+      .upload(fileName, fileBuffer, {
+        contentType: type,
+        upsert: true
+      });
+
+    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('overlays')
+      .getPublicUrl(fileName);
+
+    // 2. Update assets in DB
     const { data: configs } = await supabase
       .from('overlay_configs')
-      .select('settings, assets, trigger')
+      .select('settings, assets')
       .eq('user_id', userId);
     
     const current = configs && configs.length > 0 ? configs[0] : null;
+    const newAssets = { ...(current?.assets || {}), [key]: publicUrl };
 
-    const baseAssets = current?.assets || {};
-    const newAssets = { ...baseAssets, [key]: asset };
-
-    const { error } = await supabase
+    await supabase
       .from('overlay_configs')
       .upsert({ 
         user_id: userId, 
         assets: newAssets,
         settings: current?.settings || {},
-        trigger: current?.trigger || {},
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, url: publicUrl });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

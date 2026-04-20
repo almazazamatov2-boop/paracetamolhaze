@@ -308,13 +308,24 @@
                 try {
                     const res = await fetch('/api/ov_upload', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ asset: reader.result, key })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            name: file.name, 
+                            type: file.type, 
+                            data: reader.result.split(',')[1],
+                            key: key
+                        })
                     });
-                    if (res.ok) {
-                        statusEl.textContent = '✓ Загружено'; statusEl.className = 'asset-status status-ok';
+                    const data = await res.json();
+                    if (data.url) {
+                        statusEl.textContent = '✅';
+                        loadAssetStatuses();
+                    } else {
+                        statusEl.textContent = '❌';
                     }
-                } catch (e) {}
+                } catch (e) {
+                    statusEl.textContent = '❌';
+                }
             };
             reader.readAsDataURL(file);
         }
