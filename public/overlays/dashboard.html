@@ -71,6 +71,14 @@
         
         .toast { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; padding: 12px 24px; border-radius: 8px; transform: translateY(100px); transition: 0.3s; z-index: 10000; }
         .toast.show { transform: translateY(0); }
+        input[type="number"]::-webkit-inner-spin-button, 
+        input[type="number"]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 <body>
@@ -185,17 +193,19 @@
                     </div>
                 </div>
 
-                <div class="card">
-                    <div class="card-title">Управление Символами и Звуками</div>
-                    <div class="section-scroll">
-                        <div class="nav-label" style="margin-bottom: 12px;">Символы (Выигрыш)</div>
-                        <div id="slots-symbols-container" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
-                            <!-- Symbols rows -->
+                <div class="card" style="display: flex; flex-direction: column;">
+                    <div class="card-title">Управление Ассетами</div>
+                    <div class="section-scroll" style="padding-right: 5px;">
+                        <div class="nav-label" style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                            Символы (Выигрыш)
+                            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 10px; border-radius: 4px;" onclick="addSlotSymbol()">+ ДОБАВИТЬ</button>
                         </div>
-                        <button class="btn btn-outline" style="width: 100%; margin-bottom: 32px; font-size: 11px;" onclick="addSlotSymbol()">+ ДОБАВИТЬ СИМВОЛ</button>
+                        <div id="slots-symbols-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 24px;">
+                            <!-- Symbols cards -->
+                        </div>
                         
-                        <div class="nav-label" style="margin-bottom: 12px;">Озвучка Слотов</div>
-                        <div id="slots-sounds-container" style="display: flex; flex-direction: column; gap: 10px;">
+                        <div class="nav-label" style="margin-bottom: 12px;">Озвучка</div>
+                        <div id="slots-sounds-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                             <!-- Sounds rows -->
                         </div>
                     </div>
@@ -378,15 +388,14 @@
                     sel.innerHTML = `<option value="${s.reward_id}">${s.reward_name || 'Привязанная награда'}</option>`;
                 }
 
-                // Default symbols if empty
                 if (!s.symbols || s.symbols.length === 0) {
                     slotSymbols = [
-                        { key: 'sym_cherry', name: 'Вишня', url: '/overlays/defaults/slots/cherry.png', chance: 15 },
-                        { key: 'sym_lemon', name: 'Лимон', url: '/overlays/defaults/slots/lemon.png', chance: 10 },
-                        { key: 'sym_watermelon', name: 'Арбуз', url: '/overlays/defaults/slots/watermelon.png', chance: 8 },
-                        { key: 'sym_bell', name: 'Колокольчик', url: '/overlays/defaults/slots/bell.png', chance: 5 },
-                        { key: 'sym_diamond', name: 'Алмаз', url: '/overlays/defaults/slots/diamond.png', chance: 2 },
-                        { key: 'jackpot', name: 'ДЖЕКПОТ (777)', url: '/overlays/defaults/slots/seven.png', chance: 0.1, isJackpot: true }
+                        { key: 'sym_cherry', name: 'Вишня', url: 'https://img.icons8.com/color/96/cherry.png', chance: 15 },
+                        { key: 'sym_lemon', name: 'Лимон', url: 'https://img.icons8.com/color/96/lemon.png', chance: 10 },
+                        { key: 'sym_watermelon', name: 'Арбуз', url: 'https://img.icons8.com/color/96/watermelon.png', chance: 8 },
+                        { key: 'sym_bell', name: 'Колокольчик', url: 'https://img.icons8.com/color/96/jingle-bell.png', chance: 5 },
+                        { key: 'sym_diamond', name: 'Алмаз', url: 'https://img.icons8.com/color/96/diamond.png', chance: 2 },
+                        { key: 'jackpot', name: 'ДЖЕКПОТ (777)', url: 'https://img.icons8.com/color/96/7-ball.png', chance: 0.1, isJackpot: true }
                     ];
                 } else {
                     slotSymbols = s.symbols;
@@ -401,27 +410,29 @@
         function renderSlotSymbols() {
             const container = document.getElementById('slots-symbols-container');
             container.innerHTML = slotSymbols.map((s, idx) => `
-                <div class="asset-row" style="background: var(--card); border: 1px solid var(--border); grid-template-columns: 50px 1fr 80px 100px 30px; align-items: center; gap: 4px;">
-                    <div style="padding-left: 10px; display: flex; align-items: center;"><img src="${s.url}" style="width: 32px; height: 32px; object-fit: contain;"></div>
-                    <div class="asset-info" style="padding: 12px 10px;">
-                        <div class="asset-name" style="font-size: 11px;">${s.name}</div>
-                        <div class="asset-meta" style="font-size: 9px;">${s.isJackpot ? 'ОСОБЫЙ ТИП' : 'СИМВОЛ'}</div>
+                <div class="asset-row" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px; gap: 8px; height: auto;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <img src="${s.url}" style="width: 28px; height: 28px; object-fit: contain;">
+                        <button class="btn btn-outline" style="padding: 2px; border:none; color: #ef4444; font-size: 14px; min-width: 20px; height: 20px;" onclick="removeSlotSymbol(${idx})">×</button>
                     </div>
-                    <div style="padding: 12px 0;">
-                        <label class="label" style="font-size: 8px; margin-bottom: 4px;">Шанс %</label>
-                        <input type="number" step="0.1" value="${s.chance}" onchange="updateSymbolChance(${idx}, this.value)" style="margin-bottom: 0; padding: 4px; font-size: 11px;">
+                    <div>
+                        <div class="asset-name" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.name}</div>
+                        <div class="asset-meta" style="font-size: 9px; opacity: 0.5;">${s.isJackpot ? 'ОСОБЫЙ' : 'СИМВОЛ'}</div>
                     </div>
-                    <div class="asset-action" style="padding: 12px;">
-                        <button class="file-btn" style="width: 100%; border-radius: 4px; font-size: 10px; padding: 6px;" onclick="document.getElementById('file-slot-${idx}').click()">ФОТО</button>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        <div style="flex: 1;">
+                            <input type="number" step="0.1" value="${s.chance}" onchange="updateSymbolChance(${idx}, this.value)" 
+                                   style="margin-bottom: 0; padding: 4px 8px; font-size: 11px; text-align: center; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: var(--accent); font-weight: bold;" placeholder="%">
+                        </div>
+                        <button class="btn btn-outline" style="padding: 4px 8px; font-size: 9px; flex: 1;" onclick="document.getElementById('file-slot-${idx}').click()">ФОТО</button>
                         <input type="file" id="file-slot-${idx}" hidden onchange="uploadSlotSymbolFile(this, ${idx})">
                     </div>
-                    <button class="btn btn-outline" style="padding: 4px; border-color: #ef4444; color: #ef4444; font-size: 14px; margin-right: 8px;" onclick="removeSlotSymbol(${idx})">×</button>
                 </div>
             `).join('');
         }
 
         function addSlotSymbol() {
-            slotSymbols.push({ key: 'sym_' + Date.now(), name: 'Новый символ', url: 'https://cdn-icons-png.flaticon.com/512/1135/1135520.png', chance: 1.0 });
+            slotSymbols.push({ key: 'sym_' + Date.now(), name: 'Новый символ', url: 'https://img.icons8.com/color/96/cherry.png', chance: 1.0 });
             renderSlotSymbols();
         }
 
@@ -440,20 +451,24 @@
             ];
             const container = document.getElementById('slots-sounds-container');
             container.innerHTML = sounds.map(s => `
-                <div class="asset-row" style="background: var(--card); border: 1px solid var(--border); grid-template-columns: 36px 1fr 110px;">
-                    <div class="asset-type-icon" style="font-size: 14px;">🔊</div>
-                    <div class="asset-info" style="padding: 12px 16px;">
-                        <div class="asset-name" style="font-size: 12px;">${s.name}</div>
-                        <div id="status-slot-${s.id}" class="asset-status ${slotAssets[s.id] ? '' : 'none'}" style="margin-top: 2px;">
-                            ${slotAssets[s.id] ? '✓ Загружено' : 'Дефолт'}
-                        </div>
+                <div class="asset-row" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); display: flex; align-items: center; padding: 8px 12px; gap: 10px;">
+                    <div style="cursor: pointer; font-size: 14px; opacity: 0.8;" onclick="previewSlotSound('${s.id}')" title="Прослушать">🔊</div>
+                    <div style="flex: 1; overflow: hidden;">
+                        <div class="asset-name" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.name}</div>
+                        <div class="asset-meta" style="font-size: 9px; opacity: 0.5;">${slotAssets[s.id] ? '✓ Свой' : 'Дефолт'}</div>
                     </div>
-                    <div class="asset-action" style="padding: 12px;">
-                        <button class="file-btn" style="width: 100%; border-radius: 4px;" onclick="document.getElementById('file-snd-${s.id}').click()">ЗВУК</button>
-                        <input type="file" id="file-snd-${s.id}" hidden onchange="uploadSlotSoundFile(this, '${s.id}')">
-                    </div>
+                    <button class="btn btn-outline" style="padding: 4px 8px; font-size: 9px;" onclick="document.getElementById('file-snd-${s.id}').click()">ЗВУК</button>
+                    <input type="file" id="file-snd-${s.id}" hidden onchange="uploadSlotSoundFile(this, '${s.id}')">
                 </div>
             `).join('');
+        }
+
+        function previewSlotSound(id) {
+            const url = slotAssets[id];
+            if (!url) { showToast('Это стандартный звук'); return; }
+            const a = new Audio(url);
+            a.volume = 0.5;
+            a.play().catch(e => showToast('Ошибка звука', true));
         }
 
         function updateSymbolChance(idx, val) { slotSymbols[idx].chance = parseFloat(val); }
