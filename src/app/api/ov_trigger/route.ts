@@ -14,12 +14,28 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('overlay_configs')
-    .select('assets')
+    .select('assets, trigger')
     .eq('user_id', userId)
     .maybeSingle();
 
-  if (error || !data || !data.assets) return NextResponse.json(null);
+  if (error || !data) return NextResponse.json(null);
+
+  // Try to find trigger in 'trigger' column or 'assets.last_trigger'
+  let trigger = data.trigger;
+  if (!trigger || Object.keys(trigger).length === 0) {
+    trigger = data.assets?.last_trigger;
+  }
   
-  // Return the trigger stored inside assets
-  return NextResponse.json(data.assets.last_trigger || null);
+  if (typeof trigger === 'string') {
+    try { trigger = JSON.parse(trigger); } catch (e) {}
+  }
+
+  return new NextResponse(JSON.stringify(trigger || null), {
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    }
+  });
 }

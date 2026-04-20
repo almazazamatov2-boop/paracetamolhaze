@@ -323,9 +323,11 @@
                 const res = await fetch(`/api/ov_trigger?userId=${userId}&t=${Date.now()}`);
                 const data = await res.json();
                 if (data && data.triggerId && data.triggerId !== lastTriggerId) {
-                    const oldId = lastTriggerId;
+                    const isFresh = data.timestamp && (Date.now() - data.timestamp < 10000);
                     lastTriggerId = data.triggerId;
-                    if (!isInitial) animate(data);
+                    
+                    // If it's the initial call, only animate if it happened in the last 10 seconds
+                    if (!isInitial || isFresh) animate(data);
                 }
             } catch (e) { }
         }
@@ -397,7 +399,7 @@
             loadAssets();
             loadSettings();
             checkTrigger(true); // Prime initial state
-            setInterval(() => checkTrigger(false), 2000);
+            setInterval(() => checkTrigger(false), 1500);
         }
     </script>
 </body>
