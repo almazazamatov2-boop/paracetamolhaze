@@ -58,36 +58,34 @@ export async function POST(req: NextRequest) {
     const twitchRewardId = event.reward.id;
     const twitchRewardTitle = (event.reward.title || "").toString().trim().toLowerCase();
 
-    // Match by ID primarily, fallback to Name (like in original overlayroll)
+    // Match by ID primarily, fallback to Name
     const isMatch = (dbRewardId && dbRewardId === twitchRewardId) || 
                     (!dbRewardId && dbRewardName === twitchRewardTitle);
+
+    // Diagnostics: ALWAYS update updated_at so USER can see if webhook was reached
+    let writeData: any = { 
+        user_id: streamerId, 
+        updated_at: new Date().toISOString() 
+    };
 
     if (isMatch) {
       const match = userMessage.match(/\d+/);
       const userChoice = match ? parseInt(match[0]) : null;
       
       if (userChoice !== null) {
-        // Create payload IMMEDIATELY without waiting for secondary Twitch API calls
         const payload = {
           triggerId: Math.random().toString(36).substring(7),
           userName,
-          userAvatar: `https://avatar.t.61.gd/a/${userName}?size=100`, // Rapid fallback avatar
+          userAvatar: `https://avatar.t.61.gd/a/${userName}?size=100`,
           userChoice,
           timestamp: Date.now()
         };
-        
-        const updatedAssets = { ...assets, last_trigger: payload };
-
-        await supabase
-          .from('overlay_configs')
-          .upsert({ 
-            user_id: streamerId, 
-            assets: updatedAssets,
-            settings: settings,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'user_id' });
+        writeData.assets = { ...assets, last_trigger: payload };
       }
     }
+    
+    // Perform the update
+    await supabase.from('overlay_configs').upsert(writeData, { onConflict: 'user_id' });
   }
 
   return new Response(JSON.stringify({ ok: true }), { status: 200 });

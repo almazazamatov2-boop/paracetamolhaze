@@ -408,7 +408,6 @@
                 // Small delay to ensure styles/assets are ready
                 setTimeout(() => animate(data), 500);
             } else {
-                checkTrigger(true); // Prime initial state
                 setInterval(() => checkTrigger(false), 1500);
             }
         }
