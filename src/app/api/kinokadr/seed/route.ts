@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-const KP_API_KEY = '9376200e-5090-448f-93f2-4e8b4ccbde6b';
+const KP_API_KEY = '5ee2ab49-8a04-436d-ae88-cf6943b51018';
 const TMDB_API_KEY = '9e9d7b3624dc47777670354ef25f3cfe';
 const KP_BASE = 'https://kinopoiskapiunofficial.tech/api';
 const TMDB_BASE = 'https://api.themoviedb.org/3';

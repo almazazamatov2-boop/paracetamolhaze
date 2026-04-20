@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const API_KEY = '9376200e-5090-448f-93f2-4e8b4ccbde6b'
+const API_KEY = '5ee2ab49-8a04-436d-ae88-cf6943b51018'
 const BASE = 'https://kinopoiskapiunofficial.tech/api'
 
 const supabase = createClient(
