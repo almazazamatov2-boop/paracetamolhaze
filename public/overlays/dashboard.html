@@ -26,9 +26,9 @@
         .logo { font-size: 20px; font-weight: 800; color: var(--accent); letter-spacing: 1px; margin-bottom: 40px; }
         .nav-section { margin-bottom: 32px; }
         .nav-label { font-size: 10px; text-transform: uppercase; color: var(--text-dim); letter-spacing: 1.5px; margin-bottom: 16px; display: block; }
-        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.2s; margin-bottom: 4px; }
+        .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; color: var(--text-dim); text-decoration: none; font-size: 14px; transition: 0.2s; margin-bottom: 4px; border: none; background: transparent; width: 100%; cursor: pointer; text-align: left; }
         .nav-item:hover, .nav-item.active { background: rgba(147, 51, 234, 0.1); color: var(--text); }
-        .nav-item svg { width: 18px; opacity: 0.7; }
+        .nav-item svg { width: 18px; opacity: 0.7; pointer-events: none; }
         .user-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); padding: 16px; border-radius: 12px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
         .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: #1c1c21; }
         .user-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -57,7 +57,6 @@
         .btn-outline { background: transparent; border: 1px solid var(--border); color: #fff; }
         .btn-outline:hover { background: var(--border); }
 
-        /* --- ASSET UI (FIXED) --- */
         .asset-row { background: #1c1c21; padding: 16px; border-radius: 10px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid transparent; transition: 0.2s; }
         .asset-row:hover { border-color: rgba(255,255,255,0.05); }
         .asset-info { flex: 1; }
@@ -71,14 +70,6 @@
         
         .toast { position: fixed; bottom: 24px; right: 24px; background: var(--accent); color: #fff; padding: 12px 24px; border-radius: 8px; transform: translateY(100px); transition: 0.3s; z-index: 10000; }
         .toast.show { transform: translateY(0); }
-        input[type="number"]::-webkit-inner-spin-button, 
-        input[type="number"]::-webkit-outer-spin-button { 
-            -webkit-appearance: none; 
-            margin: 0; 
-        }
-        input[type="number"] {
-            -moz-appearance: textfield;
-        }
     </style>
 </head>
 <body>
@@ -94,14 +85,10 @@
         </div>
         <div class="nav-section">
             <span class="nav-label">Оверлеи</span>
-            <a href="#" id="nav-roll" class="nav-item active" onclick="switchView('fate')">
+            <button class="nav-item active" onclick="location.reload()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                 РОЛЛ
-            </a>
-            <a href="#" id="nav-slots" class="nav-item" onclick="switchView('slots')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                СЛОТЫ
-            </a>
+            </button>
         </div>
         <div class="nav-section">
             <span class="nav-label">Аккаунт</span>
@@ -117,7 +104,7 @@
     </div>
 
     <div class="content">
-        <div class="header"><h2 id="page-title">ДАШБОРД — РОЛЛ</h2></div>
+        <div class="header"><h2>ДАШБОРД — РОЛЛ</h2></div>
         
         <div id="roll-view">
             <div class="main-grid">
@@ -159,7 +146,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     <div id="toast" class="toast"></div>
@@ -176,42 +162,29 @@
             { id: 'sound_out', name: 'Звук исчезновения', meta: 'Длительность: 1 сек' }
         ];
 
-        let currentOverlayType = 'fate';
-        let slotSymbols = [];
-        let slotAssets = {};
-
-        function switchView(type) {
-            currentOverlayType = type;
-            document.getElementById('roll-view').style.display = type === 'fate' ? 'block' : 'none';
-            document.getElementById('slots-view').style.display = type === 'slots' ? 'block' : 'none';
-            document.getElementById('nav-roll').classList.toggle('active', type === 'fate');
-            document.getElementById('nav-slots').classList.toggle('active', type === 'slots');
-            document.getElementById('page-title').textContent = type === 'fate' ? 'ДАШБОРД — РОЛЛ' : 'ДАШБОРД — СЛОТЫ';
-            
-            fetchRewards();
-            if (type === 'slots') loadSlotsConfig();
-        }
-
         async function init() {
             try {
                 const res = await fetch('/api/auth/me');
                 const data = await res.json();
                 if (!data.id) { window.location.href = '/auth/twitch'; return; }
                 currentUser = data;
+                
                 document.getElementById('username').textContent = data.display_name;
                 document.getElementById('user-avatar').src = data.profile_image_url;
                 document.getElementById('obs-url').textContent = `${window.location.origin}/overlays/roll.html?id=${data.id}`;
-                document.getElementById('obs-url-slots').textContent = `${window.location.origin}/overlays/slots.html?id=${data.id}`;
                 
                 renderAssets();
                 loadSettings();
                 loadAssetStatuses();
                 fetchRewards();
-            } catch (e) { window.location.href = '/auth/twitch'; }
+            } catch (e) { 
+                console.error('Init error:', e);
+            }
         }
 
         function renderAssets() {
             const container = document.getElementById('asset-list');
+            if(!container) return;
             container.innerHTML = assetTemplates.map(a => `
                 <div class="asset-row">
                     <div class="asset-info">
@@ -229,6 +202,7 @@
         }
 
         async function loadSettings() {
+            if(!currentUser) return;
             try {
                 const res = await fetch(`/api/ov_settings?userId=${currentUser.id}`);
                 const s = await res.json();
@@ -237,8 +211,10 @@
                     const sel = document.getElementById('reward-select');
                     sel.innerHTML = `<option value="${s.reward_id}">${s.reward_name || 'Привязанная награда'}</option>`;
                 }
-                f.min_val.value = s.min_val || 1;
-                f.max_val.value = s.max_val || 100;
+                if(f) {
+                    f.min_val.value = s.min_val || 1;
+                    f.max_val.value = s.max_val || 100;
+                }
             } catch (e) {}
         }
 
@@ -246,21 +222,12 @@
             try {
                 const res = await fetch('/api/ov_rewards');
                 const rewards = await res.json();
+                const sel = document.getElementById('reward-select');
+                if(!sel) return;
                 
-                const selRoll = document.getElementById('reward-select');
-                const selSlots = document.getElementById('slots-reward-select');
-                
-                const curRoll = selRoll.value;
-                const curSlots = selSlots.value;
-
-                const html = '<option value="">Выберите награду...</option>' + 
-                    rewards.map(r => `<option value="${r.id}" ${r.id === (currentOverlayType === 'fate' ? curRoll : curSlots) ? 'selected' : ''}>${r.title}</option>`).join('');
-                
-                selRoll.innerHTML = html;
-                selSlots.innerHTML = html;
-                
-                if (currentOverlayType === 'fate') selRoll.value = curRoll;
-                else selSlots.value = curSlots;
+                const cur = sel.value;
+                sel.innerHTML = '<option value="">Выберите награду...</option>' + 
+                    rewards.map(r => `<option value="${r.id}" ${r.id === cur ? 'selected' : ''}>${r.title}</option>`).join('');
             } catch (e) {}
         }
 
@@ -276,7 +243,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        reward_id: f.reward_id.value,
+                        reward_id: sel.value,
                         reward_name: opt ? opt.textContent : '',
                         min_val: f.min_val.value, max_val: f.max_val.value
                     })
@@ -313,6 +280,7 @@
         }
 
         async function loadAssetStatuses() {
+            if(!currentUser) return;
             try {
                 const res = await fetch(`/api/ov_upload?userId=${currentUser.id}`);
                 const assets = await res.json();
@@ -326,179 +294,18 @@
             } catch (e) {}
         }
 
-        async function loadSlotsConfig() {
-            try {
-                const res = await fetch(`/api/ov_settings?userId=${currentUser.id}&type=slots`);
-                const s = await res.json();
-                
-                if (s.reward_id) {
-                    const sel = document.getElementById('slots-reward-select');
-                    sel.innerHTML = `<option value="${s.reward_id}">${s.reward_name || 'Привязанная награда'}</option>`;
-                }
-
-                if (!s.symbols || s.symbols.length === 0) {
-                    slotSymbols = [
-                        { key: 'sym_apple', name: 'Яблоко', url: 'https://img.icons8.com/color/96/apple.png', chance: 15 },
-                        { key: 'sym_lemon', name: 'Лимон', url: 'https://img.icons8.com/color/96/lemon.png', chance: 10 },
-                        { key: 'sym_cherry', name: 'Вишня', url: 'https://img.icons8.com/color/96/cherry.png', chance: 8 },
-                        { key: 'sym_bell', name: 'Колокольчик', url: 'https://img.icons8.com/color/96/jingle-bell.png', chance: 5 },
-                        { key: 'jackpot', name: 'ДЖЕКПОТ (777)', url: 'https://img.icons8.com/color/96/7-ball.png', chance: 0.1, isJackpot: true }
-                    ];
-                } else {
-                    slotSymbols = s.symbols;
-                }
-
-                slotAssets = s.assets || {};
-                renderSlotSymbols();
-                renderSlotSounds();
-            } catch (e) {}
-        }
-
-        function renderSlotSymbols() {
-            const container = document.getElementById('slots-symbols-container');
-            container.innerHTML = slotSymbols.map((s, idx) => `
-                <div class="asset-row" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px; gap: 8px; height: auto;">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <img src="${s.url}" style="width: 28px; height: 28px; object-fit: contain;">
-                        <button class="btn btn-outline" style="padding: 2px; border:none; color: #ef4444; font-size: 14px; min-width: 20px; height: 20px;" onclick="removeSlotSymbol(${idx})">×</button>
-                    </div>
-                    <div>
-                        <div class="asset-name" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.name}</div>
-                        <div class="asset-meta" style="font-size: 9px; opacity: 0.5;">${s.isJackpot ? 'ОСОБЫЙ' : 'СИМВОЛ'}</div>
-                    </div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <div style="flex: 1;">
-                            <input type="number" step="0.1" value="${s.chance}" onchange="updateSymbolChance(${idx}, this.value)" 
-                                   style="margin-bottom: 0; padding: 4px 8px; font-size: 11px; text-align: center; background: rgba(0,0,0,0.2); border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); color: var(--accent); font-weight: bold;" placeholder="%">
-                        </div>
-                        <button class="btn btn-outline" style="padding: 4px 8px; font-size: 9px; flex: 1;" onclick="document.getElementById('file-slot-${idx}').click()">ФОТО</button>
-                        <input type="file" id="file-slot-${idx}" hidden onchange="uploadSlotSymbolFile(this, ${idx})">
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        function addSlotSymbol() {
-            slotSymbols.push({ key: 'sym_' + Date.now(), name: 'Новый символ', url: 'https://img.icons8.com/color/96/cherry.png', chance: 1.0 });
-            renderSlotSymbols();
-        }
-
-        function removeSlotSymbol(idx) {
-            slotSymbols.splice(idx, 1);
-            renderSlotSymbols();
-        }
-
-        function renderSlotSounds() {
-            const sounds = [
-                { id: 's_lever', name: 'Рычаг' },
-                { id: 's_spin', name: 'Прокрутка' },
-                { id: 's_win', name: 'Победа' },
-                { id: 's_jackpot', name: 'ДЖЕКПОТ' },
-                { id: 's_lose', name: 'Промах' }
-            ];
-            const container = document.getElementById('slots-sounds-container');
-            container.innerHTML = sounds.map(s => `
-                <div class="asset-row" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); display: flex; align-items: center; padding: 8px 12px; gap: 10px;">
-                    <div style="cursor: pointer; font-size: 14px; opacity: 0.8;" onclick="previewSlotSound('${s.id}')" title="Прослушать">🔊</div>
-                    <div style="flex: 1; overflow: hidden;">
-                        <div class="asset-name" style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${s.name}</div>
-                        <div class="asset-meta" style="font-size: 9px; opacity: 0.5;">${slotAssets[s.id] ? '✓ Свой' : 'Дефолт'}</div>
-                    </div>
-                    <button class="btn btn-outline" style="padding: 4px 8px; font-size: 9px;" onclick="document.getElementById('file-snd-${s.id}').click()">ЗВУК</button>
-                    <input type="file" id="file-snd-${s.id}" hidden onchange="uploadSlotSoundFile(this, '${s.id}')">
-                </div>
-            `).join('');
-        }
-
-        function previewSlotSound(id) {
-            const defaults = {
-                s_lever: 'https://assets.mixkit.co/active_storage/sfx/2042/2042-preview.mp3',
-                s_spin: 'https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3',
-                s_win: 'https://assets.mixkit.co/active_storage/sfx/2017/2017-preview.mp3',
-                s_jackpot: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3',
-                s_lose: 'https://assets.mixkit.co/active_storage/sfx/2004/2004-preview.mp3'
-            };
-            const url = slotAssets[id] || defaults[id];
-            if (!url) { showToast('Звук не найден'); return; }
-            const a = new Audio(url);
-            a.volume = 0.5;
-            a.play().catch(e => showToast('Ошибка звука', true));
-        }
-
-        function updateSymbolChance(idx, val) { slotSymbols[idx].chance = parseFloat(val); }
-
-        async function uploadSlotSymbolFile(input, idx) {
-            const file = input.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async () => {
-                const res = await fetch('/api/ov_upload', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key: 'slot_img_' + idx })
-                });
-                const d = await res.json();
-                if (d.url) { slotSymbols[idx].url = d.url; renderSlotSymbols(); showToast('Картинка обновлена'); }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function uploadSlotSoundFile(input, key) {
-            const file = input.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async () => {
-                const res = await fetch('/api/ov_upload', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: file.name, type: file.type, data: reader.result.split(',')[1], key })
-                });
-                const d = await res.json();
-                if (d.url) { 
-                    slotAssets[key] = d.url; 
-                    renderSlotSounds(); 
-                    showToast('Звук обновлен'); 
-                }
-            };
-            reader.readAsDataURL(file);
-        }
-
-        async function saveSlotsSettings(e) {
-            e.preventDefault();
-            const btn = document.getElementById('save-slots-btn');
-            const sel = document.getElementById('slots-reward-select');
-            const opt = sel.options[sel.selectedIndex];
-            btn.style.opacity = '0.5'; btn.textContent = '...';
-            try {
-                await fetch('/api/ov_settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'slots',
-                        settings: {
-                            reward_id: sel.value,
-                            reward_name: opt ? opt.textContent : '',
-                            symbols: slotSymbols,
-                            assets: slotAssets
-                        }
-                    })
-                });
-                showToast('Настройки Слотов сохранены');
-            } catch (e) { showToast('Ошибка!', true); }
-            finally { btn.style.opacity = '1'; btn.textContent = 'СОХРАНИТЬ ВСЁ'; }
-        }
-
-        function copyUrl(type = 'fate') {
-            const id = type === 'fate' ? 'obs-url' : 'obs-url-slots';
-            const url = document.getElementById(id).textContent;
+        function copyUrl() {
+            const url = document.getElementById('obs-url').textContent;
             navigator.clipboard.writeText(url);
             showToast('Скопировано');
         }
 
-        async function testOverlay(type = 'fate') {
+        async function testOverlay() {
             try { 
                 await fetch('/api/ov_test', { 
                     method: 'POST', 
                     headers: {'Content-Type': 'application/json'}, 
-                    body: JSON.stringify({ type }) 
+                    body: JSON.stringify({ type: 'fate' }) 
                 }); 
                 showToast('Тест запущен'); 
             }
