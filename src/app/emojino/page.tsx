@@ -210,40 +210,40 @@ function EmojinoContent() {
           {screen === 'home' && (
             <motion.div 
               key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-16 items-center"
+              className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center"
             >
               {/* Left Column: Title & Buttons */}
-              <div className="lg:col-span-5 space-y-10">
+              <div className="lg:col-span-6 space-y-12">
                 <div className="space-y-0 py-2">
-                   <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent leading-[0.9] uppercase italic">
+                   <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent leading-[0.85] uppercase italic drop-shadow-2xl">
                       УГАДАЙ<br />ЭМОДЗИ
                    </h1>
                 </div>
 
-                <div className="grid grid-cols-1 gap-5">
+                <div className="grid grid-cols-1 gap-4">
                   {[
-                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-10 h-10" />, c: 'from-purple-600 to-indigo-800' },
-                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-10 h-10" />, c: 'from-amber-500 to-orange-700' },
-                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-10 h-10" />, c: 'from-emerald-600 to-teal-900' }
+                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-9 h-9" />, c: 'from-purple-600 to-indigo-800' },
+                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-9 h-9" />, c: 'from-amber-500 to-orange-700' },
+                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-9 h-9" />, c: 'from-emerald-600 to-teal-900' }
                   ].map((item) => (
                     <button 
                       key={item.m} onClick={() => startNewGame(item.m)} 
-                      className={`group relative w-full h-28 border border-white/10 rounded-[2.5rem] p-8 flex items-center gap-8 transition-all hover:scale-[1.03] active:scale-[0.98] shadow-2xl bg-gradient-to-br ${item.c}`}
+                      className={`group relative w-full h-24 border border-white/10 rounded-[2rem] p-8 flex items-center gap-6 transition-all hover:scale-[1.03] active:scale-[0.98] shadow-2xl bg-gradient-to-br ${item.c}`}
                     >
-                      <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:rotate-6 transition-all">
+                      <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:rotate-6 transition-all">
                         {item.i}
                       </div>
-                      <h3 className="text-4xl font-black tracking-tighter uppercase text-white italic flex-1 text-left">
+                      <h3 className="text-3xl font-black tracking-tighter uppercase text-white italic flex-1 text-left">
                         {item.t}
                       </h3>
-                      <ChevronRight className="w-8 h-8 text-white/50 group-hover:translate-x-2 transition-all" />
+                      <ChevronRight className="w-7 h-7 text-white/50 group-hover:translate-x-2 transition-all" />
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Right Column: Leaderboard */}
-              <div className="lg:col-span-7 bg-[#0c0c0e]/50 backdrop-blur-3xl border border-white/[0.06] rounded-[3.5rem] p-10 flex flex-col h-[600px] shadow-2xl relative overflow-hidden">
+              <div className="lg:col-span-6 bg-[#0c0c0e]/50 backdrop-blur-3xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[520px] shadow-2xl relative overflow-hidden">
                  <div className="flex items-center justify-between mb-8">
                     <div className="flex items-center gap-4">
                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
