@@ -7,13 +7,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0f1115;
-            --card: #1a1d23;
-            --accent: #6d28d9;
-            --accent-hover: #7c3aed;
-            --text: #e2e8f0;
-            --text-dim: #94a3b8;
-            --border: #2d333b;
+            --bg: #0d0f12;
+            --card: #1c1f26; /* Сделал чуть светлее для видимости границ */
+            --accent: #7c3aed;
+            --accent-hover: #8b5cf6;
+            --text: #ffffff;
+            --text-dim: #a1a1aa;
+            --border: #333a45; /* Более выраженные границы */
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,123 +21,140 @@
             background: var(--bg); 
             color: var(--text); 
             font-family: 'Inter', sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            min-height: 100vh;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 30px;
         }
 
         header {
-            padding: 15px 30px;
+            grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: var(--card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
         }
 
-        .logo { font-size: 20px; font-weight: 800; letter-spacing: -1px; }
+        .logo { font-size: 24px; font-weight: 800; }
         .logo span { color: var(--accent); }
 
-        main {
-            display: grid;
-            grid-template-columns: 350px 1fr 350px;
-            gap: 1px;
-            background: var(--border);
-            flex: 1;
-            overflow: hidden;
+        .panel { display: flex; flex-direction: column; gap: 20px; }
+        
+        .card { 
+            background: var(--card); 
+            border-radius: 20px; 
+            padding: 25px; 
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
 
-        .panel { 
-            background: var(--bg); 
-            overflow-y: auto; 
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+        h2 { font-size: 16px; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 20px; color: var(--text-dim); border-left: 3px solid var(--accent); padding-left: 12px; }
+
+        .tabs { 
+            display: flex; 
+            gap: 10px; 
+            background: #000; 
+            padding: 6px; 
+            border-radius: 12px; 
+            margin-bottom: 20px; 
         }
-
-        h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 10px; }
-
-        .tabs { display: flex; gap: 5px; background: var(--card); padding: 5px; border-radius: 10px; margin-bottom: 10px; }
         .tab { 
-            flex: 1; padding: 10px; text-align: center; cursor: pointer; border-radius: 6px; 
-            font-size: 13px; font-weight: 600; transition: all 0.2s;
+            flex: 1; padding: 12px; text-align: center; cursor: pointer; border-radius: 8px; 
+            font-size: 14px; font-weight: 700; transition: 0.3s; color: var(--text-dim);
         }
         .tab.active { background: var(--accent); color: white; }
 
-        .card { background: var(--card); border-radius: 12px; padding: 20px; border: 1px solid var(--border); }
-        .input-group { margin-bottom: 15px; }
-        label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 6px; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; font-weight: 600; }
         input, select { 
-            width: 100%; background: #000; border: 1px solid var(--border); 
-            color: white; padding: 10px; border-radius: 8px; font-size: 14px;
+            width: 100%; background: #0b0d10; border: 1px solid var(--border); 
+            color: white; padding: 14px; border-radius: 12px; font-size: 14px; transition: 0.2s;
         }
-        button {
-            width: 100%; padding: 12px; border-radius: 8px; border: none; 
-            font-weight: 700; cursor: pointer; transition: 0.2s;
-        }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-primary:hover { background: var(--accent-hover); }
-        .btn-secondary { background: #333; color: white; margin-top: 10px; }
+        input:focus { border-color: var(--accent); outline: none; }
 
-        /* Symbols Manager */
-        .symbol-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .symbol-item { 
-            background: #000; border: 1px solid var(--border); border-radius: 10px; padding: 10px;
-            position: relative; text-align: center;
+        button {
+            width: 100%; padding: 16px; border-radius: 12px; border: none; 
+            font-weight: 800; cursor: pointer; transition: 0.3s; font-size: 14px;
         }
-        .symbol-item img { width: 60px; height: 60px; object-fit: contain; margin-bottom: 5px; }
-        .symbol-item .chance { font-size: 11px; color: var(--accent); font-weight: 700; }
-        .symbol-item .remove { 
-            position: absolute; top: 5px; right: 5px; background: rgba(255,0,0,0.5); 
-            width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; 
-            justify-content: center; cursor: pointer; font-size: 10px;
-        }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), #5b21b6); color: white; margin-bottom: 15px; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(124, 58, 237, 0.4); }
+        .btn-secondary { background: #262a33; color: white; }
+        .btn-secondary:hover { background: #323742; }
 
         .copy-box { 
-            background: #000; padding: 10px; border-radius: 8px; font-family: monospace; 
-            font-size: 11px; word-break: break-all; margin-top: 5px;
-            cursor: pointer; position: relative;
+            background: #000; padding: 15px; border-radius: 12px; font-family: monospace; 
+            font-size: 12px; word-break: break-all; margin-top: 10px;
+            cursor: pointer; position: relative; border: 1px dashed #444; color: var(--accent);
         }
 
-        .sound-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-        .sound-row span { font-size: 13px; }
-        .sound-status { color: #22c55e; font-size: 12px; display: none; }
-        .sound-status.active { display: block; }
+        /* Symbols */
+        .symbol-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 15px; }
+        .symbol-item { 
+            background: #0b0d10; border: 1px solid var(--border); border-radius: 15px; padding: 15px;
+            position: relative; text-align: center; transition: 0.2s;
+        }
+        .symbol-item:hover { border-color: var(--accent); }
+        .symbol-item img { width: 70px; height: 70px; object-fit: contain; margin-bottom: 10px; }
+        .symbol-item .chance { font-size: 12px; color: var(--accent); font-weight: 800; }
+        .symbol-item .remove { 
+            position: absolute; top: 8px; right: 8px; background: rgba(239, 68, 68, 0.2); 
+            color: #ef4444; width: 24px; height: 24px; border-radius: 8px; display: flex; 
+            align-items: center; justify-content: center; cursor: pointer; font-size: 14px;
+        }
+
+        .sound-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .sound-row { 
+            display: flex; align-items: center; justify-content: space-between; 
+            padding: 12px; background: #0b0d10; border-radius: 10px; font-size: 13px;
+        }
+        .sound-status { background: #22c55e; width: 8px; height: 8px; border-radius: 50%; display: none; }
+        .sound-status.active { display: block; box-shadow: 0 0 10px #22c55e; }
 
         .hidden { display: none; }
+
+        .section-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
     </style>
 </head>
 <body>
 
     <header>
         <div class="logo">PARACETAMOL <span>HAZE</span></div>
-        <div id="user-info" style="font-size: 13px; color: var(--text-dim);">Загрузка...</div>
+        <div id="user-info" style="font-size: 14px; font-weight: 600; color: var(--accent);">Загрузка...</div>
     </header>
 
-    <main>
-        <!-- LEFT: LINK & REWARD -->
+    <div class="container">
+        <!-- LEFT PANEL: SETTINGS -->
         <div class="panel">
-            <h2>Оверлей</h2>
-            <div class="tabs">
-                <div class="tab active" onclick="switchMode('fate')">FATE/ROLL</div>
-                <div class="tab" onclick="switchMode('slots')">SLOTS 3D</div>
-            </div>
-
             <div class="card">
-                <label>OBS Ссылка</label>
-                <div class="copy-box" id="obs-link" onclick="copyLink()">https://paracetamolhaze.vercel.app/overlays/roll.html?id=...</div>
-            </div>
-
-            <div class="card">
-                <h2>Настройка Награды</h2>
-                <div class="input-group">
-                    <label>ID Награды (Twitch)</label>
-                    <input type="text" id="reward-id" placeholder="0000-0000-0000">
+                <h2>Режим Оверлея</h2>
+                <div class="tabs">
+                    <div class="tab active" id="tab-fate" onclick="switchMode('fate')">FATE</div>
+                    <div class="tab" id="tab-slots" onclick="switchMode('slots')">SLOTS</div>
                 </div>
-                <div id="fate-settings">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+
+                <label>OBS Ссылка (Скопируй в источник)</label>
+                <div class="copy-box" id="obs-link" onclick="copyLink()">https://paracetamolhaze.vercel.app/overlays/...</div>
+            </div>
+
+            <div class="card">
+                <h2>Twitch Настройка</h2>
+                <div class="input-group">
+                    <label>ID Награды (Rewards)</label>
+                    <input type="text" id="reward-id" placeholder="0000-0000-0000...">
+                </div>
+                
+                <div id="fate-specific">
+                    <div class="section-split">
                         <div class="input-group">
                             <label>Мин. Число</label>
                             <input type="number" id="min-val" value="1">
@@ -148,95 +165,81 @@
                         </div>
                     </div>
                 </div>
-                <button class="btn-primary" onclick="saveSettings()">СОХРАНИТЬ ВСЁ</button>
-                <button class="btn-secondary" onclick="testTrigger()">ТЕСТ</button>
-            </div>
-        </div>
 
-        <!-- MIDDLE: SYMBOLS -->
-        <div class="panel" id="mid-panel">
-            <div id="fate-assets">
-                <h2>Звуки Roll</h2>
-                <div class="card">
-                    <div class="sound-row"><span>Появление (1 сек)</span><div class="sound-status" id="st-s_in">✔</div></div>
-                    <div class="sound-row"><span>Рандом (3 сек)</span><div class="sound-status" id="st-s_roll">✔</div></div>
-                    <div class="sound-row"><span>Победа (2 сек)</span><div class="sound-status" id="st-s_win">✔</div></div>
-                    <div class="sound-row"><span>Проигрыш (2 сек)</span><div class="sound-status" id="st-s_lose">✔</div></div>
-                    <div class="sound-row"><span>Исчезновение (1 сек)</span><div class="sound-status" id="st-s_out">✔</div></div>
-                    <div class="input-group" style="margin-top:15px;">
-                        <label>Загрузить звук</label>
-                        <select id="sound-slot">
-                            <option value="s_in">Появление</option>
-                            <option value="s_roll">Рандом</option>
-                            <option value="s_win">Победа</option>
-                            <option value="s_lose">Проигрыш</option>
-                            <option value="s_out">Исчезновение</option>
-                        </select>
-                        <input type="file" id="sound-upload" accept="audio/*" onchange="uploadAsset('sound')" style="margin-top:10px;">
-                    </div>
-                </div>
-            </div>
-
-            <div id="slots-assets" class="hidden">
-                <h2>Jackpot Symbol</h2>
-                <div class="card">
-                    <div style="text-align:center; margin-bottom:10px;">
-                        <img id="jp-img" src="/overlays/defaults/slots/seven.png" style="width:80px; height:80px; object-fit:contain;">
-                    </div>
+                <div id="slots-specific" class="hidden">
                     <div class="input-group">
-                        <label>Картинка Джекпота (777)</label>
-                        <input type="file" id="jp-upload" accept="image/*" onchange="uploadAsset('jp-img')">
-                    </div>
-                    <div class="input-group">
-                        <label>Шанс на Джекпот (%)</label>
+                        <label>Шанс Джекпота (%)</label>
                         <input type="number" id="jp-chance" value="0.1" step="0.1">
                     </div>
                 </div>
 
-                <h2 style="margin-top:20px;">Symbol Manager</h2>
-                <div class="card">
-                    <div class="symbol-grid" id="slots-symbols"></div>
-                    <div class="input-group" style="margin-top:20px;">
-                        <label>Добавить выигрышный символ</label>
-                        <input type="number" id="new-sym-chance" placeholder="Шанс выигрыша %" value="2">
-                        <input type="file" id="sym-upload" accept="image/*" onchange="uploadSymbol()">
-                    </div>
+                <button class="btn-primary" onclick="saveSettings()">СОХРАНИТЬ ВСЁ</button>
+                <button class="btn-secondary" onclick="testTrigger()">ТЕСТОВЫЙ ЗАПУСК</button>
+            </div>
+
+            <div class="card">
+                <h2>Помощь</h2>
+                <div style="font-size: 13px; color: var(--text-dim); line-height: 1.6;">
+                    <p>• Настрой награду в Twitch и впиши её ID.</p>
+                    <p>• Для Слотов: Шанс 1% означает выигрыш в 1 из 100 раз.</p>
+                    <p>• Если нет своих картинок, будут стандартные.</p>
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT: SLOTS SOUNDS & INFO -->
+        <!-- RIGHT PANEL: ASSETS -->
         <div class="panel">
-            <div id="slots-sounds" class="hidden">
-                <h2>Звуки Slots</h2>
+            <!-- SLOT SYMBOLS SECTION -->
+            <div id="slots-assets" class="hidden">
+                <div class="card" style="margin-bottom: 20px;">
+                    <h2>Символ Джекпота (777)</h2>
+                    <div style="display: flex; align-items: center; gap: 30px;">
+                        <img id="jp-img" src="/overlays/defaults/slots/seven.png" style="width:100px; height:100px; object-fit:contain; background: #000; border-radius: 12px; padding: 5px;">
+                        <div style="flex:1;">
+                            <label>Загрузить свою картинку</label>
+                            <input type="file" accept="image/*" onchange="uploadAsset('jp-img', this)">
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card">
-                    <div class="sound-row"><span>Рычаг</span><div class="sound-status" id="st-s_lever">✔</div></div>
-                    <div class="sound-row"><span>Прокрутка</span><div class="sound-status" id="st-s_spin">✔</div></div>
-                    <div class="sound-row"><span>Обычный выигрыш</span><div class="sound-status" id="st-s_swin">✔</div></div>
-                    <div class="sound-row"><span>Джекпот</span><div class="sound-status" id="st-s_sjp">✔</div></div>
-                    <div class="sound-row"><span>Проигрыш</span><div class="sound-status" id="st-s_slose">✔</div></div>
-                    <div class="input-group" style="margin-top:15px;">
-                        <label>Загрузить звук</label>
-                        <select id="slot-sound-type">
-                            <option value="s_lever">Рычаг</option>
-                            <option value="s_spin">Прокрутка</option>
-                            <option value="s_win">Победа (Обычный)</option>
-                            <option value="s_jackpot">Джекпот</option>
-                            <option value="s_lose">Проигрыш</option>
-                        </select>
-                        <input type="file" id="slots-sound-upload" accept="audio/*" onchange="uploadAsset('slot-sound')">
+                    <h2>Менеджер Символов Выигрыша</h2>
+                    <div class="symbol-grid" id="slots-symbols"></div>
+                    <div style="margin-top:25px; padding-top:20px; border-top: 1px solid var(--border);">
+                        <div class="section-split">
+                            <div>
+                                <label>Шанс Выигрыша %</label>
+                                <input type="number" id="new-sym-chance" value="2">
+                            </div>
+                            <div>
+                                <label>Выбери Картинку</label>
+                                <input type="file" accept="image/*" onchange="uploadSymbol(this)">
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <h2>Помощь</h2>
-            <div class="card" style="font-size: 11px; color: var(--text-dim); line-height: 1.4;">
-                <p>• <b>Шанс:</b> Если поставишь «Лимон - 2%», то в 2 случаях из 100 выпадет три лимона.</p>
-                <p>• <b>Проигрыш:</b> Всё, что не попало в суммарный % выигрышей, будет проигрышем (три разных картинки).</p>
-                <p>• <b>Звуки:</b> Джекпот имеет отдельный звук от обычной победы.</p>
+            <!-- SOUNDS SECTION (DYNAMIC) -->
+            <div class="card">
+                <h2 id="sound-title">Звуки Roll</h2>
+                <div class="sound-list" id="sound-status-list">
+                    <!-- Будет заполнено JS -->
+                </div>
+                
+                <div class="section-split">
+                    <div>
+                        <label>Слот звука</label>
+                        <select id="sound-slot-select"></select>
+                    </div>
+                    <div>
+                        <label>Выбери Файл (mp3/wav)</label>
+                        <input type="file" accept="audio/*" onchange="uploadSound(this)">
+                    </div>
+                </div>
             </div>
         </div>
-    </main>
+    </div>
 
     <script>
         let currentMode = 'fate';
@@ -250,25 +253,54 @@
             if (user.id) {
                 currentUserId = user.id;
                 document.getElementById('user-info').textContent = user.username;
-                loadConfig();
+                switchMode('fate');
             } else { location.href = '/login'; }
         }
 
         function switchMode(mode) {
             currentMode = mode;
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tab[onclick*='${mode}']`).classList.add('active');
-            document.getElementById('obs-link').textContent = `https://paracetamolhaze.vercel.app/overlays/${mode === 'fate' ? 'roll' : 'slots'}.html?id=${currentUserId}`;
-            document.getElementById('fate-assets').classList.toggle('hidden', mode !== 'fate');
-            document.getElementById('fate-settings').classList.toggle('hidden', mode !== 'fate');
+            document.getElementById('tab-fate').className = mode === 'fate' ? 'tab active' : 'tab';
+            document.getElementById('tab-slots').className = mode === 'slots' ? 'tab active' : 'tab';
+            
+            document.getElementById('fate-specific').classList.toggle('hidden', mode !== 'fate');
+            document.getElementById('slots-specific').classList.toggle('hidden', mode !== 'slots');
             document.getElementById('slots-assets').classList.toggle('hidden', mode !== 'slots');
-            document.getElementById('slots-sounds').classList.toggle('hidden', mode !== 'slots');
+            
+            document.getElementById('sound-title').innerText = mode === 'fate' ? 'Звуки Roll' : 'Звуки Slots';
+            document.getElementById('obs-link').textContent = `https://paracetamolhaze.vercel.app/overlays/${mode === 'fate' ? 'roll' : 'slots'}.html?id=${currentUserId}`;
+            
+            rebuildSoundList();
             loadConfig();
+        }
+
+        function rebuildSoundList() {
+            const select = document.getElementById('sound-slot-select');
+            const list = document.getElementById('sound-status-list');
+            select.innerHTML = '';
+            list.innerHTML = '';
+
+            const sounds = currentMode === 'fate' ? [
+                {k:'s_in', n:'Появление'}, {k:'s_roll', n:'Рандом'}, {k:'s_win', n:'Победа'}, {k:'s_lose', n:'Проигрыш'}, {k:'s_out', n:'Исчезновение'}
+            ] : [
+                {k:'s_lever', n:'Рычаг'}, {k:'s_spin', n:'Прокрутка'}, {k:'s_win', n:'Обычная Победа'}, {k:'s_jackpot', n:'Джекпот'}, {k:'s_lose', n:'Проигрыш'}
+            ];
+
+            sounds.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.k; opt.innerText = s.n;
+                select.appendChild(opt);
+
+                const row = document.createElement('div');
+                row.className = 'sound-row';
+                row.innerHTML = `<span>${s.n}</span><div class="sound-status" id="st-${s.k}"></div>`;
+                list.appendChild(row);
+            });
         }
 
         async function loadConfig() {
             const res = await fetch(`/api/ov_settings?userId=${currentUserId}&type=${currentMode}`);
             config = await res.json();
+            
             document.getElementById('reward-id').value = config.reward_id || '';
             if (currentMode === 'fate') {
                 document.getElementById('min-val').value = config.min_val || 1;
@@ -286,16 +318,9 @@
 
         function updateStatusChecks() {
             document.querySelectorAll('.sound-status').forEach(s => s.classList.remove('active'));
-            const keys = currentMode === 'fate' 
-                ? ['s_in', 's_roll', 's_win', 's_lose', 's_out']
-                : ['s_lever', 's_spin', 's_win', 's_jackpot', 's_lose'];
-            keys.forEach(k => {
-                let el = document.getElementById(`st-${k}`);
-                if (!el && currentMode === 'slots') {
-                    if (k === 's_win') el = document.getElementById('st-s_swin');
-                    if (k === 's_jackpot') el = document.getElementById('st-s_sjp');
-                }
-                if (config[k] && el) el.classList.add('active');
+            Object.keys(config).forEach(k => {
+                const el = document.getElementById(`st-${k}`);
+                if (el && config[k]) el.classList.add('active');
             });
         }
 
@@ -313,7 +338,7 @@
                 method: 'POST',
                 body: JSON.stringify({ type: currentMode, settings })
             });
-            if (res.ok) alert('Сохранено!');
+            if (res.ok) alert('Настройки сохранены успешно!');
         }
 
         async function testTrigger() {
@@ -321,38 +346,32 @@
                 method: 'POST',
                 body: JSON.stringify({ type: currentMode })
             });
-            if (res.ok) alert('Тест отправлен!');
+            if (res.ok) alert('Тестовое событие отправлено в оверлей!');
         }
 
-        async function uploadAsset(type) {
-            let fileInput = null, key = '';
-            if (type === 'sound') { fileInput = document.getElementById('sound-upload'); key = document.getElementById('sound-slot').value; }
-            else if (type === 'slot-sound') { fileInput = document.getElementById('slots-sound-upload'); key = document.getElementById('slot-sound-type').value; }
-            else if (type === 'jp-img') { fileInput = document.getElementById('jp-upload'); key = 's_jp_img'; }
-
-            if (!fileInput || !fileInput.files[0]) return;
-            const file = fileInput.files[0];
+        async function uploadAsset(key, input) {
+            if (!input.files[0]) return;
+            const file = input.files[0];
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const base64 = e.target.result.split(',')[1];
                 const res = await fetch('/api/ov_upload', {
                     method: 'POST',
-                    body: JSON.stringify({ name: file.name, type: file.type, data: base64, key })
+                    body: JSON.stringify({ name: file.name, type: file.type, data: base64, key: key === 'jp-img' ? 's_jp_img' : key })
                 });
                 const data = await res.json();
                 if (data.url) {
-                    if (type === 'jp-img') document.getElementById('jp-img').src = data.url;
+                    if (key === 'jp-img') document.getElementById('jp-img').src = data.url;
                     loadConfig();
                 }
             };
             reader.readAsDataURL(file);
         }
 
-        async function uploadSymbol() {
-            const fileInput = document.getElementById('sym-upload');
+        async function uploadSymbol(input) {
             const chance = document.getElementById('new-sym-chance').value;
-            if (!fileInput.files[0]) return;
-            const file = fileInput.files[0];
+            if (!input.files[0]) return;
+            const file = input.files[0];
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const base64 = e.target.result.split(',')[1];
@@ -364,9 +383,15 @@
                 if (data.url) {
                     slotSymbols.push({ url: data.url, chance: chance });
                     renderSymbols();
+                    input.value = '';
                 }
             };
             reader.readAsDataURL(file);
+        }
+
+        function uploadSound(input) {
+            const key = document.getElementById('sound-slot-select').value;
+            uploadAsset(key, input);
         }
 
         function renderSymbols() {
