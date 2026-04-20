@@ -9,7 +9,9 @@ export async function POST(req: NextRequest) {
 
     const clientId = process.env.TWITCH_CLIENT_ID;
     const clientSecret = process.env.TWITCH_CLIENT_SECRET;
-    const baseUrl = req.nextUrl.origin;
+    const protocol = req.headers.get('x-forwarded-proto') || 'https';
+    const host = req.headers.get('host');
+    const callbackUrl = `${protocol}://${host}/api/ov_webhook`;
 
     // 1. Get User ID
     const authRes = await fetch('https://api.twitch.tv/helix/users', {
@@ -46,15 +48,14 @@ export async function POST(req: NextRequest) {
         condition: { broadcaster_user_id: userId },
         transport: {
           method: 'webhook',
-          callback: `${baseUrl}/api/ov_webhook`,
-          secret: clientSecret || 'fallback_secret_1234567890123'
+          callback: callbackUrl,
+          secret: clientSecret
         }
       })
     });
 
     const subData = await subRes.json();
     
-    // 409 Conflict means already subscribed, which is fine
     if (subRes.status === 409) {
         return NextResponse.json({ success: true, message: 'Already subscribed' });
     }

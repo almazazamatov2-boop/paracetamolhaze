@@ -322,9 +322,15 @@
             try {
                 const res = await fetch(`/api/ov_trigger?userId=${userId}&t=${Date.now()}`);
                 const data = await res.json();
-                if (data && data.triggerId && data.triggerId !== lastTriggerId) {
-                    lastTriggerId = data.triggerId;
-                    animate(data);
+                if (data && data.triggerId) {
+                    if (lastTriggerId === null) {
+                        lastTriggerId = data.triggerId;
+                        return;
+                    }
+                    if (data.triggerId !== lastTriggerId) {
+                        lastTriggerId = data.triggerId;
+                        animate(data);
+                    }
                 }
             } catch (e) { }
         }
