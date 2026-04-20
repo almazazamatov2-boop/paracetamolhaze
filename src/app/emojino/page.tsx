@@ -60,10 +60,10 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
         </div>
 
         <div className="flex p-2 gap-2 bg-black/40 border-b border-white/[0.06]">
-           <button onClick={() => setTab('records')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'records' ? 'bg-[#9146FF] text-white shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
+           <button onClick={() => setTab('records')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'records' ? 'bg-amber-500 text-black shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
              <Award className="w-4 h-4" /> РЕКОРДЫ
            </button>
-           <button onClick={() => setTab('history')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'history' ? 'bg-[#9146FF] text-white shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
+           <button onClick={() => setTab('history')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'history' ? 'bg-amber-500 text-black shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
              <History className="w-4 h-4" /> ИСТОРИЯ
            </button>
         </div>
@@ -72,11 +72,11 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
            {tab === 'records' ? (
              <div className="space-y-4">
                 {[
-                  { n: 'КОМБО', v: stats.all || 0, c: 'text-blue-400' },
-                  { n: 'ФИЛЬМЫ', v: stats.film || 0, c: 'text-orange-400' },
-                  { n: 'СЕРИАЛЫ', v: stats.serial || 0, c: 'text-purple-400' }
+                  { n: 'КОМБО', v: stats.all || 0, c: 'text-amber-400' },
+                  { n: 'ФИЛЬМЫ', v: stats.film || 0, c: 'text-amber-400' },
+                  { n: 'СЕРИАЛЫ', v: stats.serial || 0, c: 'text-amber-400' }
                 ].map((s, i) => (
-                  <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] group hover:bg-white/[0.04] transition-all">
+                  <div key={i} className="flex items-center justify-between p-6 rounded-3xl bg-white/[0.02] border border-white/[0.06] group hover:bg-white/[0.04] transition-all">
                      <span className={`text-xs font-black uppercase tracking-[0.2em] ${s.c}`}>{s.n}</span>
                      <span className="text-4xl font-black italic">{s.v}</span>
                   </div>
@@ -85,7 +85,7 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
            ) : (
              <div className="space-y-3">
                 {history.length > 0 ? history.map((h, i) => (
-                  <div key={i} className="flex items-center justify-between p-5 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                  <div key={i} className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
                      <div className="flex items-center gap-4">
                         <div className="text-neutral-500"><Calendar className="w-4 h-4" /></div>
                         <div>
@@ -260,7 +260,7 @@ function EmojinoContent() {
 
       {/* Header */}
       <header className="relative z-50 w-full border-b border-white/[0.06] backdrop-blur-md bg-black/40">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-6">
             {screen === 'game' && (
                <div className="flex items-center gap-4 h-10 px-4 rounded-xl bg-white/[0.04] border border-white/[0.08]">
@@ -287,12 +287,12 @@ function EmojinoContent() {
 
           <div className="flex items-center gap-2">
              {session?.user ? (
-                <button onClick={() => setIsProfileOpen(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
-                  <img src={(session.user as any).image} className="w-7 h-7 rounded-full border border-white/10" alt="" />
-                  <span className="text-[11px] font-black italic uppercase tracking-tighter">{session.user.name}</span>
+                <button onClick={() => setIsProfileOpen(true)} className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
+                  <img src={(session.user as any).image} className="w-8 h-8 rounded-full border border-white/10 group-hover:scale-110 transition-transform" alt="" />
+                  <span className="text-xs font-bold">{session.user.name}</span>
                 </button>
              ) : (
-                <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-xl h-10 px-6 text-[10px] font-black uppercase tracking-widest" onClick={() => signIn('emojino')}>
+                <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-xl h-11 px-6 text-sm font-bold shadow-lg" onClick={() => signIn('emojino')}>
                    Войти через Twitch
                 </Button>
              )}
@@ -306,66 +306,67 @@ function EmojinoContent() {
           {screen === 'home' && (
             <motion.div 
               key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center px-4"
+              className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-start pt-10"
             >
-              <div className="lg:col-span-6 space-y-10">
+              <div className="lg:col-span-5 space-y-12">
                 <div className="space-y-0 py-2">
-                   <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white to-neutral-500 bg-clip-text text-transparent leading-[0.85] uppercase italic drop-shadow-2xl">
-                      УГАДАЙ<br />ЭМОДЗИ
+                   <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-white/40 bg-clip-text text-transparent leading-none uppercase italic drop-shadow-2xl">
+                      Угадай <br/> Эмодзи
                    </h1>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 max-w-md">
+                <div className="grid grid-cols-1 gap-4">
                   {[
-                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-8 h-8" />, c: 'from-[#0088ff] to-[#0044bb]' },
-                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-8 h-8" />, c: 'from-[#ff6600] to-[#cc3300]' },
-                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-8 h-8" />, c: 'from-[#8800ff] to-[#4400bb]' }
+                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-9 h-9 text-white" />, c: 'bg-gradient-to-br from-cyan-600 to-blue-800' },
+                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-9 h-9 text-white" />, c: 'bg-gradient-to-br from-orange-500 to-red-700' },
+                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-9 h-9 text-white" />, c: 'bg-gradient-to-br from-purple-600 to-indigo-900' }
                   ].map((item) => (
                     <button 
                       key={item.m} onClick={() => startNewGame(item.m)} 
-                      className={`group relative w-full h-20 border border-white/10 rounded-2xl p-6 flex items-center gap-5 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl bg-gradient-to-br ${item.c}`}
+                      className={`group relative w-full border border-white/10 rounded-[2rem] p-8 flex items-center gap-6 transition-all hover:scale-[1.03] active:scale-[0.98] shadow-2xl ${item.c}`}
                     >
-                      <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:scale-110 transition-transform shadow-inner">
                         {item.i}
                       </div>
-                      <h3 className="text-3xl font-black tracking-tighter uppercase text-white italic transition-transform group-hover:translate-x-1">
-                        {item.t}
-                      </h3>
-                      <div className="flex-1" />
-                      <ChevronRight className="w-6 h-6 text-white/50 group-hover:translate-x-1 transition-all" />
+                      <div className="text-left flex-1">
+                        <h3 className="text-4xl font-black tracking-tighter uppercase text-white drop-shadow-md italic">
+                          {item.t}
+                        </h3>
+                      </div>
+                      <ChevronRight className="w-8 h-8 text-white/50 group-hover:text-white group-hover:translate-x-1 transition-all" />
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Right Column: Leaderboard */}
-              <div className="lg:col-span-6 bg-[#0c0c0e] border border-white/[0.06] rounded-[2.5rem] p-8 flex flex-col h-[520px] shadow-2xl relative overflow-hidden">
+              <div className="lg:col-span-7 bg-[#0c0c0e]/50 backdrop-blur-xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[600px] shadow-2xl">
                  <div className="flex items-center justify-between mb-8 px-2">
-                    <div className="flex items-center gap-3">
-                       <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-                          <Trophy className="w-5 h-5" />
+                    <div className="flex items-center gap-4">
+                       <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 flex items-center justify-center text-yellow-500 shadow-inner">
+                          <Trophy className="w-6 h-6" />
                        </div>
-                       <h2 className="text-2xl font-black uppercase italic tracking-tighter">РЕЙТИНГ</h2>
+                       <h2 className="text-3xl font-black uppercase italic tracking-tighter">РЕЙТИНГ</h2>
                     </div>
-                    <div className="flex gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.06]">
+                    <div className="flex gap-1 bg-white/[0.03] p-1 rounded-2xl border border-white/[0.06]">
                       {['all', 'film', 'serial'].map(m => (
-                          <button key={m} onClick={() => setLbMode(m)} className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${lbMode === m ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                          <button key={m} onClick={() => setLbMode(m)} className={`px-5 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${lbMode === m ? 'bg-white/10 text-white shadow-lg' : 'text-neutral-500 hover:text-neutral-300'}`}>
                             {m === 'all' ? 'КОМБО' : m === 'film' ? 'ФИЛЬМЫ' : 'СЕРИАЛЫ'}
                           </button>
                       ))}
                     </div>
                  </div>
 
-                 <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
+                 <div className="flex-1 space-y-3 overflow-y-auto pr-3 custom-scrollbar">
                     {leaderboard.map((p, i) => (
-                        <div key={i} className="flex items-center gap-5 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all group">
-                          <div className={`w-8 text-2xl font-black italic ${i < 3 ? 'text-amber-400' : 'text-neutral-700'}`}>#{i+1}</div>
-                          <img src={p.avatar} className="w-12 h-12 rounded-xl border border-white/10 group-hover:scale-105 transition-transform" alt="" />
+                        <div key={i} className="flex items-center gap-5 p-5 rounded-3xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all group">
+                          <div className={`w-10 text-2xl font-black italic ${i < 3 ? 'text-amber-400' : 'text-neutral-700'}`}>#{i+1}</div>
+                          <img src={p.avatar} className="w-14 h-14 rounded-2xl border border-white/10 group-hover:scale-110 transition-transform" alt="" />
                           <div className="flex-1 min-w-0">
                               <p className="text-lg font-black tracking-tight truncate italic leading-none">{p.username}</p>
-                              <p className="text-[10px] text-neutral-500 uppercase font-black leading-none mt-1.5">{p.mode.replace('emojino_', '')}</p>
+                              <p className="text-[10px] text-neutral-500 uppercase font-black leading-none mt-1">{p.mode.replace('emojino_', '')}</p>
                           </div>
-                          <div className="text-4xl font-black italic text-[#0088ff]">{p.score}</div>
+                          <div className="text-4xl font-black italic text-amber-400">{p.score}</div>
                         </div>
                     ))}
                  </div>
@@ -375,7 +376,7 @@ function EmojinoContent() {
 
           {screen === 'game' && gameMovies[currentIndex] && (
             <motion.div key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-2xl flex flex-col gap-6">
-              <div className="relative aspect-[21/9] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-[#0c0c0e] flex items-center justify-center p-10">
+              <div className="relative aspect-[21/9] rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl bg-[#0c0c0e] flex items-center justify-center p-10">
                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 opacity-40" />
                  <div className="relative z-10 text-5xl sm:text-6xl md:text-7xl flex items-center justify-center gap-4 flex-nowrap whitespace-nowrap overflow-hidden" style={{ fontFamily: '"Twemoji Mozilla", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}>
                     {Array.from(gameMovies[currentIndex].emoji).map((char, i) => (
@@ -383,7 +384,7 @@ function EmojinoContent() {
                     ))}
                  </div>
                  <div className="absolute top-6 left-6 z-20">
-                    <span className="px-4 py-2 rounded-xl bg-white/[0.04] backdrop-blur-md border border-white/10 text-[9px] font-black uppercase tracking-widest text-neutral-400">
+                    <span className="px-4 py-2 rounded-2xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest">
                       {gameMovies[currentIndex].type === 'film' ? 'Фильм' : 'Сериал'} • {gameMovies[currentIndex].year}
                     </span>
                  </div>
@@ -436,7 +437,7 @@ function EmojinoContent() {
                       </div>
                       <div className="text-right">
                          <p className="text-[10px] text-white/40 uppercase font-black leading-none">Баллы</p>
-                         <p className="text-3xl font-black text-amber-500 mt-1">+{state.score}</p>
+                         <p className="text-3xl font-black text-amber-400 mt-1">+{state.score}</p>
                       </div>
                    </div>
                    <Button className="w-full h-16 text-lg font-black rounded-3xl bg-white text-black hover:bg-neutral-200" onClick={nextMovie}>СЛЕДУЮЩИЙ <ChevronRight className="w-6 h-6 ml-2" /></Button>
