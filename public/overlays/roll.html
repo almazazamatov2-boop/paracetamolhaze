@@ -324,22 +324,26 @@
                 const data = await res.json();
                 console.log('Trigger poll:', data);
                 if (data && data.triggerId && data.triggerId !== lastTriggerId) {
-                    // Increased threshold to 60 seconds to account for server/client clock drift
-                    const isFresh = data.timestamp && (Math.abs(Date.now() - data.timestamp) < 60000);
                     lastTriggerId = data.triggerId;
+                    console.log('Triggering animation with ID:', lastTriggerId);
                     
-                    if (!isInitial || isFresh) {
-                        const loadingHint = document.getElementById('loading-hint');
-                        if (loadingHint) loadingHint.style.display = 'none';
-                        animate(data);
-                    }
+                    const loadingHint = document.getElementById('loading-hint');
+                    if (loadingHint) loadingHint.style.display = 'none';
+                    animate(data);
                 } else if (isInitial) {
                     // Show a hint that we are waiting
                     const hint = document.createElement('div');
                     hint.id = 'loading-hint';
-                    hint.innerHTML = 'СТАТУС: ОЖИДАНИЕ ТЕСТА...<br><small style="font-size:14px;opacity:0.8;">Кликните здесь (разрешить звук)</small>';
+                    hint.innerHTML = 'СТАТУС: ОЖИДАНИЕ ТЕСТА...<br>' + 
+                                   '<small id="debug-id" style="font-size:12px;opacity:0.6;">(Загрузка ID...)</small><br>' + 
+                                   '<small style="font-size:14px;opacity:0.8;">Кликните здесь (разрешить звук)</small>';
                     hint.style.cssText = 'position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#a855f7; font-weight:900; letter-spacing:2px; text-align:center; background: #080808; z-index:9999;';
                     document.body.appendChild(hint);
+                    
+                    if (data && data.triggerId) {
+                        const debugEl = document.getElementById('debug-id');
+                        if (debugEl) debugEl.textContent = 'Последний ID в базе: ' + data.triggerId;
+                    }
                 }
             } catch (e) { }
         }

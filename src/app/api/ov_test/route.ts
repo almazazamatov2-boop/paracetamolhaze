@@ -25,12 +25,13 @@ export async function POST(req: NextRequest) {
 
     const { data: configs } = await supabase
       .from('overlay_configs')
-      .select('settings, assets')
+      .select('settings, assets, trigger')
       .eq('user_id', userId);
 
     const config = configs && configs.length > 0 ? configs[0] : null;
     const settings: any = config?.settings || {};
     const assets: any = config?.assets || {};
+    const oldTrigger: any = config?.trigger || {};
 
     const userChoice = Math.floor(Math.random() * ((Number(settings.max_val) || 100) - (Number(settings.min_val) || 1) + 1)) + (Number(settings.min_val) || 1);
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
       isTest: true
     };
 
-    // Store trigger INSIDE assets because 'trigger' column is missing in DB
+    // Store trigger in BOTH places to be 100% sure
     const updatedAssets = { ...assets, last_trigger: payload };
 
     const { error: upsertError } = await supabase
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest) {
       .upsert({ 
         user_id: userId, 
         assets: updatedAssets,
+        trigger: payload, // Update dedicated column too
         settings: settings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
