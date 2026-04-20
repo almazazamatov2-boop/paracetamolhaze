@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     // Fetch streamer config
     const { data: configs } = await supabase
       .from('overlay_configs')
-      .select('settings, assets')
+      .select('settings, assets, trigger')
       .eq('user_id', streamerId);
 
     const config = configs && configs.length > 0 ? configs[0] : null;
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now()
         };
         
-        // Store in assets because trigger column is missing
+        // Store in BOTH places for consistency with test button and overlay logic
         const updatedAssets = { ...assets, last_trigger: payload };
 
         await supabase
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
           .upsert({ 
             user_id: streamerId, 
             assets: updatedAssets,
+            trigger: payload, // Update dedicated column
             settings: settings,
             updated_at: new Date().toISOString()
           }, { onConflict: 'user_id' });
