@@ -65,12 +65,13 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now()
         };
         
-        // Fetch current to merge
-        const { data: current } = await supabase
+        // Fetch current to merge (safe check)
+        const { data: configs } = await supabase
           .from('overlay_configs')
           .select('settings, assets')
-          .eq('user_id', streamerId)
-          .single();
+          .eq('user_id', streamerId);
+        
+        const current = configs && configs.length > 0 ? configs[0] : null;
 
         // Update trigger in Supabase (don't wipe settings!)
         await supabase

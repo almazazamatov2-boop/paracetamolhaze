@@ -36,12 +36,13 @@ export async function POST(req: NextRequest) {
     isTest: true
   };
 
-  // Fetch existing to prevent wiping
-  const { data: existing } = await supabase
+  // Fetch existing (safe check)
+  const { data: configs } = await supabase
     .from('overlay_configs')
     .select('settings, assets')
-    .eq('user_id', userId)
-    .single();
+    .eq('user_id', userId);
+  
+  const existing = configs && configs.length > 0 ? configs[0] : null;
 
   const { error } = await supabase
     .from('overlay_configs')

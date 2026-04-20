@@ -31,12 +31,13 @@ export async function POST(req: NextRequest) {
 
   const { key, asset } = await req.json();
 
-  // Fetch current to merge
-  const { data: current } = await supabase
+  // Fetch current to merge (safe check)
+  const { data: configs } = await supabase
     .from('overlay_configs')
     .select('settings, assets, trigger')
-    .eq('user_id', userId)
-    .single();
+    .eq('user_id', userId);
+  
+  const current = configs && configs.length > 0 ? configs[0] : null;
 
   const baseAssets = current?.assets || {};
   const newAssets = { ...baseAssets, [key]: asset };
