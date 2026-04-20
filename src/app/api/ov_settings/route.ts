@@ -11,50 +11,52 @@ export async function GET(req: NextRequest) {
     .from('overlay_configs')
     .select('settings')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
 
   if (error || !data) return NextResponse.json({});
   return NextResponse.json(data.settings || {});
 }
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get('twitch_token')?.value;
-  if (!token) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
+  try {
+    const token = req.cookies.get('twitch_token')?.value;
+    if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const clientId = process.env.TWITCH_CLIENT_ID;
-  const authRes = await fetch('https://api.twitch.tv/helix/users', {
-    headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId! },
-  });
-  const authData = await authRes.json();
-  const userId = authData.data?.[0]?.id;
-  if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
+    const clientId = process.env.TWITCH_CLIENT_ID;
+    const authRes = await fetch('https://api.twitch.tv/helix/users', {
+      headers: { 'Authorization': `Bearer ${token}`, 'Client-Id': clientId! },
+    });
+    const authData = await authRes.json();
+    const userId = authData.data?.[0]?.id;
+    if (!userId) return NextResponse.json({ error: 'Auth fail' }, { status: 401 });
 
-  const body = await req.json();
+    const body = await req.json();
 
-  // Fetch existing config (safe check)
-  const { data: configs } = await supabase
-    .from('overlay_configs')
-    .select('assets, trigger')
-    .eq('user_id', userId);
-  
-  const existing = configs && configs.length > 0 ? configs[0] : null;
+    // Fetch existing to merge
+    const { data: existing } = await supabase
+      .from('overlay_configs')
+      .select('assets, trigger')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  const { error } = await supabase
-    .from('overlay_configs')
-    .upsert({ 
-      user_id: userId, 
-      settings: body,
-      assets: existing?.assets || {},
-      trigger: existing?.trigger || {},
-      updated_at: new Date().toISOString()
-    }, { onConflict: 'user_id' });
+    const { error: upsertError } = await supabase
+      .from('overlay_configs')
+      .upsert({ 
+        user_id: userId, 
+        settings: body,
+        updated_at: new Date().toISOString(),
+        assets: existing?.assets || {},
+        trigger: existing?.trigger || {}
+      }, { onConflict: 'user_id' });
 
-  if (error) {
-    console.error('Supabase error:', error);
-    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    if (upsertError) {
+      console.error('Supabase error:', upsertError);
+      return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error('Fatal API Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
-
-  return NextResponse.json({ success: true });
 }
