@@ -10,10 +10,10 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:       #080808;
-      --surface:  #111111;
-      --surface2: #1a1a1a;
-      --border:   #1e1e1e;
+      --bg:       #0d0d0f;
+      --surface:  #1a1a1f;
+      --surface2: #22222a;
+      --border:   rgba(255,255,255,0.1);
       --accent:   #7c3aed;
       --accent2:  #a855f7;
       --text:     #e8e8e8;
@@ -339,32 +339,7 @@
       </div>
       
       <div class="overlay-preview-container">
-        <!-- REAL OVERLAY MOCKUP -->
-        <div class="real-overlay-mock" id="mock-panel">
-          <div class="mock-left">
-            <div class="mock-nick">Viewer</div>
-            <div class="mock-avatar" id="mock-avatar"></div>
-          </div>
-          
-          <div class="mock-center">
-            <div class="mock-col">
-              <div class="mock-label-wrap"><div class="mock-col-title">ЧИСЛО ЗРИТЕЛЯ</div></div>
-              <div class="mock-col-val" id="mock-choice">50</div>
-            </div>
-            <div class="mock-vs">VS</div>
-            <div class="mock-col">
-              <div class="mock-label-wrap"><div class="mock-col-title">ЧИСЛО РАНДОМА</div></div>
-              <div class="mock-col-val" id="mock-random">00</div>
-            </div>
-          </div>
-
-          <div class="mock-right">
-            <div class="mock-reward-title">RANDOM SKIN<br>CS2</div>
-            <div class="mock-reward-img">🔫</div>
-          </div>
-
-          <div class="mock-badge" id="mock-win-badge">ПОБЕДА!</div>
-        </div>
+        <video src="preview.mp4" autoplay loop muted playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
       </div>
     </div>
 
