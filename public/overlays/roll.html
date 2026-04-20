@@ -34,7 +34,7 @@
             width: 1620px;
             height: 290px;
             overflow: hidden;
-            background: #080808; /* Dark background so it's visible in browser */
+            background: transparent;
             font-family: 'Inter', sans-serif;
             color: white;
         }
@@ -322,28 +322,9 @@
             try {
                 const res = await fetch(`/api/ov_trigger?userId=${userId}&t=${Date.now()}`);
                 const data = await res.json();
-                console.log('Trigger poll:', data);
                 if (data && data.triggerId && data.triggerId !== lastTriggerId) {
                     lastTriggerId = data.triggerId;
-                    console.log('Triggering animation with ID:', lastTriggerId);
-                    
-                    const loadingHint = document.getElementById('loading-hint');
-                    if (loadingHint) loadingHint.style.display = 'none';
                     animate(data);
-                } else if (isInitial) {
-                    // Show a hint that we are waiting
-                    const hint = document.createElement('div');
-                    hint.id = 'loading-hint';
-                    hint.innerHTML = 'СТАТУС: ОЖИДАНИЕ ТЕСТА...<br>' + 
-                                   '<small id="debug-id" style="font-size:12px;opacity:0.6;">(Загрузка ID...)</small><br>' + 
-                                   '<small style="font-size:14px;opacity:0.8;">Кликните здесь (разрешить звук)</small>';
-                    hint.style.cssText = 'position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#a855f7; font-weight:900; letter-spacing:2px; text-align:center; background: #080808; z-index:9999;';
-                    document.body.appendChild(hint);
-                    
-                    if (data && data.triggerId) {
-                        const debugEl = document.getElementById('debug-id');
-                        if (debugEl) debugEl.textContent = 'Последний ID в базе: ' + data.triggerId;
-                    }
                 }
             } catch (e) { }
         }
@@ -414,8 +395,22 @@
         if (userId) {
             loadAssets();
             loadSettings();
-            checkTrigger(true); // Prime initial state
-            setInterval(() => checkTrigger(false), 1500);
+
+            // Check if we are in instant test mode from URL params
+            const isTestMode = urlParams.get('test') === '1';
+            if (isTestMode) {
+                const data = {
+                    userName: urlParams.get('userName') || 'PLAYER',
+                    userChoice: parseInt(urlParams.get('userChoice')) || 0,
+                    userAvatar: urlParams.get('userAvatar') || '',
+                    isTest: true
+                };
+                // Small delay to ensure styles/assets are ready
+                setTimeout(() => animate(data), 500);
+            } else {
+                checkTrigger(true); // Prime initial state
+                setInterval(() => checkTrigger(false), 1500);
+            }
         }
     </script>
 </body>
