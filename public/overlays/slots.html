@@ -103,7 +103,6 @@
             object-fit: contain;
         }
 
-        /* Lever (Рычаг) */
         #lever-container {
             position: absolute;
             right: -80px;
@@ -150,7 +149,6 @@
             transform: rotateX(160deg);
         }
 
-        /* User Info Above */
         #user-info {
             position: absolute;
             top: -60px;
@@ -178,8 +176,7 @@
             text-transform: uppercase;
         }
 
-        /* Result Text */
-        #result {
+        #result-text {
             margin-top: 25px;
             font-size: 48px;
             font-weight: 900;
@@ -189,12 +186,12 @@
             opacity: 0;
             transition: opacity 0.3s;
             text-shadow: 0 0 20px rgba(255,255,255,0.5);
+            min-height: 58px;
         }
 
-        #result.show { opacity: 1; }
-        #result.win { color: #28d17c; text-shadow: 0 0 20px rgba(40,209,124,0.6); }
+        #result-text.show { opacity: 1; }
+        #result-text.win { color: #28d17c; text-shadow: 0 0 20px rgba(40,209,124,0.6); }
 
-        /* Lighting effects */
         .light {
             position: absolute;
             width: 15px;
@@ -231,9 +228,8 @@
             </div>
         </div>
 
-        <div id="result">WINNER!</div>
+        <div id="result-text"></div>
 
-        <!-- Decorative lights -->
         <div class="light" style="top: 10px; left: 10px;"></div>
         <div class="light" style="top: 10px; right: 10px;"></div>
         <div class="light" style="bottom: 10px; left: 10px;"></div>
@@ -253,7 +249,6 @@
         let isRunning = false;
         let lastTriggerId = null;
 
-        // Default symbols if user hasn't uploaded any
         const DEFAULT_SYMBOLS = [
             'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png',
             'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/great-ball.png',
@@ -261,19 +256,19 @@
             'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/master-ball.png'
         ];
 
-        let configAssets = {};
+        let settings = {};
 
-        async function loadAssets() {
+        async function loadSettings() {
             if (!userId) return;
             try {
-                const res = await fetch(`/api/ov_upload?userId=${userId}`);
-                configAssets = await res.json();
+                const res = await fetch(`/api/ov_settings?userId=${userId}&type=slots`);
+                settings = await res.json();
                 
                 // Audio customization
-                if (configAssets.s_lever) document.getElementById('sLever').src = configAssets.s_lever;
-                if (configAssets.s_spin) document.getElementById('sSpin').src = configAssets.s_spin;
-                if (configAssets.s_win) document.getElementById('sWin').src = configAssets.s_win;
-                if (configAssets.s_lose) document.getElementById('sLose').src = configAssets.s_lose;
+                if (settings.s_lever) document.getElementById('sLever').src = settings.s_lever;
+                if (settings.s_spin) document.getElementById('sSpin').src = settings.s_spin;
+                if (settings.s_win) document.getElementById('sWin').src = settings.s_win;
+                if (settings.s_lose) document.getElementById('sLose').src = settings.s_lose;
             } catch (e) { }
         }
 
@@ -296,9 +291,9 @@
                     }
                     if (data.triggerId !== lastTriggerId) {
                         lastTriggerId = data.triggerId;
-                        // Distinction: Only start if the reward matches some keyword or is the only one
-                        // For now, we trigger on any redemption
-                        animate(data);
+                        if (data.type === 'slots') {
+                           animate(data);
+                        }
                     }
                 }
             } catch (e) { }
@@ -308,17 +303,22 @@
             isRunning = true;
             const machine = document.getElementById('slot-machine');
             const lever = document.getElementById('lever-arm');
-            const result = document.getElementById('result');
+            const resultText = document.getElementById('result-text');
             const avatar = document.getElementById('avatar');
             const username = document.getElementById('username');
             
             // Setup user
             username.textContent = data.userName;
-            if (data.userAvatar) avatar.src = data.userAvatar; else avatar.style.display='none';
+            if (data.userAvatar) {
+                avatar.src = data.userAvatar;
+                avatar.style.display = 'block';
+            } else {
+                avatar.style.display = 'none';
+            }
 
             // Reset UI
-            result.className = "";
-            result.textContent = "";
+            resultText.className = "";
+            resultText.textContent = "";
             machine.classList.add('show');
             await sleep(800);
 
@@ -329,47 +329,32 @@
             lever.classList.remove('pull');
             await sleep(200);
 
-            // 2. Prep symbols
-            // Use custom symbols if available, else default
-            const userSymbols = configAssets.slot_symbols || DEFAULT_SYMBOLS;
-            const symbolCount = 20; // Number of symbols in the belt for animation
+            // 2. Prep symbols from result
+            const serverResult = data.result || [DEFAULT_SYMBOLS[0], DEFAULT_SYMBOLS[0], DEFAULT_SYMBOLS[0]];
+            const userSymbols = (settings.symbols && settings.symbols.length > 0) 
+                ? settings.symbols.map(s => s.url) 
+                : DEFAULT_SYMBOLS;
             
-            // Pick outcome
-            // Logic: we want to know if it's a win
-            // We can determine win based on chances or just random for now
-            const isWin = Math.random() < 0.3; // 30% chance win by default
-            let finalIdx1, finalIdx2, finalIdx3;
-            
-            if (isWin) {
-                finalIdx1 = finalIdx2 = finalIdx3 = Math.floor(Math.random() * userSymbols.length);
-            } else {
-                finalIdx1 = Math.floor(Math.random() * userSymbols.length);
-                finalIdx2 = Math.floor(Math.random() * userSymbols.length);
-                finalIdx3 = Math.floor(Math.random() * userSymbols.length);
-                if (finalIdx1 === finalIdx2 && finalIdx2 === finalIdx3) {
-                     // Force lose if it accidentally rolled win
-                     finalIdx3 = (finalIdx3 + 1) % userSymbols.length;
-                }
-            }
+            const symbolCount = 20;
 
-            const populateReel = (id, targetIdx) => {
+            const populateReel = (id, targetUrl) => {
                 const inner = document.getElementById(`inner${id}`);
                 inner.innerHTML = "";
-                // Fill with random symbols and put target at the very end
                 for(let i=0; i<symbolCount; i++) {
                     const s = document.createElement('div');
                     s.className = "symbol";
-                    const imgIdx = (i === symbolCount - 1) ? targetIdx : Math.floor(Math.random() * userSymbols.length);
-                    s.innerHTML = `<img src="${userSymbols[imgIdx]}">`;
+                    // If last symbol, use targetUrl from server
+                    const imgUrl = (i === symbolCount - 1) ? targetUrl : userSymbols[Math.floor(Math.random() * userSymbols.length)];
+                    s.innerHTML = `<img src="${imgUrl}">`;
                     inner.appendChild(s);
                 }
                 inner.style.transition = 'none';
                 inner.style.top = '0px';
             };
 
-            populateReel(1, finalIdx1);
-            populateReel(2, finalIdx2);
-            populateReel(3, finalIdx3);
+            populateReel(1, serverResult[0]);
+            populateReel(2, serverResult[1]);
+            populateReel(3, serverResult[2]);
 
             await sleep(50);
             play('sSpin');
@@ -389,26 +374,27 @@
             await sleep(3500);
 
             // 4. Show Result
+            const isWin = serverResult[0] === serverResult[1] && serverResult[1] === serverResult[2];
+            
             if (isWin) {
-                result.textContent = "JACKPOT!";
-                result.classList.add('show', 'win');
+                resultText.textContent = "JACKPOT!";
+                resultText.classList.add('show', 'win');
                 play('sWin');
             } else {
-                result.textContent = "TRY AGAIN";
-                result.classList.add('show');
+                resultText.textContent = "TRY AGAIN";
+                resultText.classList.add('show');
                 play('sLose');
             }
 
             await sleep(4000);
             
-            // Hide
             machine.classList.remove('show');
             await sleep(600);
             isRunning = false;
         }
 
         if (userId) {
-            loadAssets();
+            loadSettings();
             setInterval(checkTrigger, 1500);
         }
     </script>

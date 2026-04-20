@@ -3,6 +3,18 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
+function getWeightedRandom(items: any[]) {
+  if (!items || items.length === 0) return null;
+  const totalWeight = items.reduce((acc, item) => acc + (Number(item.weight) || 1), 0);
+  let random = Math.random() * totalWeight;
+  for (const item of items) {
+    const weight = Number(item.weight) || 1;
+    if (random < weight) return item;
+    random -= weight;
+  }
+  return items[0];
+}
+
 export async function POST(req: NextRequest) {
   try {
     const token = req.cookies.get('twitch_token')?.value;
@@ -23,34 +35,63 @@ export async function POST(req: NextRequest) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+    const body = await req.json();
+    const type = body.type || 'fate';
+
     const { data: configs } = await supabase
       .from('overlay_configs')
-      .select('settings, assets, trigger')
+      .select('settings, assets')
       .eq('user_id', userId);
 
     const config = configs && configs.length > 0 ? configs[0] : null;
-    const settings: any = config?.settings || {};
+    const allSettings: any = config?.settings || {};
     const assets: any = config?.assets || {};
-    const oldTrigger: any = config?.trigger || {};
+    
+    let settings = allSettings[type];
+    if (!settings && type === 'fate' && allSettings.reward_id) {
+       settings = allSettings;
+    }
+    settings = settings || {};
 
-    const userChoice = Math.floor(Math.random() * ((Number(settings.max_val) || 100) - (Number(settings.min_val) || 1) + 1)) + (Number(settings.min_val) || 1);
-
-    const payload = {
+    let payload: any = {
       triggerId: Math.random().toString(36).substring(7),
       userName,
       userAvatar,
-      userChoice,
       timestamp: Date.now(),
-      isTest: true
+      isTest: true,
+      type
     };
 
-    // Store trigger in BOTH places to be 100% sure
+    if (type === 'slots') {
+      const symbols = settings.symbols || [];
+      if (symbols.length > 0) {
+        payload.result = [
+          getWeightedRandom(symbols).url,
+          getWeightedRandom(symbols).url,
+          getWeightedRandom(symbols).url
+        ];
+      } else {
+        payload.result = ['', '', ''];
+      }
+    } else {
+      // Fate (Roll) logic
+      const min = Number(settings.min_val) || 1;
+      const max = Number(settings.max_val) || 100;
+      payload.userChoice = Math.floor(Math.random() * (max - min + 1)) + min;
+      // In test, let's make it 30% chance to win for better visual feedback
+      if (Math.random() < 0.3) {
+        payload.result = payload.userChoice;
+      } else {
+        payload.result = Math.floor(Math.random() * (max - min + 1)) + min;
+      }
+    }
+
     const { error: upsertError } = await supabase
       .from('overlay_configs')
       .upsert({ 
         user_id: userId, 
         assets: { ...assets, last_trigger: payload },
-        settings: settings,
+        settings: allSettings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });
 

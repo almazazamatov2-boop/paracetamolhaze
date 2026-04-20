@@ -48,18 +48,26 @@ function verifyTwitchSignature(req: NextRequest, rawBody: string): boolean {
   return expected === msgSignature;
 }
 
+function getWeightedRandom(items: any[]) {
+    if (!items || items.length === 0) return null;
+    const totalWeight = items.reduce((acc, item) => acc + (Number(item.weight) || 1), 0);
+    let random = Math.random() * totalWeight;
+    for (const item of items) {
+        const weight = Number(item.weight) || 1;
+        if (random < weight) return item;
+        random -= weight;
+    }
+    return items[0];
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   
-  // 1. Verify Signature (Crucial for reliability)
   if (!verifyTwitchSignature(req, rawBody)) {
-    // Check if it's a challenge before rejecting
     const challengeData = JSON.parse(rawBody);
     if (challengeData.challenge) {
        return new Response(challengeData.challenge, { status: 200, headers: { 'Content-Type': 'text/plain' } });
     }
-    // Note: Logging might be helpful here if it still fails
-    // return new Response('Forbidden', { status: 403 }); 
   }
 
   const data = JSON.parse(rawBody);
@@ -67,61 +75,69 @@ export async function POST(req: NextRequest) {
 
   if (subscription?.type === 'channel.channel_points_custom_reward_redemption.add') {
     const streamerId = event.broadcaster_user_id || event.broadcaster_id;
-    const rewardName = (event.reward.title || "").toString().trim().toLowerCase();
-    const userId = event.user_id;
+    const twitchRewardId = event.reward.id;
     const userName = event.user_name || event.user_login;
     const userMessage = event.user_input || "";
-    const twitchRewardId = event.reward.id;
+    const userId = event.user_id;
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Fetch streamer config - COMPACT SELECT (No 'trigger' column!)
     const { data: configs } = await supabase
       .from('overlay_configs')
       .select('settings, assets')
       .eq('user_id', streamerId);
 
     const config = configs && configs.length > 0 ? configs[0] : null;
-    if (!config) return NextResponse.json({ ok: true, error: 'No config' });
+    if (!config) return NextResponse.json({ ok: true });
 
-    const settings: any = config.settings || {};
+    const allSettings: any = config.settings || {};
     const assets: any = config.assets || {};
-    
-    const dbRewardId = settings?.reward_id || "";
-    const dbRewardName = (settings?.reward_name || "").toString().trim().toLowerCase();
 
-    // Matching logic
-    const isMatch = (dbRewardId && dbRewardId === twitchRewardId) || 
-                    (!dbRewardId && dbRewardName === rewardName);
+    // Check which overlay matches this reward
+    let type: string | null = null;
+    if (allSettings.fate?.reward_id === twitchRewardId) type = 'fate';
+    else if (allSettings.slots?.reward_id === twitchRewardId) type = 'slots';
 
-    // Heartbeat: Always update updated_at if we reached this point
-    let writeData: any = { 
-        user_id: streamerId, 
-        updated_at: new Date().toISOString() 
-    };
+    if (type) {
+      const typeSettings = allSettings[type] || {};
+      const appToken = await getAppToken();
+      const userAvatar = await getUserAvatar(userId, appToken) || `https://avatar.t.61.gd/a/${userName}?size=100`;
 
-    if (isMatch) {
-      const match = userMessage.match(/\d+/);
-      const userChoice = match ? parseInt(match[0]) : null;
-      
-      if (userChoice !== null) {
-        const appToken = await getAppToken();
-        const userAvatar = await getUserAvatar(userId, appToken) || `https://avatar.t.61.gd/a/${userName}?size=100`;
+      let payload: any = {
+        triggerId: event.id || Math.random().toString(36).substring(7),
+        userName,
+        userAvatar,
+        timestamp: Date.now(),
+        type
+      };
 
-        const payload = {
-          triggerId: Math.random().toString(36).substring(7),
-          userName,
-          userAvatar,
-          userChoice,
-          timestamp: Date.now()
-        };
-        writeData.assets = { ...assets, last_trigger: payload };
+      if (type === 'slots') {
+        const symbols = typeSettings.symbols || [];
+        if (symbols.length > 0) {
+          payload.result = [
+            getWeightedRandom(symbols).url,
+            getWeightedRandom(symbols).url,
+            getWeightedRandom(symbols).url
+          ];
+        } else {
+          payload.result = ['', '', ''];
+        }
+      } else {
+        // Fate (Roll) logic
+        const min = Number(typeSettings.min_val) || 1;
+        const max = Number(typeSettings.max_val) || 100;
+        const match = userMessage.match(/\d+/);
+        payload.userChoice = match ? parseInt(match[0]) : 0;
+        payload.result = Math.floor(Math.random() * (max - min + 1)) + min;
       }
+
+      await supabase.from('overlay_configs').update({
+        assets: { ...assets, last_trigger: payload },
+        updated_at: new Date().toISOString()
+      }).eq('user_id', streamerId);
     }
-    
-    await supabase.from('overlay_configs').upsert(writeData, { onConflict: 'user_id' });
   }
 
   return NextResponse.json({ ok: true });
