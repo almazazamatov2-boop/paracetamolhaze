@@ -45,14 +45,11 @@ export async function POST(req: NextRequest) {
     };
 
     // Store trigger in BOTH places to be 100% sure
-    const updatedAssets = { ...assets, last_trigger: payload };
-
     const { error: upsertError } = await supabase
       .from('overlay_configs')
       .upsert({ 
         user_id: userId, 
-        assets: updatedAssets,
-        trigger: payload, // Update dedicated column too
+        assets: { ...assets, last_trigger: payload },
         settings: settings,
         updated_at: new Date().toISOString()
       }, { onConflict: 'user_id' });

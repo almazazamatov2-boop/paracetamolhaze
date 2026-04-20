@@ -14,21 +14,15 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('overlay_configs')
-    .select('assets, trigger')
+    .select('assets')
     .eq('user_id', userId)
     .maybeSingle();
 
   if (!data) return NextResponse.json({});
 
-  // Detect whichever trigger is newer (from dedicated column or legacy assets field)
-  const trigger1 = (typeof data.trigger === 'string' ? JSON.parse(data.trigger || '{}') : data.trigger) || {};
-  const trigger2 = (typeof data.assets?.last_trigger === 'string' ? JSON.parse(data.assets?.last_trigger || '{}') : data.assets?.last_trigger) || {};
+  // Detect trigger from assets field (column 'trigger' does not exist)
+  const finalTrigger = (typeof data.assets?.last_trigger === 'string' ? JSON.parse(data.assets?.last_trigger || '{}') : data.assets?.last_trigger) || {};
   
-  let finalTrigger = trigger1;
-  if ((trigger2.timestamp || 0) > (trigger1.timestamp || 0)) {
-    finalTrigger = trigger2;
-  }
-
   return NextResponse.json(finalTrigger || {}, {
     headers: {
       'Content-Type': 'application/json',

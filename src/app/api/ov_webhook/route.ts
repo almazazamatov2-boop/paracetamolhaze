@@ -83,7 +83,6 @@ export async function POST(req: NextRequest) {
           .upsert({ 
             user_id: streamerId, 
             assets: updatedAssets,
-            trigger: payload,
             settings: settings,
             updated_at: new Date().toISOString()
           }, { onConflict: 'user_id' });
