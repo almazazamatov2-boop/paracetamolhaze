@@ -127,21 +127,39 @@ function EmojinoContent() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userStats, setUserStats] = useState({ all: 0, film: 0, serial: 0 });
 
-  // Client-side suggestions
+  // Suggestions from Supabase instead of local file
   useEffect(() => {
-    if (guessInput.length < 1 || state.guessed) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
+    const fetchSuggestions = async () => {
+      if (guessInput.length < 2 || state.guessed) {
+        setSuggestions([]);
+        setShowSuggestions(false);
+        return;
+      }
 
-    const filtered = movies.filter(m => 
-      m.name.toLowerCase().includes(guessInput.toLowerCase()) ||
-      m.aliases.some(a => a.toLowerCase().includes(guessInput.toLowerCase()))
-    ).slice(0, 5);
-    
-    setSuggestions(filtered);
-    setShowSuggestions(true);
+      try {
+        const { data } = await supabase
+          .from('emojino_movies')
+          .select('*')
+          .or(`title_ru.ilike.%${guessInput}%,description.ilike.%${guessInput}%`) // description if used, but title_ru is main
+          .limit(5);
+        
+        if (data) {
+          const formatted = data.map(m => ({
+            name: m.title_ru,
+            type: m.type,
+            year: m.year,
+            aliases: [] // We use title_ru primarily
+          }));
+          setSuggestions(formatted);
+          setShowSuggestions(true);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+
+    const timer = setTimeout(fetchSuggestions, 300);
+    return () => clearTimeout(timer);
   }, [guessInput, state.guessed]);
 
   // Load leaderboard (local storage or supabase if I had a table, but I'll use a specific tag for now)
@@ -244,21 +262,29 @@ function EmojinoContent() {
     return answer.toLowerCase().trim().replace(/ё/g, 'е').replace(/[-:.,!?'"\s]+/g, ' ');
   };
 
-  const checkAnswer = (input: string, movie: Movie): boolean => {
+  const checkAnswer = (input: string, movie: any): boolean => {
     const normalized = normalizeAnswer(input);
-    const possibleAnswers = [movie.name, ...movie.aliases];
+    // Support both local 'name' and DB 'title_ru'
+    const mainTitle = movie.title_ru || movie.name || '';
+    const possibleAnswers = [mainTitle, ...(movie.aliases || [])];
     
     for (const alias of possibleAnswers) {
       const normAlias = normalizeAnswer(alias);
       if (normalized === normAlias) return true;
-      if (normalized.length >= 3 && (normAlias.includes(normalized) || normalized.includes(normAlias))) return true;
+      // Partial match for longer titles
+      if (normalized.length >= 4 && (normAlias.includes(normalized) || normalized.includes(normAlias))) return true;
     }
     return false;
   };
 
   const handleGuess = (inputOverride?: string) => {
     const input = (inputOverride || guessInput).trim();
-    if (!input || state.guessed) return;
+    if (state.guessed) return;
+    
+    if (!input) {
+      // Maybe add a shake effect here later
+      return;
+    }
     
     const current = gameMovies[currentIndex];
     const isCorrect = checkAnswer(input, current);
@@ -483,8 +509,8 @@ function EmojinoContent() {
                  </div>
                  
                  <div className="absolute top-5 left-5 z-20">
-                    <span className="px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest flex items-center h-7 shadow-lg">
-                      {gameMovies[currentIndex].type === 'film' ? 'Фильм' : 'Сериал'}
+                     <span className="px-3 py-1.5 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest flex items-center h-7 shadow-lg">
+                      {gameMovies[currentIndex].type === 'film' ? 'Фильм' : 'Сериал'} {gameMovies[currentIndex].year ? `• ${gameMovies[currentIndex].year}` : ''}
                     </span>
                  </div>
 
@@ -564,10 +590,10 @@ function EmojinoContent() {
                             {state.correct ? <Check className="w-6 h-6" /> : <X className="w-6 h-6" />}
                          </div>
                          <div className="flex-1 min-w-0">
-                            <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${state.correct ? 'text-emerald-400' : 'text-rose-400'}`}>
-                               {state.correct ? 'Верно!' : 'Не угадали'}
+                             <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${state.correct ? 'text-emerald-400' : 'text-rose-400'}`}>
+                               {state.correct ? 'Верно!' : 'Правильный ответ:'}
                             </p>
-                            <p className="text-xl font-black leading-tight">{gameMovies[currentIndex]?.name || '---'}</p>
+                            <p className="text-xl font-black leading-tight">{gameMovies[currentIndex]?.title_ru || gameMovies[currentIndex]?.name || '---'}</p>
                          </div>
                       </div>
                       <div className="text-right ml-4">
