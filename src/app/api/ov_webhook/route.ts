@@ -56,27 +56,26 @@ export async function POST(req: NextRequest) {
     const dbRewardId = settings?.reward_id || "";
     const dbRewardName = (settings?.reward_name || "").toString().trim().toLowerCase();
     const twitchRewardId = event.reward.id;
+    const twitchRewardTitle = (event.reward.title || "").toString().trim().toLowerCase();
 
+    // Match by ID primarily, fallback to Name (like in original overlayroll)
     const isMatch = (dbRewardId && dbRewardId === twitchRewardId) || 
-                    (!dbRewardId && dbRewardName === rewardName);
+                    (!dbRewardId && dbRewardName === twitchRewardTitle);
 
     if (isMatch) {
       const match = userMessage.match(/\d+/);
       const userChoice = match ? parseInt(match[0]) : null;
       
       if (userChoice !== null) {
-        const appToken = await getAppToken();
-        const userAvatar = await getUserAvatar(userId, appToken);
-
+        // Create payload IMMEDIATELY without waiting for secondary Twitch API calls
         const payload = {
           triggerId: Math.random().toString(36).substring(7),
           userName,
-          userAvatar,
+          userAvatar: `https://avatar.t.61.gd/a/${userName}?size=100`, // Rapid fallback avatar
           userChoice,
           timestamp: Date.now()
         };
         
-        // Store in BOTH places for consistency with test button and overlay logic
         const updatedAssets = { ...assets, last_trigger: payload };
 
         await supabase
@@ -84,7 +83,7 @@ export async function POST(req: NextRequest) {
           .upsert({ 
             user_id: streamerId, 
             assets: updatedAssets,
-            trigger: payload, // Update dedicated column
+            trigger: payload,
             settings: settings,
             updated_at: new Date().toISOString()
           }, { onConflict: 'user_id' });
@@ -92,5 +91,5 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return new Response(JSON.stringify({ ok: true }), { status: 200 });
 }
