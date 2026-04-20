@@ -30,7 +30,6 @@ function AnimatedBg() {
     <div className="fixed inset-0 overflow-hidden pointer-events-none">
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-amber-500/[0.07] blur-[120px] animate-float-slow" />
       <div className="absolute bottom-[-15%] right-[-10%] w-[600px] h-[600px] rounded-full bg-red-600/[0.06] blur-[140px] animate-float-slow-reverse" />
-      <div className="absolute top-[40%] left-[50%] w-[300px] h-[300px] rounded-full bg-orange-500/[0.04] blur-[100px] animate-float-slow" />
     </div>
   );
 }
@@ -45,13 +44,13 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-        className="relative w-full max-w-lg bg-[#0c0c0e] border border-white/10 rounded-[3rem] overflow-hidden shadow-2xl flex flex-col h-[600px]"
+        className="relative w-full max-w-lg bg-[#0c0c0e] border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col h-[600px]"
       >
         <div className="p-8 border-b border-white/[0.06] flex items-center justify-between bg-white/[0.02]">
            <div className="flex items-center gap-4">
               <img src={user.image} className="w-16 h-16 rounded-2xl border border-white/10 shadow-xl" alt="" />
               <div>
-                 <h3 className="text-xl font-black">{user.name}</h3>
+                 <h3 className="text-xl font-black italic uppercase tracking-tighter">{user.name}</h3>
                  <p className="text-[10px] text-neutral-500 uppercase font-black tracking-widest">Личный профиль</p>
               </div>
            </div>
@@ -61,10 +60,10 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
         </div>
 
         <div className="flex p-2 gap-2 bg-black/40 border-b border-white/[0.06]">
-           <button onClick={() => setTab('records')} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'records' ? 'bg-amber-500 text-black shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
+           <button onClick={() => setTab('records')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'records' ? 'bg-[#9146FF] text-white shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
              <Award className="w-4 h-4" /> РЕКОРДЫ
            </button>
-           <button onClick={() => setTab('history')} className={`flex-1 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'history' ? 'bg-amber-500 text-black shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
+           <button onClick={() => setTab('history')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all transition-all flex items-center justify-center gap-2 ${tab === 'history' ? 'bg-[#9146FF] text-white shadow-lg' : 'text-neutral-500 hover:text-white'}`}>
              <History className="w-4 h-4" /> ИСТОРИЯ
            </button>
         </div>
@@ -73,11 +72,11 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
            {tab === 'records' ? (
              <div className="space-y-4">
                 {[
-                  { n: 'КОМБО', v: stats.all || 0, c: 'text-purple-400', b: 'bg-purple-500/10' },
-                  { n: 'ФИЛЬМЫ', v: stats.film || 0, c: 'text-orange-400', b: 'bg-orange-500/10' },
-                  { n: 'СЕРИАЛЫ', v: stats.serial || 0, c: 'text-emerald-400', b: 'bg-emerald-500/10' }
+                  { n: 'КОМБО', v: stats.all || 0, c: 'text-blue-400' },
+                  { n: 'ФИЛЬМЫ', v: stats.film || 0, c: 'text-orange-400' },
+                  { n: 'СЕРИАЛЫ', v: stats.serial || 0, c: 'text-purple-400' }
                 ].map((s, i) => (
-                  <div key={i} className="flex items-center justify-between p-6 rounded-[2rem] bg-white/[0.02] border border-white/[0.06] group hover:bg-white/[0.04] transition-all">
+                  <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] group hover:bg-white/[0.04] transition-all">
                      <span className={`text-xs font-black uppercase tracking-[0.2em] ${s.c}`}>{s.n}</span>
                      <span className="text-4xl font-black italic">{s.v}</span>
                   </div>
@@ -86,7 +85,7 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
            ) : (
              <div className="space-y-3">
                 {history.length > 0 ? history.map((h, i) => (
-                  <div key={i} className="flex items-center justify-between p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+                  <div key={i} className="flex items-center justify-between p-5 rounded-xl bg-white/[0.02] border border-white/[0.04]">
                      <div className="flex items-center gap-4">
                         <div className="text-neutral-500"><Calendar className="w-4 h-4" /></div>
                         <div>
@@ -101,12 +100,12 @@ function ProfileModal({ isOpen, onClose, user, stats, history }: { isOpen: boole
            )}
         </div>
 
-        <div className="p-6 bg-white/[0.01] border-t border-white/[0.06]">
+        <div className="p-6 border-t border-white/[0.06]">
           <button 
             onClick={() => window.location.reload()}
-            className="w-full h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 font-black text-xs hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2"
+            className="w-full h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 font-black text-[10px] uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center gap-2"
           >
-            <LogOut className="w-4 h-4" /> ВЫЙТИ ИЗ АККАУНТА
+            ВЫЙТИ ИЗ АККАУНТА
           </button>
         </div>
       </motion.div>
@@ -145,11 +144,7 @@ function EmojinoContent() {
         return;
       }
       try {
-        const { data } = await supabase
-          .from('emojino_movies')
-          .select('*')
-          .or(`title_ru.ilike.%${guessInput}%`)
-          .limit(5);
+        const { data } = await supabase.from('emojino_movies').select('*').or(`title_ru.ilike.%${guessInput}%`).limit(5);
         if (data) {
           setSuggestions(data.map(m => ({ name: m.title_ru, type: m.type, year: m.year })));
           setShowSuggestions(true);
@@ -166,13 +161,7 @@ function EmojinoContent() {
 
   const fetchLeaderboard = async (mode: string) => {
     try {
-      const { data } = await supabase
-        .from('kinokadr_scores')
-        .select('*')
-        .eq('mode', `emojino_${mode}`)
-        .order('score', { ascending: false });
-      
-      // Keep only one best record per user
+      const { data } = await supabase.from('kinokadr_scores').select('*').eq('mode', `emojino_${mode}`).order('score', { ascending: false });
       const seen = new Set();
       const unique = (data || []).filter(item => {
         const id = item.user_id;
@@ -180,7 +169,6 @@ function EmojinoContent() {
         seen.add(id);
         return true;
       }).slice(0, 10);
-
       setLeaderboard(unique);
     } catch (e) {}
   };
@@ -188,13 +176,7 @@ function EmojinoContent() {
   const fetchUserStats = async () => {
     if (!session?.user) return;
     try {
-      const { data } = await supabase
-        .from('kinokadr_scores')
-        .select('*')
-        .eq('user_id', session.user.id || (session.user as any).name)
-        .filter('mode', 'like', 'emojino_%')
-        .order('created_at', { ascending: false });
-      
+      const { data } = await supabase.from('kinokadr_scores').select('*').eq('user_id', session.user.id || (session.user as any).name).filter('mode', 'like', 'emojino_%').order('created_at', { ascending: false });
       const stats = { all: 0, film: 0, serial: 0 };
       data?.forEach(s => {
         if (s.mode === 'emojino_all' && s.score > stats.all) stats.all = s.score;
@@ -305,12 +287,12 @@ function EmojinoContent() {
 
           <div className="flex items-center gap-2">
              {session?.user ? (
-                <button onClick={() => setIsProfileOpen(true)} className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all group">
-                  <img src={(session.user as any).image} className="w-8 h-8 rounded-full border border-white/10 group-hover:scale-110 transition-transform" alt="" />
-                  <span className="text-xs font-bold">{session.user.name}</span>
+                <button onClick={() => setIsProfileOpen(true)} className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all">
+                  <img src={(session.user as any).image} className="w-7 h-7 rounded-full border border-white/10" alt="" />
+                  <span className="text-[11px] font-black italic uppercase tracking-tighter">{session.user.name}</span>
                 </button>
              ) : (
-                <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-xl h-11 px-6 text-sm font-bold shadow-lg" onClick={() => signIn('emojino')}>
+                <Button className="bg-[#9146FF] hover:bg-[#7c3aed] text-white rounded-xl h-10 px-6 text-[10px] font-black uppercase tracking-widest" onClick={() => signIn('emojino')}>
                    Войти через Twitch
                 </Button>
              )}
@@ -319,54 +301,55 @@ function EmojinoContent() {
       </header>
 
       {/* Content */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center p-6 bg-black">
         <AnimatePresence mode="wait">
           {screen === 'home' && (
             <motion.div 
               key="home" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center"
+              className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-12 gap-12 items-center px-4"
             >
-              <div className="lg:col-span-6 space-y-12">
+              <div className="lg:col-span-6 space-y-10">
                 <div className="space-y-0 py-2">
-                   <h1 className="text-9xl font-black tracking-tighter bg-gradient-to-b from-white to-white/40 bg-clip-text text-transparent leading-[0.85] uppercase italic drop-shadow-2xl">
+                   <h1 className="text-8xl font-black tracking-tighter bg-gradient-to-b from-white to-neutral-500 bg-clip-text text-transparent leading-[0.85] uppercase italic drop-shadow-2xl">
                       УГАДАЙ<br />ЭМОДЗИ
                    </h1>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-4 max-w-md">
                   {[
-                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-9 h-9" />, c: 'from-purple-600 to-indigo-800' },
-                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-9 h-9" />, c: 'from-amber-500 to-orange-700' },
-                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-9 h-9" />, c: 'from-emerald-600 to-teal-900' }
+                    { m: 'all', t: 'КОМБО', i: <Inbox className="w-8 h-8" />, c: 'from-[#0088ff] to-[#0044bb]' },
+                    { m: 'film', t: 'ФИЛЬМЫ', i: <Film className="w-8 h-8" />, c: 'from-[#ff6600] to-[#cc3300]' },
+                    { m: 'serial', t: 'СЕРИАЛЫ', i: <Tv className="w-8 h-8" />, c: 'from-[#8800ff] to-[#4400bb]' }
                   ].map((item) => (
                     <button 
                       key={item.m} onClick={() => startNewGame(item.m)} 
-                      className={`group relative w-full h-24 border border-white/10 rounded-[2rem] p-8 flex items-center gap-6 transition-all hover:scale-[1.03] active:scale-[0.98] shadow-2xl bg-gradient-to-br ${item.c}`}
+                      className={`group relative w-full h-20 border border-white/10 rounded-2xl p-6 flex items-center gap-5 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-xl bg-gradient-to-br ${item.c}`}
                     >
-                      <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center group-hover:rotate-6 transition-all">
+                      <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
                         {item.i}
                       </div>
-                      <h3 className="text-3xl font-black tracking-tighter uppercase text-white italic flex-1 text-left">
+                      <h3 className="text-3xl font-black tracking-tighter uppercase text-white italic transition-transform group-hover:translate-x-1">
                         {item.t}
                       </h3>
-                      <ChevronRight className="w-7 h-7 text-white/50 group-hover:translate-x-2 transition-all" />
+                      <div className="flex-1" />
+                      <ChevronRight className="w-6 h-6 text-white/50 group-hover:translate-x-1 transition-all" />
                     </button>
                   ))}
                 </div>
               </div>
 
               {/* Right Column: Leaderboard */}
-              <div className="lg:col-span-6 bg-[#0c0c0e]/50 backdrop-blur-3xl border border-white/[0.06] rounded-[3rem] p-8 flex flex-col h-[520px] shadow-2xl relative overflow-hidden">
-                 <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-4">
-                       <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+              <div className="lg:col-span-6 bg-[#0c0c0e] border border-white/[0.06] rounded-[2.5rem] p-8 flex flex-col h-[520px] shadow-2xl relative overflow-hidden">
+                 <div className="flex items-center justify-between mb-8 px-2">
+                    <div className="flex items-center gap-3">
+                       <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
                           <Trophy className="w-5 h-5" />
                        </div>
                        <h2 className="text-2xl font-black uppercase italic tracking-tighter">РЕЙТИНГ</h2>
                     </div>
                     <div className="flex gap-1 bg-white/[0.03] p-1 rounded-xl border border-white/[0.06]">
                       {['all', 'film', 'serial'].map(m => (
-                          <button key={m} onClick={() => setLbMode(m)} className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${lbMode === m ? 'bg-amber-500 text-black' : 'text-neutral-500 hover:text-neutral-300'}`}>
+                          <button key={m} onClick={() => setLbMode(m)} className={`px-4 py-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${lbMode === m ? 'bg-white/10 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}>
                             {m === 'all' ? 'КОМБО' : m === 'film' ? 'ФИЛЬМЫ' : 'СЕРИАЛЫ'}
                           </button>
                       ))}
@@ -375,14 +358,14 @@ function EmojinoContent() {
 
                  <div className="flex-1 space-y-3 overflow-y-auto pr-2 custom-scrollbar">
                     {leaderboard.map((p, i) => (
-                        <div key={i} className="flex items-center gap-5 p-5 rounded-3xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all group">
+                        <div key={i} className="flex items-center gap-5 p-5 rounded-2xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] transition-all group">
                           <div className={`w-8 text-2xl font-black italic ${i < 3 ? 'text-amber-400' : 'text-neutral-700'}`}>#{i+1}</div>
-                          <img src={p.avatar} className="w-14 h-14 rounded-2xl border border-white/10 group-hover:scale-110 transition-transform" alt="" />
+                          <img src={p.avatar} className="w-12 h-12 rounded-xl border border-white/10 group-hover:scale-105 transition-transform" alt="" />
                           <div className="flex-1 min-w-0">
-                              <p className="text-lg font-black tracking-tight truncate">{p.username}</p>
-                              <p className="text-[10px] text-neutral-500 uppercase font-black leading-none mt-1">{p.mode.replace('emojino_', '')}</p>
+                              <p className="text-lg font-black tracking-tight truncate italic leading-none">{p.username}</p>
+                              <p className="text-[10px] text-neutral-500 uppercase font-black leading-none mt-1.5">{p.mode.replace('emojino_', '')}</p>
                           </div>
-                          <div className="text-4xl font-black italic text-amber-400">{p.score}</div>
+                          <div className="text-4xl font-black italic text-[#0088ff]">{p.score}</div>
                         </div>
                     ))}
                  </div>
@@ -391,42 +374,29 @@ function EmojinoContent() {
           )}
 
           {screen === 'game' && gameMovies[currentIndex] && (
-            <motion.div 
-              key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-              className="w-full max-w-2xl flex flex-col gap-6"
-            >
-              <div className="relative aspect-[21/9] rounded-[3rem] overflow-hidden border border-white/10 shadow-2xl bg-white/[0.02] backdrop-blur-xl flex items-center justify-center p-10">
-                 <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-rose-500/10 opacity-40" />
-                 <div 
-                    className="relative z-10 text-5xl sm:text-6xl md:text-7xl flex items-center justify-center gap-4 flex-nowrap whitespace-nowrap overflow-hidden"
-                    style={{ fontFamily: '"Twemoji Mozilla", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}
-                 >
+            <motion.div key="game" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-2xl flex flex-col gap-6">
+              <div className="relative aspect-[21/9] rounded-[2.5rem] overflow-hidden border border-white/10 shadow-2xl bg-[#0c0c0e] flex items-center justify-center p-10">
+                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 opacity-40" />
+                 <div className="relative z-10 text-5xl sm:text-6xl md:text-7xl flex items-center justify-center gap-4 flex-nowrap whitespace-nowrap overflow-hidden" style={{ fontFamily: '"Twemoji Mozilla", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif' }}>
                     {Array.from(gameMovies[currentIndex].emoji).map((char, i) => (
-                      <motion.span key={i} initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}>
-                        {char}
-                      </motion.span>
+                      <motion.span key={i} initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}>{char}</motion.span>
                     ))}
                  </div>
                  <div className="absolute top-6 left-6 z-20">
-                    <span className="px-4 py-2 rounded-2xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-black uppercase tracking-widest">
+                    <span className="px-4 py-2 rounded-xl bg-white/[0.04] backdrop-blur-md border border-white/10 text-[9px] font-black uppercase tracking-widest text-neutral-400">
                       {gameMovies[currentIndex].type === 'film' ? 'Фильм' : 'Сериал'} • {gameMovies[currentIndex].year}
                     </span>
                  </div>
                  {!state.guessed && (
                     <div className="absolute top-6 right-6">
-                       <div className="bg-amber-500 text-black px-5 py-3 rounded-2xl font-black text-2xl shadow-xl shadow-amber-500/30">
-                          +{SCORE_FOR_HINTS[state.hintsUsed]}
-                       </div>
+                       <div className="bg-amber-500 text-black px-5 py-3 rounded-2xl font-black text-2xl shadow-xl">+{SCORE_FOR_HINTS[state.hintsUsed]}</div>
                     </div>
                  )}
               </div>
 
               <AnimatePresence>
                 {state.hintsUsed > 0 && !state.guessed && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                    className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-sm font-black text-center uppercase tracking-widest italic"
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-5 rounded-2xl bg-amber-500/5 border border-amber-500/10 text-amber-500 text-xs font-black text-center uppercase tracking-widest italic">
                     💡 {gameMovies[currentIndex].hints.slice(1, state.hintsUsed + 1).join(' • ')}
                   </motion.div>
                 )}
@@ -436,10 +406,10 @@ function EmojinoContent() {
                 <div className="space-y-4">
                    <div className="relative group">
                       <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-                        <Search className="w-6 h-6 text-white/20 group-focus-within:text-amber-400 transition-colors" />
+                        <Search className="w-5 h-5 text-white/20 group-focus-within:text-amber-400 transition-colors" />
                       </div>
                       <input 
-                        className="w-full h-20 pl-16 pr-8 bg-white/[0.03] border border-white/10 rounded-3xl focus:outline-none focus:border-amber-500/50 focus:ring-4 focus:ring-amber-500/10 text-xl font-bold transition-all placeholder:text-white/10"
+                        className="w-full h-16 pl-14 pr-8 bg-white/[0.03] border border-white/10 rounded-2xl focus:outline-none focus:border-white/20 text-lg font-bold transition-all placeholder:text-white/10"
                         placeholder="Назови проект..."
                         value={guessInput}
                         onChange={(e) => setGuessInput(e.target.value)}
@@ -448,43 +418,28 @@ function EmojinoContent() {
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                       />
                    </div>
-
                    <div className="grid grid-cols-4 gap-3">
-                      <button onClick={useHint} disabled={state.hintsUsed >= 2} className="h-20 rounded-3xl bg-white/[0.03] border border-white/10 flex flex-col items-center justify-center text-neutral-400 hover:text-white transition-all disabled:opacity-20">
-                         <Lightbulb className="w-6 h-6 mb-1" />
-                         <span className="text-[9px] uppercase font-black">ПОДСКАЗКА</span>
-                      </button>
-                      <button onClick={handleSkip} className="h-20 rounded-3xl bg-white/[0.03] border border-white/10 flex flex-col items-center justify-center text-neutral-400 hover:text-white transition-all">
-                         <SkipForward className="w-6 h-6 mb-1" />
-                         <span className="text-[9px] uppercase font-black">СКИП</span>
-                      </button>
-                      <button onClick={() => handleGuess()} className="col-span-2 h-20 rounded-3xl bg-amber-500 text-black flex items-center justify-center gap-3 font-black text-lg hover:bg-amber-400 shadow-xl shadow-amber-500/20 active:scale-95">
-                         <Sparkles className="w-6 h-6" /> УГАДАТЬ
-                      </button>
+                      <button onClick={useHint} disabled={state.hintsUsed >= 2} className="h-16 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center gap-2 text-neutral-500 hover:text-white transition-all disabled:opacity-20"><Lightbulb className="w-4 h-4" /><span className="text-[9px] uppercase font-black">ПОДСКАЗКА</span></button>
+                      <button onClick={handleSkip} className="h-16 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center gap-2 text-neutral-500 hover:text-white transition-all"><SkipForward className="w-4 h-4" /><span className="text-[9px] uppercase font-black">СКИП</span></button>
+                      <button onClick={() => handleGuess()} className="col-span-2 h-16 rounded-2xl bg-white text-black flex items-center justify-center gap-2 font-black text-sm uppercase tracking-widest hover:bg-neutral-200 transition-all active:scale-95">УГАДАТЬ</button>
                    </div>
                 </div>
               ) : (
                 <div className="flex flex-col gap-4">
-                   <div className={`p-6 rounded-[2.5rem] border ${state.correct ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'} flex items-center justify-between`}>
+                   <div className={`p-6 rounded-3xl border ${state.correct ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-rose-500/5 border-rose-500/10'} flex items-center justify-between`}>
                       <div className="flex items-center gap-5">
-                         <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${state.correct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                            {state.correct ? <Check className="w-7 h-7" /> : <X className="w-7 h-7" />}
-                         </div>
+                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${state.correct ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>{state.correct ? <Check className="w-6 h-6" /> : <X className="w-6 h-6" />}</div>
                          <div>
-                             <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${state.correct ? 'text-emerald-400' : 'text-rose-400'}`}>
-                               {state.correct ? 'Верно!' : 'Правильный ответ:'}
-                            </p>
-                            <p className="text-2xl font-black italic">{gameMovies[currentIndex]?.title_ru || '---'}</p>
+                             <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${state.correct ? 'text-emerald-400' : 'text-rose-400'}`}>{state.correct ? 'Верно!' : 'Правильный ответ:'}</p>
+                            <p className="text-xl font-black italic">{gameMovies[currentIndex]?.title_ru || '---'}</p>
                          </div>
                       </div>
                       <div className="text-right">
                          <p className="text-[10px] text-white/40 uppercase font-black leading-none">Баллы</p>
-                         <p className="text-4xl font-black text-amber-400 mt-1">+{state.score}</p>
+                         <p className="text-3xl font-black text-amber-500 mt-1">+{state.score}</p>
                       </div>
                    </div>
-                   <Button className="w-full h-20 text-xl font-black rounded-[2rem] bg-white text-black hover:bg-neutral-200" onClick={nextMovie}>
-                     СЛЕДУЮЩИЙ <ChevronRight className="w-6 h-6 ml-2" />
-                   </Button>
+                   <Button className="w-full h-16 text-lg font-black rounded-3xl bg-white text-black hover:bg-neutral-200" onClick={nextMovie}>СЛЕДУЮЩИЙ <ChevronRight className="w-6 h-6 ml-2" /></Button>
                 </div>
               )}
             </motion.div>
@@ -492,33 +447,20 @@ function EmojinoContent() {
 
           {screen === 'result' && (
             <motion.div key="result" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-10 max-w-sm w-full">
-              <Trophy className="w-28 h-28 text-yellow-500 mx-auto drop-shadow-2xl" />
-              <div className="space-y-2">
-                <h2 className="text-5xl font-black italic uppercase tracking-tighter">Финиш!</h2>
-                <p className="text-neutral-500 font-bold uppercase tracking-widest text-xs">Твой результат за 10 раундов</p>
-              </div>
-              <div className="p-12 rounded-[3.5rem] bg-white/[0.03] border border-white/10 shadow-2xl relative overflow-hidden">
-                 <p className="text-amber-500 font-black text-[10px] uppercase tracking-[0.4em] mb-4">Набрано очков</p>
-                 <h3 className="text-8xl font-black italic">{state.totalScore}</h3>
-              </div>
-              <div className="flex flex-col gap-4">
-                 <Button className="w-full h-20 rounded-3xl bg-amber-500 text-black font-black text-lg hover:bg-amber-400" onClick={() => startNewGame(state.mode)}>
-                   ИГРАТЬ ЕЩЕ <RefreshCw className="w-6 h-6 ml-3" />
-                 </Button>
-                 <Button variant="ghost" className="w-full h-16 rounded-3xl text-neutral-500 hover:text-white" onClick={() => setScreen('home')}>
-                   ГЛАВНОЕ МЕНЮ
-                 </Button>
-              </div>
+              <Trophy className="w-24 h-24 text-yellow-500 mx-auto" />
+              <div className="space-y-2"><h2 className="text-5xl font-black italic uppercase tracking-tighter">Финиш!</h2><p className="text-neutral-500 font-bold uppercase tracking-widest text-xs">Твой результат за 10 раундов</p></div>
+              <div className="p-12 rounded-[3.5rem] bg-white/[0.03] border border-white/10 shadow-2xl relative overflow-hidden"><p className="text-amber-500 font-black text-[10px] uppercase tracking-[0.4em] mb-4">Набрано очков</p><h3 className="text-8xl font-black italic">{state.totalScore}</h3></div>
+              <div className="flex flex-col gap-4"><Button className="w-full h-16 rounded-[1.5rem] bg-amber-500 text-black font-black text-lg hover:bg-amber-400" onClick={() => startNewGame(state.mode)}>ИГРАТЬ ЕЩЕ <RefreshCw className="w-6 h-6 ml-3" /></Button><Button variant="ghost" className="w-full h-16 rounded-[1.5rem] text-neutral-500 hover:text-white" onClick={() => setScreen('home')}>ГЛАВНОЕ МЕНЮ</Button></div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      <footer className="relative z-10 border-t border-white/[0.06] py-6 px-10 bg-black/50 backdrop-blur-md">
+      <footer className="relative z-10 border-t border-white/[0.06] py-6 px-10 bg-black">
         <div className="max-w-7xl mx-auto flex items-center justify-center">
           <a href="https://t.me/paracetamolhaze" target="_blank" className="flex items-center gap-3 group">
             <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.3em]">Powered by</span>
-            <span className="text-sm font-black italic tracking-tighter bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent">PARACETAMOLHAZE</span>
+            <span className="text-sm font-black italic tracking-tighter bg-gradient-to-r from-amber-400 to-red-500 bg-clip-text text-transparent underline decoration-amber-500/30">PARACETAMOLHAZE</span>
           </a>
         </div>
       </footer>
