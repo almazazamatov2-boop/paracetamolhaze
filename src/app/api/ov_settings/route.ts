@@ -49,7 +49,16 @@ export async function POST(req: Request) {
     const userId = authData.data?.[0]?.id;
     if (!userId) return NextResponse.json({ error: 'Auth failed' }, { status: 401 });
 
-    const { type, settings } = await req.json();
+    const body = await req.json();
+    let type = body.type;
+    let settings = body.settings;
+
+    // Backward compatibility: If no type is provided, assume it's the old 'fate' structure
+    if (!type && body.reward_id) {
+        type = 'fate';
+        settings = body;
+    }
+
     if (!type || !settings) return NextResponse.json({ error: 'Missing type or settings' }, { status: 400 });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -63,6 +72,14 @@ export async function POST(req: Request) {
         .maybeSingle();
 
     const allSettings = current?.settings || {};
+    
+    // If it's fate, we can also store it at the root for extreme legacy support if needed,
+    // but namespacing it is better. Let's merge it carefully.
+    if (type === 'fate') {
+        // Copy to root to keep old dashboard logic working on GET if it doesn't use ?type=fate
+        Object.assign(allSettings, settings);
+    }
+    
     allSettings[type] = settings;
 
     const { error } = await supabase

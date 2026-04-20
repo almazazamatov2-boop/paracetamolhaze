@@ -71,6 +71,7 @@
             opacity: 0;
         }
 
+        /* Nick and Avatar at way left */
         #left-side {
             display: flex;
             align-items: center;
@@ -95,6 +96,7 @@
             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
         }
 
+        /* Center Section (Label + Numbers) */
         #center-side {
             display: flex;
             align-items: center;
@@ -138,9 +140,11 @@
             font-weight: 900;
             color: var(--white);
             opacity: 1;
+            /* Forced opaque */
             text-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
         }
 
+        /* Right Section (Reward) */
         #right-side {
             display: flex;
             align-items: center;
@@ -154,6 +158,7 @@
             font-weight: 900;
             color: var(--white);
             text-align: center;
+            /* Centered as requested */
             text-transform: uppercase;
             max-width: 300px;
             line-height: 1.1;
@@ -209,8 +214,15 @@
         }
 
         @keyframes flash {
-            0%, 100% { opacity: 1 }
-            50% { opacity: .4 }
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: .4
+            }
         }
 
         .shake {
@@ -218,9 +230,19 @@
         }
 
         @keyframes shake {
-            0%, 100% { transform: translate(0, 0); }
-            25% { transform: translate(-10px, 0); }
-            75% { transform: translate(10px, 0); }
+
+            0%,
+            100% {
+                transform: translate(0, 0);
+            }
+
+            25% {
+                transform: translate(-10px, 0);
+            }
+
+            75% {
+                transform: translate(10px, 0);
+            }
         }
     </style>
 </head>
@@ -266,7 +288,7 @@
         const T_IN = 650;
         const T_STAND = 1000;
         const T_ROLL = 3000;
-        const T_AFTER = 2000;
+        const T_AFTER = 2000; // Updated to 2 seconds
         const T_OUT = 650;
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -274,26 +296,30 @@
         let isRunning = false;
         let lastTriggerId = null;
 
-        async function loadSettings() {
+        async function loadAssets() {
             if (!userId) return;
             try {
-                const res = await fetch(`/api/ov_settings?userId=${userId}&type=fate`);
-                const s = await res.json();
-                if (s.panel_bg) document.getElementById('wrap').style.backgroundImage = `url(${s.panel_bg})`;
-                if (s.reward_img) document.getElementById('rewardImg').innerHTML = `<img src="${s.reward_img}">`;
-                if (s.reward_name) document.getElementById('rewardTitle').textContent = s.reward_name;
-                
+                const res = await fetch(`/api/ov_upload?userId=${userId}`);
+                const assets = await res.json();
+                if (assets.panel_bg) document.getElementById('wrap').style.backgroundImage = `url(${assets.panel_bg})`;
+                if (assets.reward_img) document.getElementById('rewardImg').innerHTML = `<img src="${assets.reward_img}">`;
                 ['s_in', 's_roll', 's_win', 's_lose', 's_out'].forEach(k => {
-                    const audioId = k.replace('s_', 's').charAt(0) + k.replace('s_', 's').slice(1).replace(/in|roll|win|lose|out/i, m => m.charAt(0).toUpperCase() + m.slice(1));
-                    // Map keys to element IDs (sIn, sRoll...)
-                    const elId = 's' + k.split('_')[1].charAt(0).toUpperCase() + k.split('_')[1].slice(1);
-                    if (s[k]) document.getElementById(elId).src = s[k];
+                    if (assets[k]) document.getElementById(k.replace('_', '')).src = assets[k];
                 });
             } catch (e) { }
         }
 
-        async function checkTrigger() {
-            if (isRunning || !userId) return;
+        async function loadSettings() {
+            if (!userId) return;
+            try {
+                const res = await fetch(`/api/ov_settings?userId=${userId}`);
+                const settings = await res.json();
+                if (settings.reward_name) document.getElementById('rewardTitle').textContent = settings.reward_name;
+            } catch (e) { }
+        }
+
+        async function checkTrigger(isInitial = false) {
+            if ((isRunning && !isInitial) || !userId) return;
             try {
                 const res = await fetch(`/api/ov_trigger?userId=${userId}&t=${Date.now()}`);
                 const data = await res.json();
@@ -304,9 +330,7 @@
                     }
                     if (data.triggerId !== lastTriggerId) {
                         lastTriggerId = data.triggerId;
-                        if (data.type === 'fate' || !data.type) {
-                            animate(data);
-                        }
+                        animate(data);
                     }
                 }
             } catch (e) { }
@@ -336,12 +360,7 @@
             rollEl.style.color = "var(--white)";
 
             userEl.textContent = data.userName;
-            if (data.userAvatar) {
-                avatarEl.src = data.userAvatar;
-                avatarEl.style.display = 'block';
-            } else {
-                avatarEl.style.display = 'none';
-            }
+            if (data.userAvatar) avatarEl.src = data.userAvatar;
             pickEl.textContent = data.userChoice.toString().padStart(2, '0');
             rollEl.textContent = "00";
 
@@ -361,8 +380,7 @@
             }
             rollEl.classList.remove('rollFlash');
 
-            // Use server result
-            let resultNum = data.result || Math.floor(Math.random() * 99 + 1);
+            let resultNum = data.isTest ? (Math.random() > 0.5 ? data.userChoice : Math.floor(Math.random() * 99 + 1)) : Math.floor(Math.random() * 99 + 1);
             rollEl.textContent = resultNum.toString().padStart(2, '0');
 
             const isWin = parseInt(rollEl.textContent) === parseInt(pickEl.textContent);
@@ -382,8 +400,23 @@
         }
 
         if (userId) {
+            loadAssets();
             loadSettings();
-            setInterval(checkTrigger, 1500);
+
+            // Check if we are in instant test mode from URL params
+            const isTestMode = urlParams.get('test') === '1';
+            if (isTestMode) {
+                const data = {
+                    userName: urlParams.get('userName') || 'PLAYER',
+                    userChoice: parseInt(urlParams.get('userChoice')) || 0,
+                    userAvatar: urlParams.get('userAvatar') || '',
+                    isTest: true
+                };
+                // Small delay to ensure styles/assets are ready
+                setTimeout(() => animate(data), 500);
+            } else {
+                setInterval(() => checkTrigger(false), 1500);
+            }
         }
     </script>
 </body>
