@@ -141,15 +141,19 @@
     /* MAIN */
     main {
       padding: 0;
-      overflow-y: auto;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
 
     .page-header {
-      padding: 36px 48px 32px;
+      padding: 24px 48px;
       border-bottom: 1px solid var(--border);
       display: flex;
-      align-items: flex-end;
+      align-items: center;
       justify-content: space-between;
+      flex-shrink: 0;
     }
 
     .page-title-label {
@@ -184,7 +188,33 @@
     .status-badge .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
 
     /* CONTENT */
-    .content { padding: 40px 48px; display: flex; flex-direction: column; gap: 40px; }
+    .content { 
+      padding: 24px 48px; 
+      display: grid; 
+      grid-template-columns: 1fr 1.3fr; 
+      gap: 24px; 
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .content-col {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      min-height: 0;
+    }
+
+    .card.full-height {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card.full-height .card-body {
+      flex: 1;
+      overflow-y: auto;
+    }
 
     /* CARDS */
     .card {
@@ -399,7 +429,7 @@
 
     .asset-row {
       display: grid;
-      grid-template-columns: 36px 1fr 200px 120px;
+      grid-template-columns: 36px 1fr 160px 110px;
       align-items: center;
       gap: 0;
       background: var(--surface);
@@ -615,317 +645,220 @@
 
     <div class="content">
 
-      <!-- OBS SOURCE -->
-      <div class="card">
-        <div class="card-head">
-          <div class="card-head-left">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <!-- LEFT COLUMN: OBS + SETTINGS -->
+      <div class="content-col" style="overflow-y: auto; padding-right: 4px;">
+        <!-- OBS SOURCE -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-head-left">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              </div>
+              <div>
+                <div class="card-title">OBS Browser Source</div>
+                <div class="card-subtitle">Добавь этот URL в OBS</div>
+              </div>
             </div>
-            <div>
-              <div class="card-title">OBS Browser Source</div>
-              <div class="card-subtitle">Добавь этот URL в OBS как Browser Source</div>
+          </div>
+          <div class="card-body">
+            <div class="obs-url-block">
+              <div class="obs-url" id="obs-url">https://paracetamolhaze.vercel.app/overlays/roll?id=119989080</div>
+              <button class="btn-copy" onclick="copyUrl()">Скопировать</button>
+              <a href="#" class="btn-test" target="_blank">Тест</a>
+            </div>
+            <div class="obs-hint">
+              <strong>1600×210</strong> &nbsp;·&nbsp; ✓ <strong>Прозрачный фон</strong>
             </div>
           </div>
         </div>
-        <div class="card-body">
-          <div class="obs-url-block">
-            <div class="obs-url" id="obs-url">https://overlayroll-production.up.railway.app/overlay/317c522990bf51a82e8c5e4ff536b77e</div>
-            <button class="btn-copy" onclick="copyUrl()">Скопировать</button>
-            <a href="#" class="btn-test" target="_blank">Тест ↗</a>
+
+        <!-- SETTINGS -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-head-left">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
+              </div>
+              <div>
+                <div class="card-title">Настройки</div>
+                <div class="card-subtitle">Параметры оверлея</div>
+              </div>
+            </div>
           </div>
-          <div class="obs-hint">
-            В OBS: <strong>Источники → + → Браузер</strong> &nbsp;·&nbsp;
-            Ширина: <strong>1600</strong> &nbsp;·&nbsp;
-            Высота: <strong>210</strong> &nbsp;·&nbsp;
-            ✓ <strong>Прозрачный фон</strong>
+          <div class="card-body">
+            <form action="/dashboard/save" method="POST">
+              <div style="display:flex; flex-direction:column; gap:20px;">
+                <div class="field">
+                  <label class="field-label">Название награды в Twitch</label>
+                  <input type="text" name="reward_name" value="РАНДОМ СКИН КС2" />
+                </div>
+                <div class="form-grid">
+                  <div class="field">
+                    <label class="field-label">Мин. число</label>
+                    <input type="number" name="min_val" value="1" />
+                  </div>
+                  <div class="field">
+                    <label class="field-label">Макс. число</label>
+                    <input type="number" name="max_val" value="100" />
+                  </div>
+                </div>
+                <div class="divider"></div>
+                <div class="form-grid cols-3">
+                  <div class="field">
+                    <label class="field-label">Фон</label>
+                    <div class="color-field">
+                      <div class="color-swatch">
+                        <div class="color-preview" id="prev-bg" style="background:#1a1a2e"></div>
+                        <input type="color" name="color_bg" value="#1a1a2e" oninput="syncColor(this,'prev-bg','hex-bg')" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="field-label">Имя</label>
+                    <div class="color-field">
+                      <div class="color-swatch">
+                        <div class="color-preview" id="prev-name" style="background:#ffffff"></div>
+                        <input type="color" name="color_name" value="#ffffff" oninput="syncColor(this,'prev-name','hex-name')" />
+                      </div>
+                    </div>
+                  </div>
+                  <div class="field">
+                    <label class="field-label">Цифры</label>
+                    <div class="color-field">
+                      <div class="color-swatch">
+                        <div class="color-preview" id="prev-num" style="background:#ffffff"></div>
+                        <input type="color" name="color_num" value="#ffffff" oninput="syncColor(this,'prev-num','hex-num')" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <button type="submit" class="btn-save">Сохранить</button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
 
-      <!-- SETTINGS -->
-      <div class="card">
-        <div class="card-head">
-          <div class="card-head-left">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/></svg>
-            </div>
-            <div>
-              <div class="card-title">Настройки</div>
-              <div class="card-subtitle">Параметры оверлея и внешний вид</div>
+      <!-- RIGHT COLUMN: ASSETS -->
+      <div class="content-col">
+        <div class="card full-height">
+          <div class="card-head">
+            <div class="card-head-left">
+              <div class="card-icon">
+                <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+              </div>
+              <div>
+                <div class="card-title">Ассеты</div>
+                <div class="card-subtitle">Изображения и звуки</div>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="card-body">
-          <form action="/dashboard/save" method="POST">
-            <div style="display:flex; flex-direction:column; gap:24px;">
-
-              <!-- Reward name -->
-              <div class="field" style="grid-column:1/-1">
-                <label class="field-label">Название награды в Twitch Channel Points</label>
-                <input type="text" name="reward_name" value="РАНДОМ СКИН КС2" placeholder="Точно как в Twitch" />
-                <span class="field-hint">Должно совпадать с именем награды в Twitch Dashboard до символа. Регистр важен.</span>
-              </div>
-
-              <div class="divider"></div>
-
-              <!-- Min / Max -->
-              <div class="form-grid">
-                <div class="field">
-                  <label class="field-label">Мин. число</label>
-                  <input type="number" name="min_val" value="1" min="0" />
-                  <span class="field-hint">Минимальное число рандома (включительно)</span>
+          <div class="card-body" style="padding:0">
+            <div class="assets-grid">
+              <div class="assets-section-head">Изображения</div>
+              <div class="asset-row">
+                <div class="asset-type-icon">🖼️</div>
+                <div class="asset-info">
+                  <div class="asset-name">Фон панели</div>
+                  <span class="asset-spec">1600×210</span>
                 </div>
-                <div class="field">
-                  <label class="field-label">Макс. число</label>
-                  <input type="number" name="max_val" value="100" min="1" />
-                  <span class="field-hint">Максимальное число рандома (включительно)</span>
+                <div class="asset-upload">
+                  <label class="file-input-label">
+                    <span class="file-btn">Выбрать</span>
+                    <input type="file" accept="image/png,image/jpeg" onchange="updateFileName(this)">
+                  </label>
+                </div>
+                <div class="asset-action">
+                  <button class="btn-upload" onclick="uploadAsset('panel_bg', this)">Загрузить</button>
                 </div>
               </div>
-
-              <div class="divider"></div>
-
-              <!-- Colors -->
-              <div class="form-grid cols-3">
-                <div class="field">
-                  <label class="field-label">Фон панели</label>
-                  <div class="color-field">
-                    <div class="color-swatch">
-                      <div class="color-preview" id="prev-bg" style="background:#1a1a2e"></div>
-                      <input type="color" name="color_bg" value="#1a1a2e" oninput="syncColor(this,'prev-bg','hex-bg')" />
-                    </div>
-                    <input type="text" class="color-hex" id="hex-bg" value="#1a1a2e" maxlength="7"
-                      oninput="syncHex(this,'prev-bg',document.querySelector('[name=color_bg]'))" />
-                  </div>
-                  <span class="field-hint">Цвет или картинка (загрузи в Ассеты)</span>
+              <div class="asset-row">
+                <div class="asset-type-icon">🏆</div>
+                <div class="asset-info">
+                  <div class="asset-name">Иконка награды</div>
+                  <span class="asset-spec">200×200</span>
                 </div>
-
-                <div class="field">
-                  <label class="field-label">Цвет имени</label>
-                  <div class="color-field">
-                    <div class="color-swatch">
-                      <div class="color-preview" id="prev-name" style="background:#ffffff"></div>
-                      <input type="color" name="color_name" value="#ffffff" oninput="syncColor(this,'prev-name','hex-name')" />
-                    </div>
-                    <input type="text" class="color-hex" id="hex-name" value="#ffffff" maxlength="7"
-                      oninput="syncHex(this,'prev-name',document.querySelector('[name=color_name]'))" />
-                  </div>
-                  <span class="field-hint">Цвет имени зрителя на панели</span>
+                <div class="asset-upload">
+                  <label class="file-input-label">
+                    <span class="file-btn">Выбрать</span>
+                    <input type="file" accept="image/png" onchange="updateFileName(this)">
+                  </label>
                 </div>
-
-                <div class="field">
-                  <label class="field-label">Цвет цифр</label>
-                  <div class="color-field">
-                    <div class="color-swatch">
-                      <div class="color-preview" id="prev-num" style="background:#ffffff"></div>
-                      <input type="color" name="color_num" value="#ffffff" oninput="syncColor(this,'prev-num','hex-num')" />
-                    </div>
-                    <input type="text" class="color-hex" id="hex-num" value="#ffffff" maxlength="7"
-                      oninput="syncHex(this,'prev-num',document.querySelector('[name=color_num]'))" />
-                  </div>
-                  <span class="field-hint">Цвет выпавшего числа на панели</span>
+                <div class="asset-action">
+                  <button class="btn-upload" onclick="uploadAsset('reward_img', this)">Загрузить</button>
                 </div>
               </div>
-
-              <button type="submit" class="btn-save">
-                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Сохранить настройки
-              </button>
-
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- ASSETS -->
-      <div class="card">
-        <div class="card-head">
-          <div class="card-head-left">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
-            </div>
-            <div>
-              <div class="card-title">Ассеты</div>
-              <div class="card-subtitle">Картинки и звуки оверлея</div>
-            </div>
-          </div>
-        </div>
-        <div class="card-body" style="padding:0">
-
-          <div class="assets-grid">
-
-            <!-- SECTION: Изображения -->
-            <div class="assets-section-head">Изображения</div>
-
-            <!-- panel_bg -->
-            <div class="asset-row">
-              <div class="asset-type-icon">🖼️</div>
-              <div class="asset-info">
-                <div class="asset-name">Фон панели</div>
-                <div class="asset-desc">
-                  Фоновое изображение всей панели оверлея. Если не загружено — используется цвет фона из настроек.<br>
-                  Изображение растягивается на 1600×210 px, поэтому лучше использовать широкоформатную картинку.
+              <div class="assets-section-head">Звуки</div>
+              <div class="asset-row">
+                <div class="asset-type-icon">🔔</div>
+                <div class="asset-info"><div class="asset-name">Появление</div></div>
+                <div class="asset-upload">
+                  <label class="file-input-label">
+                    <span class="file-btn">Выбрать</span>
+                    <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
+                  </label>
                 </div>
-                <span class="asset-spec">PNG / JPG · 1600×210 рекомендовано</span>
+                <div class="asset-action">
+                  <button class="btn-upload" onclick="uploadAsset('s_in', this)">Загрузить</button>
+                </div>
               </div>
-              <div class="asset-upload">
-                <label class="file-input-label">
-                  <span class="file-btn">Выбрать файл</span>
-                  <input type="file" accept="image/png,image/jpeg" onchange="updateFileName(this)">
-                </label>
-                <span class="file-name">Файл не выбран</span>
+              <div class="asset-row">
+                <div class="asset-type-icon">🎲</div>
+                <div class="asset-info"><div class="asset-name">Рандом</div></div>
+                <div class="asset-upload">
+                  <label class="file-input-label">
+                    <span class="file-btn">Выбрать</span>
+                    <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
+                  </label>
+                </div>
+                <div class="asset-action">
+                  <button class="btn-upload" onclick="uploadAsset('s_roll', this)">Загрузить</button>
+                </div>
               </div>
-              <div class="asset-action">
-                <button class="btn-upload" onclick="uploadAsset('panel_bg', this)">Загрузить</button>
-                <div class="asset-status none" id="status-panel_bg">—</div>
+              <div class="asset-row">
+                <div class="asset-type-icon">🏅</div>
+                <div class="asset-info"><div class="asset-name">Победа</div></div>
+                <div class="asset-upload">
+                  <label class="file-input-label">
+                    <span class="file-btn">Выбрать</span>
+                    <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
+                  </label>
+                </div>
+                <div class="asset-action">
+                  <button class="btn-upload" onclick="uploadAsset('s_win', this)">Загрузить</button>
+                </div>
+              </div>
+              <div class="asset-row">
+                <div class="asset-type-icon">💀</div>
+                <div class="asset-info"><div class="asset-name">Проигрыш</div></div>
+                <div class="asset-upload">
+                  <label class="file-input-label">
+                    <span class="file-btn">Выбрать</span>
+                    <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
+                  </label>
+                </div>
+                <div class="asset-action">
+                  <button class="btn-upload" onclick="uploadAsset('s_lose', this)">Загрузить</button>
+                </div>
+              </div>
+              <div class="asset-row">
+                <div class="asset-type-icon">🌫️</div>
+                <div class="asset-info"><div class="asset-name">Исчезновение</div></div>
+                <div class="asset-upload">
+                  <label class="file-input-label">
+                    <span class="file-btn">Выбрать</span>
+                    <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
+                  </label>
+                </div>
+                <div class="asset-action">
+                  <button class="btn-upload" onclick="uploadAsset('s_out', this)">Загрузить</button>
+                </div>
               </div>
             </div>
-
-            <!-- reward_img -->
-            <div class="asset-row">
-              <div class="asset-type-icon">🏆</div>
-              <div class="asset-info">
-                <div class="asset-name">Картинка награды</div>
-                <div class="asset-desc">
-                  Иконка или иллюстрация, которая отображается на панели во время анимации. Поддерживает прозрачность.<br>
-                  Используй квадратный PNG с прозрачным фоном — около 200×200 px.
-                </div>
-                <span class="asset-spec">PNG · прозрачный фон · ~200×200</span>
-              </div>
-              <div class="asset-upload">
-                <label class="file-input-label">
-                  <span class="file-btn">Выбрать файл</span>
-                  <input type="file" accept="image/png" onchange="updateFileName(this)">
-                </label>
-                <span class="file-name">Файл не выбран</span>
-              </div>
-              <div class="asset-action">
-                <button class="btn-upload" onclick="uploadAsset('reward_img', this)">Загрузить</button>
-                <div class="asset-status none" id="status-reward_img">—</div>
-              </div>
-            </div>
-
-            <!-- SECTION: Звуки -->
-            <div class="assets-section-head">Звуковые дорожки</div>
-
-            <!-- s_in -->
-            <div class="asset-row">
-              <div class="asset-type-icon">🔔</div>
-              <div class="asset-info">
-                <div class="asset-name">Звук появления</div>
-                <div class="asset-desc">
-                  Играет в момент появления панели на экране. Должен быть коротким и чётким — звук-уведомление, «вжух», удар.
-                </div>
-                <span class="asset-spec">MP3 · 0.5 – 2 сек</span>
-              </div>
-              <div class="asset-upload">
-                <label class="file-input-label">
-                  <span class="file-btn">Выбрать файл</span>
-                  <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
-                </label>
-                <span class="file-name">Файл не выбран</span>
-              </div>
-              <div class="asset-action">
-                <button class="btn-upload" onclick="uploadAsset('s_in', this)">Загрузить</button>
-                <div class="asset-status none" id="status-s_in">—</div>
-              </div>
-            </div>
-
-            <!-- s_roll -->
-            <div class="asset-row">
-              <div class="asset-type-icon">🎲</div>
-              <div class="asset-info">
-                <div class="asset-name">Звук рандома</div>
-                <div class="asset-desc">
-                  Играет во время прокрутки чисел. Должен быть зацикленным по характеру — тиканье, жужжание барабана, нарастающее напряжение. Звук обрывается сразу после остановки рулетки.
-                </div>
-                <span class="asset-spec">MP3 · 3 – 8 сек</span>
-              </div>
-              <div class="asset-upload">
-                <label class="file-input-label">
-                  <span class="file-btn">Выбрать файл</span>
-                  <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
-                </label>
-                <span class="file-name">Файл не выбран</span>
-              </div>
-              <div class="asset-action">
-                <button class="btn-upload" onclick="uploadAsset('s_roll', this)">Загрузить</button>
-                <div class="asset-status none" id="status-s_roll">—</div>
-              </div>
-            </div>
-
-            <!-- s_win -->
-            <div class="asset-row">
-              <div class="asset-type-icon">🏅</div>
-              <div class="asset-info">
-                <div class="asset-name">Звук победы</div>
-                <div class="asset-desc">
-                  Играет когда зритель выигрывает (число попадает в победный диапазон). Торжественный, праздничный звук. Фанфары, джингл, победный возглас.
-                </div>
-                <span class="asset-spec">MP3 · 1 – 4 сек</span>
-              </div>
-              <div class="asset-upload">
-                <label class="file-input-label">
-                  <span class="file-btn">Выбрать файл</span>
-                  <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
-                </label>
-                <span class="file-name">Файл не выбран</span>
-              </div>
-              <div class="asset-action">
-                <button class="btn-upload" onclick="uploadAsset('s_win', this)">Загрузить</button>
-                <div class="asset-status none" id="status-s_win">—</div>
-              </div>
-            </div>
-
-            <!-- s_lose -->
-            <div class="asset-row">
-              <div class="asset-type-icon">💀</div>
-              <div class="asset-info">
-                <div class="asset-name">Звук проигрыша</div>
-                <div class="asset-desc">
-                  Играет при проигрыше. Грустный, смешной или драматичный — выбор за тобой. «Sad trombone», провальный звук.
-                </div>
-                <span class="asset-spec">MP3 · 1 – 4 сек</span>
-              </div>
-              <div class="asset-upload">
-                <label class="file-input-label">
-                  <span class="file-btn">Выбрать файл</span>
-                  <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
-                </label>
-                <span class="file-name">Файл не выбран</span>
-              </div>
-              <div class="asset-action">
-                <button class="btn-upload" onclick="uploadAsset('s_lose', this)">Загрузить</button>
-                <div class="asset-status none" id="status-s_lose">—</div>
-              </div>
-            </div>
-
-            <!-- s_out -->
-            <div class="asset-row">
-              <div class="asset-type-icon">🌫️</div>
-              <div class="asset-info">
-                <div class="asset-name">Звук исчезновения</div>
-                <div class="asset-desc">
-                  Играет когда панель уходит с экрана. Короткий звук-завершение: свист, «вжух» наоборот, затухающий тон.
-                </div>
-                <span class="asset-spec">MP3 · 0.5 – 2 сек</span>
-              </div>
-              <div class="asset-upload">
-                <label class="file-input-label">
-                  <span class="file-btn">Выбрать файл</span>
-                  <input type="file" accept="audio/mpeg" onchange="updateFileName(this)">
-                </label>
-                <span class="file-name">Файл не выбран</span>
-              </div>
-              <div class="asset-action">
-                <button class="btn-upload" onclick="uploadAsset('s_out', this)">Загрузить</button>
-                <div class="asset-status none" id="status-s_out">—</div>
-              </div>
-            </div>
-
           </div>
         </div>
       </div>
+    </div>
 
     </div><!-- /content -->
   </main>
