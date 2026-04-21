@@ -115,6 +115,46 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ type: 'number_drawn', number, all: newDrawn });
       }
 
+      case 'undo_number': {
+        const { userId, lobbyId, number } = data;
+        const { data: lobby } = await supabase
+          .from('loto_lobbies')
+          .select('drawn_numbers, admin_id')
+          .eq('id', lobbyId)
+          .single();
+
+        if (!lobby || lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Unauthorized' });
+
+        const newDrawn = (lobby.drawn_numbers || []).filter((n: any) => n !== number);
+        
+        const { error } = await supabase
+          .from('loto_lobbies')
+          .update({ drawn_numbers: newDrawn })
+          .eq('id', lobbyId);
+
+        if (error) return NextResponse.json({ type: 'error', message: error.message });
+        return NextResponse.json({ type: 'numbers_updated', all: newDrawn });
+      }
+
+      case 'reset_numbers': {
+        const { userId, lobbyId } = data;
+        const { data: lobby } = await supabase
+          .from('loto_lobbies')
+          .select('admin_id')
+          .eq('id', lobbyId)
+          .single();
+
+        if (!lobby || lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Unauthorized' });
+
+        const { error } = await supabase
+          .from('loto_lobbies')
+          .update({ drawn_numbers: [] })
+          .eq('id', lobbyId);
+
+        if (error) return NextResponse.json({ type: 'error', message: error.message });
+        return NextResponse.json({ type: 'numbers_updated', all: [] });
+      }
+
       case 'chat_message': {
         const { userId, lobbyId, text, nickname } = data;
         
@@ -176,10 +216,6 @@ export async function GET(req: NextRequest) {
             ...m, 
             timestamp: new Date(m.created_at).getTime() 
           })).reverse() || []
-        }, {
-          headers: {
-            'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=2'
-          }
         });
       }
 

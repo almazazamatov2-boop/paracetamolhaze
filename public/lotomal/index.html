@@ -185,7 +185,7 @@
     .btn-danger{ background: linear-gradient(145deg, #ff6b6b 0%, #ee5a6f 100%); }
 
     /* Карточка лото */
-    .game-container{ max-width:800px; margin:0 auto; }
+    .game-container{ max-width:1200px; margin:0 auto; padding: 20px; }
     .drawn-numbers{
       background:rgba(0,0,0,.4);
       border:2px solid rgba(255,215,0,.3);
@@ -197,11 +197,11 @@
     .drawn-list::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.4); border-radius:3px; }
     .drawn-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius:3px; }
     .drawn-number{
-      width:40px; height:40px; min-width:40px;
+      width:60px; height:60px; min-width:60px;
       background: linear-gradient(145deg, #FFD700 0%, #DAA520 100%);
       border-radius:50%; display:flex; align-items:center; justify-content:center;
-      font-weight:800; color:#000; font-size:15px;
-      box-shadow:0 4px 8px rgba(0,0,0,.3);
+      font-weight:800; color:#000; font-size:24px;
+      box-shadow:0 6px 12px rgba(0,0,0,.4);
       flex-shrink:0;
       animation: popIn .5s cubic-bezier(.34,1.56,.64,1);
     }
@@ -214,12 +214,12 @@
       gap:4px; background:rgba(0,0,0,.3); padding:8px; border-radius:12px;
     }
     .cell{
-      aspect-ratio:1;
+      aspect-ratio:1.5;
       background: linear-gradient(145deg, #3a3a4e 0%, #2a2a3e 100%);
-      border:2px solid rgba(255,215,0,.2);
-      border-radius:8px;
+      border:3px solid rgba(255,215,0,.3);
+      border-radius:12px;
       display:flex; align-items:center; justify-content:center;
-      font-size:18px; font-weight:800; color:#fff;
+      font-size:32px; font-weight:800; color:#fff;
       cursor:pointer; transition:all .3s cubic-bezier(.34,1.56,.64,1);
       position:relative; overflow:hidden; user-select:none;
     }
@@ -486,9 +486,10 @@
 
     @media (max-width: 600px){
       .logo-text{ font-size:48px; }
-      .cell{ font-size:14px; }
-      .loto-card{ gap:3px; padding:6px; }
+      .cell{ font-size:18px; border-width: 2px; }
+      .loto-card{ gap:5px; padding:8px; }
       .chat-box{ height: 160px; }
+      .drawn-number { width: 45px; height: 45px; min-width: 45px; font-size: 18px; }
     }
   
         /* Список лобби */
@@ -1106,6 +1107,21 @@
           setConnStatus('connected', 'Онлайн');
           if (currentLobbyId) subscribeToLobby(currentLobbyId);
         });
+
+      // Поллинг как фолбек (раз в 2 сек)
+      if (!pollInterval) {
+        pollInterval = setInterval(async () => {
+          if (currentLobbyId && currentScreen === 'gameScreen') {
+             try {
+               const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`);
+               if (res.ok) {
+                 const m = await res.json();
+                 handleWsMessage(m);
+               }
+             } catch(e) {}
+          }
+        }, 2000);
+      }
     }
 
     async function sendAPI(data) {

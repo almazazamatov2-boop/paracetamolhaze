@@ -449,6 +449,16 @@
                 alert('Ошибка: Отсутствует ID лобби или пользователя в URL. Перезайдите в админку из игры.');
                 return;
             }
+            
+            // Оптимистичное обновление
+            const oldOrder = [...drawnOrder];
+            const oldNumbers = new Set(drawnNumbers);
+            
+            drawnOrder.push(num);
+            drawnNumbers.add(num);
+            updateDisplay();
+            showLastNumber(num);
+
             try {
                 const res = await fetch('/api/loto', {
                     method: 'POST',
@@ -459,6 +469,10 @@
                 
                 if (data.type === 'error' || data.error) {
                     alert('Ошибка: ' + (data.message || data.error));
+                    // Откат
+                    drawnOrder = oldOrder;
+                    drawnNumbers = oldNumbers;
+                    updateDisplay();
                     return;
                 }
 
@@ -466,10 +480,13 @@
                     drawnOrder = data.drawn;
                     drawnNumbers = new Set(data.drawn);
                     updateDisplay();
-                    showLastNumber(num);
                 }
             } catch(e) {
                 console.error('API Error:', e);
+                // Откат и перезагрузка
+                drawnOrder = oldOrder;
+                drawnNumbers = oldNumbers;
+                updateDisplay();
                 await loadFromServer();
             }
         }
@@ -477,6 +494,15 @@
         async function removeNumber(num) {
             if (!lobbyId || !userId) return;
             if (!confirm(`Удалить бочонок ${num}?`)) return;
+
+            // Оптимистичное обновление
+            const oldOrder = [...drawnOrder];
+            const oldNumbers = new Set(drawnNumbers);
+
+            drawnOrder = drawnOrder.filter(x => x !== num);
+            drawnNumbers.delete(num);
+            updateDisplay();
+
             try {
                 const res = await fetch('/api/loto', {
                     method: 'POST',
@@ -490,7 +516,13 @@
                     drawnNumbers = new Set(drawnOrder);
                     updateDisplay();
                 }
-            } catch(e) { await loadFromServer(); }
+            } catch(e) {
+                // Откат
+                drawnOrder = oldOrder;
+                drawnNumbers = oldNumbers;
+                updateDisplay();
+                await loadFromServer();
+            }
         }
 
         function showLastNumber(num) {
