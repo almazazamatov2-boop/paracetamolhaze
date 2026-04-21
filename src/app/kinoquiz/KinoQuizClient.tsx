@@ -219,8 +219,6 @@ export default function KinoQuizClient() {
           <div className="flex items-center gap-4">
             {session ? (
               <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
-            {session ? (
-              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
                  <img src={session.user?.image || ''} className="w-8 h-8 rounded-full border border-white/10" alt="" />
                  <span className="text-xs font-bold">{session.user?.name}</span>
               </div>
