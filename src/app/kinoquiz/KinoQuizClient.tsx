@@ -1,15 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Film, Tv, Sparkles, Trophy, Home, ChevronRight, 
-  Search, X, Check, Clapperboard, Eye, Crown, LogIn, 
-  Zap, Medal, Menu, User, Inbox, RefreshCw, Loader2, LogOut, 
-  Clock, Send, Camera, MessageSquare, List
-} from 'lucide-react';
-import { Button } from '@/components/67/ui/button'; 
-import { useSession, signIn } from '@/lib/67/authHook'; 
+import { Film, Tv, Sparkles, Trophy, Search, Clapperboard, Crown, Loader2, Camera, MessageSquare, List, Clock } from 'lucide-react';
+import { Button } from '@/components/67/ui/button';
+import { Badge } from '@/components/67/ui/badge';
+import { useSession, signIn } from '@/lib/67/authHook';
 
 // ============ TYPES ============
 interface Movie {
@@ -27,46 +23,261 @@ interface ParticipantScore {
   score: number;
 }
 
+interface ChatMessage {
+  user: string;
+  text: string;
+  isCorrect: boolean;
+  source: 'chat' | 'streamer';
+}
+
+interface RoundWinner {
+  username: string;
+  answerRu: string;
+  answerOriginal: string;
+  submittedAnswer: string;
+}
+
 type Screen = 'lobby' | 'game' | 'results';
+
+const ROUND_TIME_OPTIONS = [30, 60, 90, 120];
+const ROUND_COUNT_OPTIONS = [5, 10, 15, 20, 30];
+const TIMER_CIRCUMFERENCE = 276;
+
+function shuffleMovies<T>(items: T[]) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
+function normalizeAnswer(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/ё/g, 'е')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isCorrectAnswer(answer: string, movie: Movie) {
+  const normalized = normalizeAnswer(answer);
+  if (!normalized) return false;
+  return normalized === normalizeAnswer(movie.title) || normalized === normalizeAnswer(movie.title_ru);
+}
 
 export default function KinoQuizClient() {
   const { data: session } = useSession();
   const [screen, setScreen] = useState<Screen>('lobby');
   const [selectedType, setSelectedType] = useState<'movie' | 'series' | 'anime'>('movie');
+  const [roundDuration, setRoundDuration] = useState(90);
+  const [roundsCount, setRoundsCount] = useState(15);
+  const [activeRoundDuration, setActiveRoundDuration] = useState(90);
+  const [activeRoundsCount, setActiveRoundsCount] = useState(15);
   const [currentRound, setCurrentRound] = useState(0);
   const [movies, setMovies] = useState<Movie[]>([]);
   const [scores, setScores] = useState<ParticipantScore[]>([]);
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(90);
   const [guessInput, setGuessInput] = useState('');
   const [isRevealed, setIsRevealed] = useState(false);
-  const [chatMessages, setChatMessages] = useState<{user: string, text: string}[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamerName, setStreamerName] = useState('');
   const [isConnected, setIsConnected] = useState(false);
-  
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [winnerModal, setWinnerModal] = useState<RoundWinner | null>(null);
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
+  const [attemptsInRound, setAttemptsInRound] = useState(0);
+
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const nextRoundTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-  const roundWinners = useRef<Set<string>>(new Set());
+  const screenRef = useRef<Screen>('lobby');
+  const currentRoundRef = useRef(0);
+  const moviesRef = useRef<Movie[]>([]);
+  const isRevealedRef = useRef(false);
+  const timeLeftRef = useRef(90);
+  const activeRoundsRef = useRef(15);
+  const activeRoundDurationRef = useRef(90);
 
   // Set streamer name from session
   useEffect(() => {
     if (session?.user?.name) {
       setStreamerName(session.user.name);
     }
-  }, [session]);
+  }, [session?.user?.name]);
+
+  useEffect(() => {
+    screenRef.current = screen;
+  }, [screen]);
+
+  useEffect(() => {
+    currentRoundRef.current = currentRound;
+  }, [currentRound]);
+
+  useEffect(() => {
+    moviesRef.current = movies;
+  }, [movies]);
+
+  useEffect(() => {
+    isRevealedRef.current = isRevealed;
+  }, [isRevealed]);
+
+  useEffect(() => {
+    timeLeftRef.current = timeLeft;
+  }, [timeLeft]);
+
+  useEffect(() => {
+    activeRoundsRef.current = activeRoundsCount;
+  }, [activeRoundsCount]);
+
+  useEffect(() => {
+    activeRoundDurationRef.current = activeRoundDuration;
+  }, [activeRoundDuration]);
+
+  useEffect(() => {
+    if (screen === 'lobby') {
+      setTimeLeft(roundDuration);
+      timeLeftRef.current = roundDuration;
+    }
+  }, [roundDuration, screen]);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (nextRoundTimeoutRef.current) clearTimeout(nextRoundTimeoutRef.current);
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, []);
+
+  const clearRoundTimers = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (nextRoundTimeoutRef.current) {
+      clearTimeout(nextRoundTimeoutRef.current);
+      nextRoundTimeoutRef.current = null;
+    }
+  };
+
+  const disconnectTwitch = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setIsConnected(false);
+  };
+
+  const handleSubscriberAnswer = (username: string, points: number) => {
+    setScores(prev => {
+      const existing = prev.find(s => s.username === username);
+      if (existing) {
+        return prev
+          .map(s => (s.username === username ? { ...s, score: s.score + points } : s))
+          .sort((a, b) => b.score - a.score);
+      }
+      return [...prev, { username, score: points }].sort((a, b) => b.score - a.score);
+    });
+  };
+
+  const startRound = () => {
+    const duration = activeRoundDurationRef.current;
+    clearRoundTimers();
+    setIsRevealed(false);
+    isRevealedRef.current = false;
+    setGuessInput('');
+    setWinnerModal(null);
+    setShowWinnerModal(false);
+    setAttemptsInRound(0);
+    setTimeLeft(duration);
+    timeLeftRef.current = duration;
+
+    timerRef.current = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          setIsRevealed(true);
+          isRevealedRef.current = true;
+          setShowWinnerModal(false);
+          nextRoundTimeoutRef.current = setTimeout(() => {
+            handleNext();
+          }, 3500);
+          return 0;
+        }
+        const next = prev - 1;
+        timeLeftRef.current = next;
+        return next;
+      });
+    }, 1000);
+  };
+
+  const handleNext = () => {
+    const nextRound = currentRoundRef.current + 1;
+    const hasNextRound = nextRound < activeRoundsRef.current && !!moviesRef.current[nextRound];
+
+    if (hasNextRound) {
+      setCurrentRound(nextRound);
+      currentRoundRef.current = nextRound;
+      startRound();
+      return;
+    }
+
+    clearRoundTimers();
+    disconnectTwitch();
+    setScreen('results');
+  };
+
+  const handleCorrectAnswer = (username: string, submittedAnswer: string) => {
+    if (isRevealedRef.current) return;
+    const current = moviesRef.current[currentRoundRef.current];
+    if (!current) return;
+
+    clearRoundTimers();
+    setIsRevealed(true);
+    isRevealedRef.current = true;
+
+    setWinnerModal({
+      username,
+      answerRu: current.title_ru,
+      answerOriginal: current.title,
+      submittedAnswer
+    });
+    setShowWinnerModal(true);
+
+    handleSubscriberAnswer(username, Math.max(timeLeftRef.current, 1));
+
+    nextRoundTimeoutRef.current = setTimeout(() => {
+      setShowWinnerModal(false);
+      handleNext();
+    }, 3500);
+  };
 
   const startQuiz = async () => {
+    if (!streamerName.trim()) return;
     setIsLoading(true);
     try {
       const res = await fetch(`/api/kinoquiz/rounds?type=${selectedType}`);
       const data = await res.json();
-      if (data.movies) {
-        setMovies(data.movies);
+      if (data.movies?.length) {
+        const preparedMovies = shuffleMovies<Movie>(data.movies).slice(0, roundsCount);
+        if (preparedMovies.length === 0) return;
+
+        setActiveRoundDuration(roundDuration);
+        activeRoundDurationRef.current = roundDuration;
+        setActiveRoundsCount(preparedMovies.length);
+        activeRoundsRef.current = preparedMovies.length;
+
+        setMovies(preparedMovies);
+        moviesRef.current = preparedMovies;
         setScores([]);
-        setScreen('game');
+        setChatMessages([]);
+        setWinnerModal(null);
+        setShowWinnerModal(false);
         setCurrentRound(0);
+        currentRoundRef.current = 0;
+        setScreen('game');
+        screenRef.current = 'game';
         connectToTwitch();
-        startRound(data.movies[0]);
+        startRound();
       }
     } catch (e) {
       console.error(e);
@@ -75,8 +286,9 @@ export default function KinoQuizClient() {
   };
 
   const connectToTwitch = () => {
-    if (wsRef.current) wsRef.current.close();
-    
+    if (!streamerName.trim()) return;
+    disconnectTwitch();
+
     const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
     wsRef.current = ws;
 
@@ -87,6 +299,14 @@ export default function KinoQuizClient() {
       setIsConnected(true);
     };
 
+    ws.onclose = () => {
+      setIsConnected(false);
+    };
+
+    ws.onerror = () => {
+      setIsConnected(false);
+    };
+
     ws.onmessage = (e) => {
       const lines = e.data.split('\r\n');
       lines.forEach((line: string) => {
@@ -95,86 +315,45 @@ export default function KinoQuizClient() {
         
         const m = line.match(/:([^!]+)![^ ]+ PRIVMSG #[^ ]+ :(.+)$/);
         if (!m) return;
-        const user = m[1].toLowerCase();
         const textRaw = m[2].trim();
-        const text = textRaw.toLowerCase();
-        
-        setChatMessages(prev => [...prev.slice(-20), { user: m[1], text: textRaw }]);
-        
-        // Check answer
-        if (screen === 'game' && !isRevealed && movies[currentRound]) {
-          const current = movies[currentRound];
-          const isCorrect = 
-            text === current.title.toLowerCase() || 
-            text === current.title_ru.toLowerCase();
+        const current = moviesRef.current[currentRoundRef.current];
+        const canAccept = screenRef.current === 'game' && !isRevealedRef.current && !!current;
+        const isCorrect = canAccept && current ? isCorrectAnswer(textRaw, current) : false;
 
-          if (isCorrect && !roundWinners.current.has(user)) {
-            roundWinners.current.add(user);
-            handleSubscriberAnswer(m[1], timeLeft);
-          }
+        if (canAccept) {
+          setAttemptsInRound(prev => prev + 1);
+        }
+
+        setChatMessages(prev => [
+          ...prev.slice(-49),
+          { user: m[1], text: textRaw, isCorrect, source: 'chat' }
+        ]);
+
+        if (isCorrect) {
+          handleCorrectAnswer(m[1], textRaw);
         }
       });
     };
   };
 
-  const handleSubscriberAnswer = (username: string, points: number) => {
-    setScores(prev => {
-      const existing = prev.find(s => s.username === username);
-      if (existing) {
-        return prev.map(s => s.username === username ? { ...s, score: s.score + points } : s)
-          .sort((a, b) => b.score - a.score);
-      }
-      return [...prev, { username, score: points }].sort((a, b) => b.score - a.score);
-    });
-  };
-
-  const startRound = (movie?: Movie) => {
-    setTimeLeft(30);
-    setIsRevealed(false);
-    setGuessInput('');
-    roundWinners.current = new Set();
-    
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          revealAnswer();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const revealAnswer = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setIsRevealed(true);
-    
-    // Auto next after 5 seconds
-    setTimeout(() => {
-      handleNext();
-    }, 5000);
-  };
-
-  const handleNext = () => {
-    setCurrentRound(prev => {
-      if (prev < 29 && movies[prev + 1]) {
-        startRound(movies[prev + 1]);
-        return prev + 1;
-      } else {
-        setScreen('results');
-        if (wsRef.current) wsRef.current.close();
-        return prev;
-      }
-    });
-  };
-
   const handleManualGuess = () => {
-    if (isRevealed) return;
-    const current = movies[currentRound];
-    if (guessInput.toLowerCase() === current.title.toLowerCase() || guessInput.toLowerCase() === current.title_ru.toLowerCase()) {
-      revealAnswer();
+    if (isRevealedRef.current) return;
+    const current = moviesRef.current[currentRoundRef.current];
+    const input = guessInput.trim();
+    if (!current || !input) return;
+
+    const displayName = streamerName || 'Стример';
+    const isCorrect = isCorrectAnswer(input, current);
+    setAttemptsInRound(prev => prev + 1);
+    setChatMessages(prev => [
+      ...prev.slice(-49),
+      { user: displayName, text: input, isCorrect, source: 'streamer' }
+    ]);
+
+    if (isCorrect) {
+      handleCorrectAnswer(displayName, input);
     }
+
     setGuessInput('');
   };
 
@@ -201,7 +380,7 @@ export default function KinoQuizClient() {
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/[0.05] border border-white/10">
                   <span className="text-[10px] font-black text-white/30 tracking-widest uppercase">Round</span>
-                  <span className="text-sm font-black text-white">{currentRound + 1} <span className="text-white/20">/</span> 30</span>
+                  <span className="text-sm font-black text-white">{currentRound + 1} <span className="text-white/20">/</span> {activeRoundsCount}</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20">
                   <span className="text-[10px] font-black text-cyan-500/50 tracking-widest uppercase">Difficulty</span>
@@ -211,6 +390,10 @@ export default function KinoQuizClient() {
                   } uppercase`}>
                     {movies[currentRound].difficulty}
                   </span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                  <Clock className="w-4 h-4 text-indigo-300" />
+                  <span className="text-xs font-black text-indigo-300">{activeRoundDuration} сек</span>
                 </div>
               </div>
             )}
@@ -275,13 +458,66 @@ export default function KinoQuizClient() {
                 ))}
               </div>
 
-              <div className="max-w-md mx-auto space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 space-y-6">
+                  <div className="space-y-3">
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-white/50">Время на 1 раунд</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ROUND_TIME_OPTIONS.map(value => (
+                        <button
+                          key={value}
+                          onClick={() => setRoundDuration(value)}
+                          className={`h-11 rounded-xl font-black text-sm transition ${
+                            roundDuration === value
+                              ? 'bg-cyan-500 text-black'
+                              : 'bg-white/[0.04] border border-white/10 text-white/60 hover:text-white'
+                          }`}
+                        >
+                          {value} сек
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-xs font-black uppercase tracking-[0.25em] text-white/50">Количество раундов</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {ROUND_COUNT_OPTIONS.map(value => (
+                        <button
+                          key={value}
+                          onClick={() => setRoundsCount(value)}
+                          className={`h-11 rounded-xl font-black text-sm transition ${
+                            roundsCount === value
+                              ? 'bg-white text-black'
+                              : 'bg-white/[0.04] border border-white/10 text-white/60 hover:text-white'
+                          }`}
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] p-6 space-y-3">
+                  <p className="text-xs font-black uppercase tracking-[0.25em] text-cyan-400">Как играть</p>
+                  <p className="text-sm text-white/70">1. Стример запускает игру и открывает кадр на экране.</p>
+                  <p className="text-sm text-white/70">2. Зрители пишут варианты в Twitch-чат, система регистрирует ответы до первого точного совпадения.</p>
+                  <p className="text-sm text-white/70">3. После правильного ответа появляется окно с ником победителя и правильным названием.</p>
+                  <p className="text-sm text-white/70">4. Чем раньше угадал, тем больше очков в таблице.</p>
+                </div>
+              </div>
+
+              <div className="max-w-md mx-auto space-y-4 w-full">
                 {session ? (
                   <div className="space-y-6">
                     <div className="flex flex-col items-center gap-2">
                       <div className="px-6 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-black uppercase italic tracking-widest text-xs">
                         Активный стример: {session.user?.name}
                       </div>
+                      <p className="text-[11px] text-white/40 uppercase tracking-[0.25em]">
+                        {selectedType === 'movie' ? 'Фильмы' : selectedType === 'series' ? 'Сериалы' : 'Аниме'} • {roundsCount} раундов • {roundDuration} сек
+                      </p>
                     </div>
                     <Button 
                       onClick={startQuiz}
@@ -312,7 +548,7 @@ export default function KinoQuizClient() {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               className="w-full max-w-[1700px] h-full flex gap-6"
             >
-              {/* Left Side: Game + Input */}
+              {/* Left Side: Main Game Screen */}
               <div className="flex-1 flex flex-col gap-6 h-full">
                 {/* Image Container */}
                 <div className="flex-1 relative rounded-[3rem] overflow-hidden border border-white/10 bg-black shadow-2xl group">
@@ -361,8 +597,8 @@ export default function KinoQuizClient() {
                             cx="48" cy="48" r="44" fill="none" 
                             stroke={timeLeft > 5 ? '#22d3ee' : '#f43f5e'} 
                             strokeWidth="4" 
-                            strokeDasharray={276}
-                            strokeDashoffset={276 - (276 * timeLeft) / 30}
+                            strokeDasharray={TIMER_CIRCUMFERENCE}
+                            strokeDashoffset={TIMER_CIRCUMFERENCE - (TIMER_CIRCUMFERENCE * timeLeft) / activeRoundDuration}
                             className="transition-all duration-1000 ease-linear"
                            />
                          </svg>
@@ -376,36 +612,14 @@ export default function KinoQuizClient() {
                    </div>
                 </div>
 
-                {/* Input Bar */}
-                <div className="h-24 bg-white/[0.03] border border-white/10 rounded-[2.5rem] p-3 flex gap-4 items-center backdrop-blur-xl">
-                   <div className="flex-1 relative h-full">
-                      <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-white/20" />
-                      <input 
-                        className="w-full h-full bg-white/[0.05] border border-white/10 rounded-2xl pl-16 pr-6 text-xl font-bold focus:outline-none focus:border-cyan-500/50 transition-all placeholder:text-white/10"
-                        placeholder="Введите название фильма..."
-                        value={guessInput}
-                        onChange={(e) => setGuessInput(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleManualGuess()}
-                      />
-                   </div>
-                   <Button 
-                    onClick={handleManualGuess}
-                    className="h-full px-12 rounded-2xl bg-cyan-500 text-black font-black text-lg hover:bg-cyan-400 transition-all shadow-lg shadow-cyan-500/20"
-                   >
-                     ОТПРАВИТЬ
-                   </Button>
+                <div className="h-16 px-8 rounded-[2rem] bg-white/[0.03] border border-white/10 flex items-center justify-between text-xs font-black uppercase tracking-[0.2em] text-white/40">
+                  <span>Ответы зрителей регистрируются в реальном времени до первого точного совпадения</span>
+                  <span className="text-cyan-400">{attemptsInRound} ответов в раунде</span>
                 </div>
               </div>
 
-              {/* Right Side: Chat + Cam + Leaderboard */}
-              <div className="w-[450px] flex flex-col gap-6">
-                {/* Webcam Space */}
-                <div className="aspect-video bg-white/[0.02] border border-white/10 rounded-[2.5rem] flex flex-col items-center justify-center gap-2 text-white/10 uppercase font-black tracking-widest text-[9px] relative overflow-hidden group">
-                   <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                   <Camera className="w-8 h-8 opacity-20" />
-                   КРУТИ ВЕБКУ СЮДА
-                </div>
-
+              {/* Right Side: Leaderboard + Streamer Block */}
+              <div className="w-[470px] flex flex-col gap-6">
                 {/* Leaderboard */}
                 <div className="flex-1 bg-[#0c0c0e]/80 backdrop-blur-xl border border-white/10 rounded-[3rem] flex flex-col overflow-hidden shadow-2xl">
                    <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
@@ -440,26 +654,90 @@ export default function KinoQuizClient() {
                    </div>
                 </div>
 
-                {/* Twitch Chat Integration */}
-                <div className="h-[350px] bg-black/60 border border-white/10 rounded-[3rem] flex flex-col overflow-hidden relative group">
+                {/* Streamer Block (Webcam + Input + Chat) */}
+                <div className="h-[430px] bg-black/60 border border-white/10 rounded-[3rem] flex flex-col overflow-hidden relative group">
                    <div className="absolute inset-0 bg-[#9146FF]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                    <div className="p-5 border-b border-white/5 flex items-center justify-between bg-[#9146FF]/10 backdrop-blur-md">
                       <div className="flex items-center gap-3">
                          <MessageSquare className="w-4 h-4 text-[#9146FF]" />
-                         <span className="text-[11px] font-black uppercase tracking-widest text-[#9146FF]">Live Chat</span>
+                         <span className="text-[11px] font-black uppercase tracking-widest text-[#9146FF]">Блок стримера</span>
                       </div>
-                      <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-rose-500'}`} />
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white/40">{isConnected ? 'чат подключен' : 'чат не подключен'}</span>
+                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-rose-500'}`} />
+                      </div>
                    </div>
-                   <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar flex flex-col-reverse">
-                      {chatMessages.slice().reverse().map((m, i) => (
-                        <div key={i} className="text-sm message-appear">
-                           <span className="font-black text-[#9146FF] mr-2">{m.user}:</span>
+
+                   <div className="p-5 space-y-4 border-b border-white/5">
+                      <div className="aspect-video bg-white/[0.02] border border-white/10 rounded-[1.8rem] flex flex-col items-center justify-center gap-2 text-white/15 uppercase font-black tracking-widest text-[9px] relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 to-purple-500/10" />
+                        <Camera className="w-8 h-8 opacity-40 relative z-10" />
+                        <span className="relative z-10">Место для вебки стримера</span>
+                      </div>
+
+                      <div className="h-14 flex gap-3">
+                        <div className="flex-1 relative">
+                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+                          <input
+                            className="w-full h-full bg-white/[0.05] border border-white/10 rounded-xl pl-11 pr-4 text-sm font-semibold focus:outline-none focus:border-cyan-500/50 transition-all placeholder:text-white/20"
+                            placeholder="Ответ стримера..."
+                            value={guessInput}
+                            onChange={(e) => setGuessInput(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleManualGuess()}
+                          />
+                        </div>
+                        <Button
+                          onClick={handleManualGuess}
+                          className="h-full px-6 rounded-xl bg-cyan-500 text-black font-black text-sm hover:bg-cyan-400 transition-all"
+                        >
+                          Отправить
+                        </Button>
+                      </div>
+                   </div>
+
+                   <div className="flex-1 overflow-y-auto p-5 space-y-3 custom-scrollbar flex flex-col-reverse">
+                      {chatMessages.length > 0 ? chatMessages.slice().reverse().map((m, i) => (
+                        <div key={i} className={`text-sm message-appear rounded-xl px-3 py-2 border ${
+                          m.isCorrect
+                            ? 'bg-emerald-500/10 border-emerald-500/30'
+                            : m.source === 'streamer'
+                              ? 'bg-cyan-500/10 border-cyan-500/20'
+                              : 'bg-white/[0.03] border-white/5'
+                        }`}>
+                           <span className={`font-black mr-2 ${m.source === 'streamer' ? 'text-cyan-300' : 'text-[#9146FF]'}`}>{m.user}:</span>
                            <span className="text-white/90 font-medium">{m.text}</span>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="h-full flex items-center justify-center text-[11px] font-black uppercase tracking-[0.25em] text-white/20">
+                          Ожидание ответов из чата...
+                        </div>
+                      )}
                    </div>
                 </div>
               </div>
+
+              <AnimatePresence>
+                {showWinnerModal && winnerModal && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-md flex items-center justify-center p-8"
+                  >
+                    <div className="w-full max-w-2xl rounded-[3rem] bg-white text-black p-10 text-center border-4 border-cyan-500 shadow-[0_0_80px_rgba(6,182,212,0.35)]">
+                      <p className="text-xs uppercase font-black tracking-[0.3em] text-cyan-600 mb-4">ПРАВИЛЬНЫЙ ОТВЕТ</p>
+                      <h3 className="text-5xl font-black uppercase italic leading-tight">{winnerModal.answerRu}</h3>
+                      <p className="text-sm mt-3 text-black/50 uppercase tracking-widest">{winnerModal.answerOriginal}</p>
+
+                      <div className="mt-8 rounded-2xl bg-black/5 px-6 py-4">
+                        <p className="text-xs uppercase tracking-[0.2em] text-black/45 font-black">Первым угадал</p>
+                        <p className="text-4xl font-black italic uppercase mt-1">{winnerModal.username}</p>
+                        <p className="text-sm text-black/50 mt-2">Ответ в чате: «{winnerModal.submittedAnswer}»</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )}
 
@@ -480,7 +758,7 @@ export default function KinoQuizClient() {
                   </motion.div>
                 </div>
                 <h2 className="text-7xl font-black italic uppercase tracking-tighter leading-none">КВИЗ ЗАВЕРШЕН!</h2>
-                <p className="text-neutral-500 font-bold uppercase tracking-[0.5em] text-sm">ЧЕМПИОН ОПРЕДЕЛЕН</p>
+                <p className="text-neutral-500 font-bold uppercase tracking-[0.5em] text-sm">СЫГРАНО {activeRoundsCount} РАУНДОВ</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-end max-w-4xl mx-auto pt-10">
@@ -517,7 +795,14 @@ export default function KinoQuizClient() {
               </div>
 
               <div className="flex gap-6 max-w-xl mx-auto pt-10">
-                <Button onClick={() => setScreen('lobby')} className="flex-1 h-20 rounded-[2rem] bg-white text-black font-black text-xl hover:bg-neutral-200 shadow-xl transition-all">
+                <Button
+                  onClick={() => {
+                    clearRoundTimers();
+                    disconnectTwitch();
+                    setScreen('lobby');
+                  }}
+                  className="flex-1 h-20 rounded-[2rem] bg-white text-black font-black text-xl hover:bg-neutral-200 shadow-xl transition-all"
+                >
                   В МЕНЮ
                 </Button>
                 <Button onClick={startQuiz} className="flex-1 h-20 rounded-[2rem] border-2 border-white/10 bg-white/5 text-white font-black text-xl hover:bg-white/10 transition-all backdrop-blur-md">
