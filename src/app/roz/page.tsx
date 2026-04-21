@@ -38,6 +38,7 @@ interface Participant {
   username: string
   color: string
   joinedAt: number
+  avatar?: string
 }
 
 interface ChatMessage {
@@ -103,6 +104,17 @@ export default function Home() {
   const [vaseBroken, setVaseBroken] = useState<number[]>([])
   const [vaseWinnerIdx, setVaseWinnerIdx] = useState<number | null>(null)
   const [vasePlayers, setVasePlayers] = useState<Participant[]>([])
+
+  const fetchAvatar = async (username: string) => {
+    try {
+      const res = await fetch(`/api/twitch/user?username=${username}`)
+      if (!res.ok) return null
+      const data = await res.json()
+      return data?.profile_image_url || null
+    } catch (e) {
+      return null
+    }
+  }
 
   const [spinOffset, setSpinOffset] = useState(0)
   const spinList = participants.length > 0 ? Array(40).fill(participants).flat() : []
@@ -193,11 +205,21 @@ export default function Home() {
           if (!participantsSet.current.has(login)) {
             participantsSet.current.add(login)
             setTotalMessages(prev => prev + 1)
-            setParticipants(prev => [...prev, {
+            const newUser: Participant = {
               username: m[1],
               color: userColor,
               joinedAt: Date.now()
-            }])
+            }
+            setParticipants(prev => [...prev, newUser])
+            fetchAvatar(m[1]).then(avatar => {
+              if (avatar) {
+                const update = (p: Participant) => p.username === m[1] ? { ...p, avatar } : p
+                setParticipants(prev => prev.map(update))
+                setVasePlayers(prev => prev.map(update))
+                setSpinWinner(prev => prev ? update(prev) : prev)
+                setWinner(prev => prev ? update(prev) : prev)
+              }
+            })
           }
         }
 
@@ -330,7 +352,7 @@ export default function Home() {
 
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#121212' }}>
+    <div className="min-h-screen flex flex-col roz-bg">
       {/* ─── Header ─── */}
       <header className="header-gradient">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
@@ -557,10 +579,14 @@ export default function Home() {
                     >
                       <span className="text-[10px] text-gray-500 font-mono w-5 text-right">{idx + 1}</span>
                       <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 overflow-hidden"
                         style={{ background: p.color }}
                       >
-                        {p.username.charAt(0).toUpperCase()}
+                        {p.avatar ? (
+                          <img src={p.avatar} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          p.username.charAt(0).toUpperCase()
+                        )}
                       </div>
                       <span className="text-sm font-medium text-gray-200 truncate">{p.username}</span>
                       {winner?.username === p.username && (
@@ -610,8 +636,12 @@ export default function Home() {
             >
                {spinList.map((p, i) => (
                  <div key={i} className="shrink-0 flex flex-col items-center justify-center border-r border-[#333] last:border-none relative" style={{ width: 128, height: '100%' }}>
-                   <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold mb-2 shadow-lg" style={{ backgroundColor: p.color }}>
-                      {p.username.charAt(0).toUpperCase()}
+                   <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold mb-2 shadow-lg overflow-hidden" style={{ backgroundColor: p.color }}>
+                      {p.avatar ? (
+                        <img src={p.avatar} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        p.username.charAt(0).toUpperCase()
+                      )}
                    </div>
                    <span className="text-xs font-semibold text-white truncate w-24 text-center">{p.username}</span>
                  </div>
@@ -622,8 +652,12 @@ export default function Home() {
           {/* Winner Display */}
           {spinWinner && (
             <div className="mx-6 mt-4 bg-[#1a1a1a] border border-purple-500/30 rounded-xl p-6 text-center shadow-[0_0_15px_rgba(168,85,247,0.15)] flex flex-col items-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-purple-500/30 mb-3" style={{ background: spinWinner.color }}>
-                {spinWinner.username.charAt(0).toUpperCase()}
+             <div className="w-16 h-16 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-purple-500/30 mb-3 overflow-hidden" style={{ background: spinWinner.color }}>
+                {spinWinner.avatar ? (
+                  <img src={spinWinner.avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  spinWinner.username.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="text-3xl font-bold drop-shadow-md winner-glow" style={{ color: spinWinner.color }}>
                 {spinWinner.username}
@@ -683,15 +717,23 @@ export default function Home() {
                     : 'bg-gradient-to-b from-purple-500/20 to-pink-500/20 border-purple-500/30 hover:border-purple-400 hover:scale-105 cursor-pointer active:scale-95'
                 }`}
               >
-                {vaseBroken.includes(idx) ? (
+                 {vaseBroken.includes(idx) ? (
                   idx === vaseWinnerIdx ? (
                     <>
-                      <Crown className="w-8 h-8 text-yellow-400" />
+                      {p.avatar ? (
+                        <img src={p.avatar} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-yellow-500 shadow-lg shadow-yellow-500/20" />
+                      ) : (
+                        <Crown className="w-8 h-8 text-yellow-400" />
+                      )}
                       <span className="text-[10px] text-yellow-400 font-bold truncate px-1">{p.username}</span>
                     </>
                   ) : (
                     <>
-                      <X className="w-6 h-6 text-red-400/60" />
+                      {p.avatar ? (
+                        <img src={p.avatar} alt="" className="w-7 h-7 rounded-full object-cover border border-red-500/30 grayscale opacity-50" />
+                      ) : (
+                        <X className="w-6 h-6 text-red-400/60" />
+                      )}
                       <span className="text-[9px] text-gray-500 truncate px-1">{p.username}</span>
                     </>
                   )
@@ -705,8 +747,12 @@ export default function Home() {
           {/* Vase Winner */}
           {vaseBroken.includes(vaseWinnerIdx!) && vaseWinnerIdx !== null && (
             <div className="mx-6 mb-4 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl p-5 text-center">
-              <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center bg-gradient-to-br from-orange-500 to-yellow-500 shadow-lg shadow-orange-500/30">
-                <Crown className="w-7 h-7 text-white" />
+              <div className="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center bg-gradient-to-br from-orange-500 to-yellow-500 shadow-lg shadow-orange-500/30 overflow-hidden">
+                {vasePlayers[vaseWinnerIdx]?.avatar ? (
+                  <img src={vasePlayers[vaseWinnerIdx].avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Crown className="w-7 h-7 text-white" />
+                )}
               </div>
               <div className="text-2xl font-bold text-orange-400">
                 {vasePlayers[vaseWinnerIdx]?.username}

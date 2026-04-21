@@ -503,3 +503,68 @@
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* ─── ROZ Page Styles ─── */
+.roz-bg {
+  background-color: #161618 !important;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(145, 70, 255, 0.08) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.05) 0px, transparent 50%);
+}
+
+.glass-panel {
+  background: rgba(30, 30, 33, 0.8) !important;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 1.25rem;
+  box-shadow: 0 8px 32px -4px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
+}
+
+.glass-panel:hover {
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  box-shadow: 0 12px 40px -4px rgba(0, 0, 0, 0.7), 0 0 20px rgba(168, 85, 247, 0.05);
+}
+
+.header-gradient {
+  background: linear-gradient(to bottom, rgba(145, 70, 255, 0.12), rgba(168, 85, 247, 0.03), transparent);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.winner-glow {
+  text-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 40px rgba(168, 85, 247, 0.3);
+}
+
+.btn-pulse {
+  box-shadow: 0 0 0 0 rgba(147, 51, 234, 0.5);
+  animation: roz-pulse 2s infinite;
+}
+
+@keyframes roz-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0.5); }
+  70% { box-shadow: 0 0 0 15px rgba(147, 51, 234, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0); }
+}
+
+.stat-card-item {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(168, 85, 247, 0.4) !important;
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.4);
+}
+
+.message-appear {
+  animation: roz-slide-in 0.3s ease-out forwards;
+}
+
+@keyframes roz-slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
