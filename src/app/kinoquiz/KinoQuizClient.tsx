@@ -4,14 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Camera,
-  Clock3,
+  ChevronDown,
+  Clapperboard,
   Crown,
-  Film,
-  List,
   Loader2,
-  Sparkles,
-  Trophy,
-  Tv,
+  Play,
   Volume2
 } from 'lucide-react';
 import { Button } from '@/components/67/ui/button';
@@ -47,14 +44,15 @@ interface RoundWinner {
 }
 
 type Screen = 'lobby' | 'game' | 'results';
+type PickerKey = 'mode' | 'time' | 'rounds' | null;
 
 const ROUND_TIME_OPTIONS = [30, 60, 90, 120] as const;
 const ROUND_COUNT_OPTIONS = [5, 10, 15, 20, 30] as const;
 
-const modeOptions: Array<{ id: Movie['type']; label: string; Icon: typeof Film; palette: string }> = [
-  { id: 'movie', label: 'ФИЛЬМЫ', Icon: Film, palette: 'from-[#ff8b66] to-[#ff5f67]' },
-  { id: 'series', label: 'СЕРИАЛЫ', Icon: Tv, palette: 'from-[#8a7fff] to-[#5a6bf6]' },
-  { id: 'anime', label: 'АНИМЕ', Icon: Sparkles, palette: 'from-[#ff7db5] to-[#ff5f8d]' }
+const modeOptions: Array<{ id: Movie['type']; label: string }> = [
+  { id: 'movie', label: 'ФИЛЬМЫ' },
+  { id: 'series', label: 'СЕРИАЛЫ' },
+  { id: 'anime', label: 'АНИМЕ' }
 ];
 
 function shuffleMovies<T>(items: T[]) {
@@ -98,7 +96,7 @@ function KinoQuizContent() {
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [winnerModal, setWinnerModal] = useState<RoundWinner | null>(null);
   const [showWinnerModal, setShowWinnerModal] = useState<boolean>(false);
-  const [attemptsInRound, setAttemptsInRound] = useState<number>(0);
+  const [openPicker, setOpenPicker] = useState<PickerKey>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const nextRoundTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -119,11 +117,30 @@ function KinoQuizContent() {
     return Math.max(0, Math.min(100, Math.round((timeLeft / activeRoundDuration) * 100)));
   }, [timeLeft, activeRoundDuration]);
 
+  const selectedModeLabel = useMemo(
+    () => modeOptions.find(option => option.id === selectedType)?.label || 'ФИЛЬМЫ',
+    [selectedType]
+  );
+
   useEffect(() => {
     if (session?.user?.name) {
       setStreamerName(session.user.name);
     }
   }, [session?.user?.name]);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('[data-picker-root="true"]')) {
+        setOpenPicker(null);
+      }
+    };
+
+    document.addEventListener('mousedown', onPointerDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+    };
+  }, []);
 
   useEffect(() => {
     screenRef.current = screen;
@@ -192,11 +209,27 @@ function KinoQuizContent() {
       const existing = prev.find(s => s.username === username);
       if (existing) {
         return prev
-          .map(s => (s.username === username ? { ...s, score: s.score + points } : s))
+          .map(score => (score.username === username ? { ...score, score: score.score + points } : score))
           .sort((a, b) => b.score - a.score);
       }
       return [...prev, { username, score: points }].sort((a, b) => b.score - a.score);
     });
+  };
+
+  const handleNext = () => {
+    const nextRound = currentRoundRef.current + 1;
+    const hasNextRound = nextRound < activeRoundsRef.current && !!moviesRef.current[nextRound];
+
+    if (hasNextRound) {
+      setCurrentRound(nextRound);
+      currentRoundRef.current = nextRound;
+      startRound();
+      return;
+    }
+
+    clearRoundTimers();
+    disconnectTwitch();
+    setScreen('results');
   };
 
   const startRound = () => {
@@ -207,13 +240,12 @@ function KinoQuizContent() {
     setGuessInput('');
     setWinnerModal(null);
     setShowWinnerModal(false);
-    setAttemptsInRound(0);
     setTimeLeft(duration);
     timeLeftRef.current = duration;
 
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
+      setTimeLeft(previous => {
+        if (previous <= 1) {
           if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
@@ -222,28 +254,19 @@ function KinoQuizContent() {
           isRevealedRef.current = true;
           nextRoundTimeoutRef.current = setTimeout(() => {
             handleNext();
-          }, 3600);
+          }, 2600);
           return 0;
         }
-        const next = prev - 1;
+        const next = previous - 1;
         timeLeftRef.current = next;
         return next;
       });
     }, 1000);
   };
 
-  const handleNext = () => {
-    const nextRound = currentRoundRef.current + 1;
-    const hasNextRound = nextRound < activeRoundsRef.current && !!moviesRef.current[nextRound];
-    if (hasNextRound) {
-      setCurrentRound(nextRound);
-      currentRoundRef.current = nextRound;
-      startRound();
-      return;
-    }
-    clearRoundTimers();
-    disconnectTwitch();
-    setScreen('results');
+  const handleContinueAfterCorrect = () => {
+    setShowWinnerModal(false);
+    handleNext();
   };
 
   const handleCorrectAnswer = (username: string, submittedAnswer: string) => {
@@ -262,13 +285,7 @@ function KinoQuizContent() {
       submittedAnswer
     });
     setShowWinnerModal(true);
-
     handleSubscriberAnswer(username, Math.max(timeLeftRef.current, 1));
-
-    nextRoundTimeoutRef.current = setTimeout(() => {
-      setShowWinnerModal(false);
-      handleNext();
-    }, 3600);
   };
 
   const connectToTwitch = () => {
@@ -293,8 +310,8 @@ function KinoQuizContent() {
       setIsConnected(false);
     };
 
-    ws.onmessage = e => {
-      const lines = e.data.split('\r\n');
+    ws.onmessage = event => {
+      const lines = event.data.split('\r\n');
       lines.forEach((line: string) => {
         if (!line) return;
         if (line.startsWith('PING')) {
@@ -308,19 +325,12 @@ function KinoQuizContent() {
         const user = match[1];
         const textRaw = match[2].trim();
         const current = moviesRef.current[currentRoundRef.current];
-        const canAccept = screenRef.current === 'game' && !isRevealedRef.current && !!current;
-        const isCorrect = canAccept && current ? isCorrectAnswer(textRaw, current) : false;
+        const canCheck = screenRef.current === 'game' && !isRevealedRef.current && !!current;
+        const correct = canCheck && current ? isCorrectAnswer(textRaw, current) : false;
 
-        if (canAccept) {
-          setAttemptsInRound(prev => prev + 1);
-        }
+        setChatMessages(previous => [...previous.slice(-139), { user, text: textRaw, isCorrect: correct, source: 'chat' }]);
 
-        setChatMessages(prev => [
-          ...prev.slice(-79),
-          { user, text: textRaw, isCorrect, source: 'chat' }
-        ]);
-
-        if (isCorrect) {
+        if (correct) {
           handleCorrectAnswer(user, textRaw);
         }
       });
@@ -332,8 +342,8 @@ function KinoQuizContent() {
 
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/kinoquiz/rounds?type=${selectedType}`);
-      const data = await res.json();
+      const response = await fetch(`/api/kinoquiz/rounds?type=${selectedType}`);
+      const data = await response.json();
       if (data.movies?.length) {
         const preparedMovies = shuffleMovies<Movie>(data.movies).slice(0, roundsCount);
         if (preparedMovies.length === 0) return;
@@ -353,6 +363,7 @@ function KinoQuizContent() {
         currentRoundRef.current = 0;
         setScreen('game');
         screenRef.current = 'game';
+
         connectToTwitch();
         startRound();
       }
@@ -364,16 +375,16 @@ function KinoQuizContent() {
   };
 
   const handleManualGuess = () => {
-    if (isRevealedRef.current) return;
+    if (screenRef.current !== 'game' || isRevealedRef.current) return;
     const current = moviesRef.current[currentRoundRef.current];
     const input = guessInput.trim();
     if (!current || !input) return;
 
     const displayName = streamerName || 'Стример';
     const correct = isCorrectAnswer(input, current);
-    setAttemptsInRound(prev => prev + 1);
-    setChatMessages(prev => [
-      ...prev.slice(-79),
+
+    setChatMessages(previous => [
+      ...previous.slice(-139),
       { user: displayName, text: input, isCorrect: correct, source: 'streamer' }
     ]);
 
@@ -392,195 +403,117 @@ function KinoQuizContent() {
     setWinnerModal(null);
     setIsRevealed(false);
     setCurrentRound(0);
+    setOpenPicker(null);
   };
 
-  const leftCardClass =
-    'rounded-[28px] border-[4px] border-[#22388f] bg-[#eef4ff] shadow-[6px_6px_0_#1d2c72]';
-  const noteFont = { fontFamily: "'Waffle Soft', sans-serif" };
+  const basePanel =
+    'rounded-[28px] border-[2px] border-[#4f3f27] bg-[linear-gradient(180deg,#2d2b2c_0%,#1d1b1c_100%)] shadow-[0_10px_24px_rgba(0,0,0,0.38)]';
 
   return (
     <div
-      className="min-h-screen overflow-auto text-[#20388f] p-2 sm:p-3 md:p-5"
+      className="h-screen overflow-hidden p-3 text-[#f5e7c7]"
       style={{
-        ...noteFont,
+        fontFamily: "'Waffle Soft', sans-serif",
         background:
-          'radial-gradient(circle at 20% 10%, #8d81ff 0%, #7165ef 28%, #5f55dd 55%, #5449cd 78%, #4a40c0 100%)'
+          'radial-gradient(circle at 50% 15%, #4f1f2d 0%, #2f1620 33%, #19141a 65%, #0d0f12 100%)'
       }}
     >
-      <div
-        className="pointer-events-none fixed inset-0 opacity-25"
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(120deg, rgba(255,255,255,0.2) 0px, rgba(255,255,255,0.2) 2px, transparent 2px, transparent 22px)'
-        }}
-      />
-
-      <div className="relative mx-auto max-w-[1780px] h-[calc(100vh-16px)] min-h-[860px] grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4">
-        <aside className="flex flex-col gap-4">
-          {screen === 'lobby' && (
-            <>
-              <div className={`${leftCardClass} h-[250px] p-6 flex items-center justify-center`}>
-                <div className="text-center">
-                  <div className="text-[26px] sm:text-[34px] leading-none tracking-wide uppercase text-[#233a95] drop-shadow-[2px_2px_0_#f7ce4e]">
-                    Kino
+      <div className="mx-auto h-full max-w-[1840px] grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-3">
+        <aside className="min-h-0 flex flex-col gap-3">
+          <div className={`${basePanel} h-[165px] p-4 flex items-center justify-center`}>
+            {screen === 'lobby' ? (
+              <div className="text-center leading-none">
+                <div className="text-[34px] uppercase tracking-[0.15em] text-[#d8bb74]">KINO</div>
+                <div className="text-[58px] uppercase text-[#ffd56e] drop-shadow-[0_3px_0_#a05f1f]">SHOW</div>
+              </div>
+            ) : (
+              <div className="w-full h-full rounded-2xl border border-[#5d4827] bg-black/35 p-3 overflow-y-auto space-y-2">
+                {scores.slice(0, 9).map((score, index) => (
+                  <div
+                    key={`${score.username}-${index}`}
+                    className="rounded-lg border border-[#674f28] bg-[#201a12] px-2 py-1.5 flex items-center justify-between text-[19px]"
+                  >
+                    <span className="truncate pr-3">{score.username}</span>
+                    <span>{score.score}</span>
                   </div>
-                  <div className="text-[46px] sm:text-[58px] leading-none tracking-wide uppercase text-[#1f318a] drop-shadow-[3px_3px_0_#ffce4e]">
-                    SHOW
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className={`${basePanel} min-h-0 flex-1 p-3`}>
+            <div className="h-full rounded-[20px] border border-[#5d4827] bg-black/30 overflow-y-auto p-2 space-y-1.5">
+              {chatMessages
+                .slice()
+                .reverse()
+                .map((message, index) => (
+                  <div
+                    key={`${message.user}-${index}`}
+                    className={`rounded-md px-2 py-1 text-[17px] border ${
+                      message.isCorrect
+                        ? 'bg-[#22412c] border-[#4aa465] text-[#b9f2c8]'
+                        : message.source === 'streamer'
+                          ? 'bg-[#1f2f49] border-[#4f76b8] text-[#c7d8ff]'
+                          : 'bg-[#1d1b1d] border-[#3d3528] text-[#d7c7a2]'
+                    }`}
+                  >
+                    <span className="text-[#f2dba8]">{message.user}:</span> {message.text}
                   </div>
-                  <p className="mt-3 text-[17px] tracking-wide text-[#3853bb]">Стрим-режим для чата Twitch</p>
-                </div>
+                ))}
+            </div>
+          </div>
+
+          <div className={`${basePanel} h-[215px] p-3`}>
+            <div className="relative h-full rounded-[20px] border border-[#5d4827] overflow-hidden bg-[radial-gradient(circle_at_50%_20%,#3b2e26_0%,#271f1a_55%,#1a1614_100%)]">
+              <div className="absolute bottom-[-44px] left-4 right-4 h-[110px] rounded-[50%] border border-[#6b4f2c] bg-[linear-gradient(180deg,#5a141a_0%,#35090e_100%)]" />
+              <div className="absolute inset-x-0 top-6 flex justify-center">
+                <Camera className="w-11 h-11 text-[#f2c872]" />
               </div>
 
-              <div className={`${leftCardClass} flex-1 p-5`}>
-                <p className="text-[24px] uppercase tracking-wide text-[#3048a8]">Чат зрителей</p>
-                <div className="mt-4 h-[calc(100%-52px)] rounded-[20px] border-[3px] border-[#29439f] bg-white/70 p-4 text-[18px] text-[#4a62bd]">
-                  Здесь будут ответы из Twitch-чата во время игры.
-                </div>
-              </div>
-
-              <div className={`${leftCardClass} h-[265px] p-5`}>
-                <p className="text-[24px] uppercase tracking-wide text-[#3048a8] text-center">Размести здесь свою камеру</p>
-                <div className="mt-4 h-[165px] rounded-[20px] border-[3px] border-dashed border-[#3654bf] bg-[#e7efff] flex flex-col items-center justify-center gap-2">
-                  <Camera className="w-12 h-12 text-[#3c56ba]" />
-                  <span className="text-[18px] text-[#3a54b5]">Вебка стримера</span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {screen === 'game' && (
-            <>
-              <div className={`${leftCardClass} h-[280px] p-5 overflow-hidden`}>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[28px] uppercase tracking-wide">Лидерборд</h3>
-                  <div className={`h-3 w-3 rounded-full ${isConnected ? 'bg-[#31c364]' : 'bg-[#f05872]'}`} />
-                </div>
-                <div className="mt-3 h-[210px] rounded-[20px] border-[3px] border-[#2f47a6] bg-white/75 overflow-y-auto p-3 space-y-2">
-                  {scores.length > 0 ? (
-                    scores.map((item, index) => (
-                      <div key={`${item.username}-${index}`} className="rounded-xl border-2 border-[#9fb6ff] bg-white px-3 py-2 flex items-center justify-between">
-                        <span className="text-[18px] uppercase tracking-wide truncate max-w-[180px]">
-                          {index + 1}. {item.username}
-                        </span>
-                        <span className="text-[20px]">{item.score}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-[#5067c1]">
-                      <List className="w-7 h-7 mb-2" />
-                      <p className="text-[20px]">Пока без очков</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className={`${leftCardClass} flex-1 p-5 overflow-hidden`}>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[28px] uppercase tracking-wide">Чат</h3>
-                  <span className="text-[16px] uppercase tracking-wide text-[#4961ba]">{attemptsInRound} ответов</span>
-                </div>
-                <div className="mt-3 h-[calc(100%-52px)] rounded-[20px] border-[3px] border-[#2f47a6] bg-white/75 overflow-y-auto p-3 space-y-2 flex flex-col-reverse">
-                  {chatMessages.length > 0 ? (
-                    chatMessages
-                      .slice()
-                      .reverse()
-                      .map((message, index) => (
-                        <div
-                          key={`${message.user}-${index}`}
-                          className={`rounded-xl border-2 px-3 py-2 ${
-                            message.isCorrect
-                              ? 'border-[#4bbf7c] bg-[#def8e7]'
-                              : message.source === 'streamer'
-                                ? 'border-[#66b7ff] bg-[#e6f5ff]'
-                                : 'border-[#a6baf9] bg-white'
-                          }`}
-                        >
-                          <span className="text-[18px] text-[#2d45a2]">{message.user}:</span>{' '}
-                          <span className="text-[18px] text-[#334da9]">{message.text}</span>
-                        </div>
-                      ))
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-[#5067c1] text-[20px]">
-                      Ожидание сообщений...
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className={`${leftCardClass} h-[285px] p-5`}>
-                <h3 className="text-[26px] uppercase tracking-wide text-center">Вебка и ответ стримера</h3>
-                <div className="mt-3 h-[120px] rounded-[18px] border-[3px] border-dashed border-[#3654bf] bg-[#e7efff] flex flex-col items-center justify-center gap-2">
-                  <Camera className="w-9 h-9 text-[#3c56ba]" />
-                  <span className="text-[16px] text-[#3a54b5]">Место для камеры</span>
-                </div>
-                <div className="mt-3 flex gap-2 h-12">
+              {screen === 'game' && (
+                <div className="absolute left-3 right-3 bottom-4 flex gap-2">
                   <input
                     value={guessInput}
-                    onChange={e => setGuessInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleManualGuess()}
-                    className="flex-1 rounded-xl border-[3px] border-[#2e48a7] bg-white px-3 text-[18px] text-[#22409e] placeholder:text-[#7a8fd7] outline-none"
+                    onChange={event => setGuessInput(event.target.value)}
+                    onKeyDown={event => event.key === 'Enter' && handleManualGuess()}
                     placeholder="Ответ стримера..."
+                    className="flex-1 h-10 rounded-lg border border-[#6b542d] bg-[#191614] px-2 text-[17px] text-[#f2e5c6] placeholder:text-[#997f57] outline-none"
                   />
                   <Button
                     onClick={handleManualGuess}
-                    className="h-full rounded-xl bg-[#ff6588] hover:bg-[#ff5078] text-[#11265f] border-[3px] border-[#223c96] px-5 text-[18px] uppercase"
+                    className="h-10 rounded-lg border border-[#845e26] bg-[#efb73e] hover:bg-[#ffca58] text-[#251706] text-[17px] uppercase px-3"
                   >
                     OK
                   </Button>
                 </div>
-              </div>
-            </>
-          )}
-
-          {screen === 'results' && (
-            <div className={`${leftCardClass} flex-1 p-6 flex flex-col items-center justify-center text-center`}>
-              <Trophy className="w-20 h-20 text-[#f5b730]" />
-              <h3 className="mt-4 text-[44px] uppercase leading-none">Финиш</h3>
-              <p className="text-[22px] text-[#4360b8] mt-2">Раундов сыграно: {activeRoundsCount}</p>
-              <p className="text-[22px] text-[#4360b8] mt-1">Чемпион: {scores[0]?.username || '---'}</p>
+              )}
             </div>
-          )}
+          </div>
         </aside>
 
-        <section className="relative rounded-[36px] border-[5px] border-[#21388d] bg-[#f7fbff] shadow-[8px_8px_0_#1b2b72] overflow-hidden">
-          <div className="absolute inset-5 rounded-[28px] border-[4px] border-[#9ec0ff] overflow-hidden bg-[#f6f9ff]">
-            <div
-              className="absolute inset-0"
-              style={{
-                backgroundImage:
-                  'repeating-linear-gradient(90deg, rgba(214,228,255,0.9) 0px, rgba(214,228,255,0.9) 2px, transparent 2px, transparent 44px)'
-              }}
-            />
-          </div>
+        <section className="min-h-0 rounded-[34px] border-[3px] border-[#5a4526] bg-[linear-gradient(180deg,#27262a_0%,#151619_100%)] shadow-[0_16px_38px_rgba(0,0,0,0.5)] overflow-hidden relative">
+          <div className="absolute inset-0 pointer-events-none opacity-25 bg-[repeating-linear-gradient(90deg,transparent_0px,transparent_34px,rgba(255,255,255,0.03)_34px,rgba(255,255,255,0.03)_36px)]" />
+          <div className="absolute top-0 left-0 right-0 h-6 pointer-events-none bg-[repeating-radial-gradient(circle_at_18px_12px,#7c6234_0px,#7c6234_6px,transparent_7px,transparent_46px)] opacity-45" />
 
-          <div className="absolute -top-4 left-16 right-16 flex justify-between pointer-events-none">
-            {Array.from({ length: 14 }).map((_, i) => (
-              <div key={i} className="w-8 h-8 rounded-full border-[4px] border-[#253c95] bg-[#dce8ff]" />
-            ))}
-          </div>
-
-          <div className="relative z-20 h-full px-8 py-6 flex flex-col">
+          <div className="relative z-10 h-full p-4 pt-7 flex flex-col min-h-0">
             <div className="flex items-center justify-between">
               <Button
-                type="button"
                 variant="ghost"
-                className="rounded-xl border-[3px] border-[#2c479f] bg-white/70 text-[#2f49a9] hover:bg-white/90 px-3 h-11"
+                type="button"
+                className="h-9 w-9 p-0 rounded-lg border border-[#6d5630] bg-black/30 text-[#eac27a] hover:bg-black/50"
               >
-                <Volume2 className="w-5 h-5" />
+                <Volume2 className="w-4 h-4" />
               </Button>
 
-              {session ? (
-                <div className="flex items-center gap-2 rounded-xl border-[3px] border-[#2e4ca9] bg-white/80 px-3 py-1.5">
-                  <img src={session.user?.image || ''} alt="" className="w-8 h-8 rounded-full border-2 border-[#2f4ca8]" />
-                  <span className="text-[20px] uppercase tracking-wide text-[#2845a4]">{session.user?.name}</span>
-                </div>
-              ) : (
+              {!session ? (
                 <Button
                   onClick={() => signIn('kinoquiz')}
-                  className="rounded-xl h-11 bg-[#9146FF] hover:bg-[#7e37ea] border-[3px] border-[#243c95] text-white text-[20px] uppercase"
+                  className="h-10 rounded-lg border border-[#7e5c29] bg-[#9146FF] hover:bg-[#7d37ea] text-white text-[17px] uppercase px-4"
                 >
                   Вход через Twitch
                 </Button>
+              ) : (
+                <div />
               )}
             </div>
 
@@ -588,123 +521,140 @@ function KinoQuizContent() {
               {screen === 'lobby' && (
                 <motion.div
                   key="lobby"
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="pt-4 flex-1 flex flex-col"
+                  exit={{ opacity: 0, y: -6 }}
+                  className="flex-1 min-h-0 flex flex-col"
                 >
-                  <div className="text-center mb-4">
-                    <p className="text-[30px] text-[#4662bc]">Журнал стримера</p>
-                    <h1 className="text-[58px] leading-none uppercase text-[#1c348b] tracking-wide">
-                      {streamerName || 'TIKTOKEVELONE888'}
-                    </h1>
+                  <div className="text-center mt-1 mb-3">
+                    <p className="text-[30px] uppercase text-[#d6b16f]">Кинотеатр Стримера</p>
+                    <h1 className="text-[52px] leading-none uppercase text-[#f1d48b]">{streamerName || 'TIKTOKEVELONE888'}</h1>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6 flex-1">
-                    <div className="space-y-5">
-                      <div className="rounded-[20px] border-[4px] border-[#2d48a7] bg-white/75 p-4">
-                        <p className="text-[20px] uppercase text-[#4360b8]">Канал Twitch (для чтения чата)</p>
-                        <input
-                          value={streamerName}
-                          onChange={e => setStreamerName(e.target.value)}
-                          className="mt-2 h-12 w-full rounded-xl border-[3px] border-[#2e49a8] bg-white px-3 text-[22px] uppercase tracking-wide text-[#213f9b] placeholder:text-[#7b8fd5] outline-none"
-                          placeholder="Введите ник стримера"
-                        />
-                      </div>
+                  <div className="rounded-[24px] border border-[#5f4929] bg-black/25 p-3">
+                    <input
+                      value={streamerName}
+                      onChange={event => setStreamerName(event.target.value)}
+                      placeholder="Ник стримера"
+                      className="w-full h-11 rounded-lg border border-[#725a31] bg-[#191614] px-3 text-[22px] uppercase text-[#f0dfb8] placeholder:text-[#9a835b] outline-none"
+                    />
+                  </div>
 
-                      <div className="rounded-[20px] border-[4px] border-[#2d48a7] bg-white/75 p-4">
-                        <div className="flex items-center gap-2 text-[#3a58b4]">
-                          <Film className="w-5 h-5" />
-                          <p className="text-[22px] uppercase">Режим</p>
-                        </div>
-                        <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
+                    <div className="relative" data-picker-root="true">
+                      <button
+                        type="button"
+                        onClick={() => setOpenPicker(previous => (previous === 'mode' ? null : 'mode'))}
+                        className="w-full h-12 rounded-xl border border-[#745b31] bg-[#1c1816] px-3 flex items-center justify-between text-[20px] uppercase"
+                      >
+                        <span>{selectedModeLabel}</span>
+                        <ChevronDown className={`w-5 h-5 transition-transform ${openPicker === 'mode' ? 'rotate-180' : ''}`} />
+                      </button>
+                      {openPicker === 'mode' && (
+                        <div className="absolute z-30 left-0 right-0 top-[52px] rounded-xl border border-[#7a5f32] bg-[#151211] overflow-hidden">
                           {modeOptions.map(option => (
                             <button
                               key={option.id}
-                              onClick={() => setSelectedType(option.id)}
-                              className={`rounded-xl border-[3px] px-2 py-3 transition ${
-                                selectedType === option.id
-                                  ? `bg-gradient-to-r ${option.palette} border-[#21398f] text-white`
-                                  : 'border-[#2f4ba9] bg-white text-[#2f4ba9]'
+                              type="button"
+                              onClick={() => {
+                                setSelectedType(option.id);
+                                setOpenPicker(null);
+                              }}
+                              className={`w-full px-3 h-10 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
+                                selectedType === option.id ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
-                              <option.Icon className="w-5 h-5 mx-auto mb-1" />
-                              <span className="text-[18px] uppercase tracking-wide">{option.label}</span>
+                              {option.label}
                             </button>
                           ))}
                         </div>
-                      </div>
+                      )}
+                    </div>
 
-                      <div className="rounded-[20px] border-[4px] border-[#2d48a7] bg-white/75 p-4">
-                        <div className="flex items-center gap-2 text-[#3a58b4]">
-                          <Clock3 className="w-5 h-5" />
-                          <p className="text-[22px] uppercase">Время на 1 раунд</p>
-                        </div>
-                        <div className="mt-3 grid grid-cols-4 gap-2">
+                    <div className="relative" data-picker-root="true">
+                      <button
+                        type="button"
+                        onClick={() => setOpenPicker(previous => (previous === 'time' ? null : 'time'))}
+                        className="w-full h-12 rounded-xl border border-[#745b31] bg-[#1c1816] px-3 flex items-center justify-between text-[20px] uppercase"
+                      >
+                        <span>{roundDuration} сек</span>
+                        <ChevronDown className={`w-5 h-5 transition-transform ${openPicker === 'time' ? 'rotate-180' : ''}`} />
+                      </button>
+                      {openPicker === 'time' && (
+                        <div className="absolute z-30 left-0 right-0 top-[52px] rounded-xl border border-[#7a5f32] bg-[#151211] overflow-hidden">
                           {ROUND_TIME_OPTIONS.map(value => (
                             <button
                               key={value}
-                              onClick={() => setRoundDuration(value)}
-                              className={`h-11 rounded-xl border-[3px] text-[20px] uppercase transition ${
-                                roundDuration === value
-                                  ? 'border-[#1f3b95] bg-[#ffd856] text-[#1b2f7f]'
-                                  : 'border-[#2f4ba9] bg-white text-[#2f4ba9]'
+                              type="button"
+                              onClick={() => {
+                                setRoundDuration(value);
+                                setOpenPicker(null);
+                              }}
+                              className={`w-full px-3 h-10 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
+                                roundDuration === value ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
-                              {value}
+                              {value} сек
                             </button>
                           ))}
                         </div>
-                      </div>
+                      )}
+                    </div>
 
-                      <div className="rounded-[20px] border-[4px] border-[#2d48a7] bg-white/75 p-4">
-                        <div className="flex items-center gap-2 text-[#3a58b4]">
-                          <Trophy className="w-5 h-5" />
-                          <p className="text-[22px] uppercase">Количество раундов</p>
-                        </div>
-                        <div className="mt-3 grid grid-cols-5 gap-2">
+                    <div className="relative" data-picker-root="true">
+                      <button
+                        type="button"
+                        onClick={() => setOpenPicker(previous => (previous === 'rounds' ? null : 'rounds'))}
+                        className="w-full h-12 rounded-xl border border-[#745b31] bg-[#1c1816] px-3 flex items-center justify-between text-[20px] uppercase"
+                      >
+                        <span>{roundsCount} раундов</span>
+                        <ChevronDown className={`w-5 h-5 transition-transform ${openPicker === 'rounds' ? 'rotate-180' : ''}`} />
+                      </button>
+                      {openPicker === 'rounds' && (
+                        <div className="absolute z-30 left-0 right-0 top-[52px] rounded-xl border border-[#7a5f32] bg-[#151211] overflow-hidden">
                           {ROUND_COUNT_OPTIONS.map(value => (
                             <button
                               key={value}
-                              onClick={() => setRoundsCount(value)}
-                              className={`h-11 rounded-xl border-[3px] text-[20px] uppercase transition ${
-                                roundsCount === value
-                                  ? 'border-[#1f3b95] bg-[#ffd856] text-[#1b2f7f]'
-                                  : 'border-[#2f4ba9] bg-white text-[#2f4ba9]'
+                              type="button"
+                              onClick={() => {
+                                setRoundsCount(value);
+                                setOpenPicker(null);
+                              }}
+                              className={`w-full px-3 h-10 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
+                                roundsCount === value ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
-                              {value}
+                              {value} раундов
                             </button>
                           ))}
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[20px] border-[4px] border-[#2d48a7] bg-white/75 p-5">
-                      <h2 className="text-[38px] uppercase leading-none text-center text-[#2f4dab]">Как играть</h2>
-                      <div className="mt-4 space-y-3 text-[22px] text-[#3e5db8] leading-[1.15]">
-                        <p>1. Включи игру и открой кадр на большом экране.</p>
-                        <p>2. Зрители пишут ответы в Twitch-чат.</p>
-                        <p>3. Сайт регистрирует ответы до правильного.</p>
-                        <p>4. После правильного ответа показывается ник победителя и верный ответ.</p>
-                        <p>5. Побеждает тот, кто набрал больше очков за раунды.</p>
-                      </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="mt-6 flex flex-col sm:flex-row gap-4">
+                  <div className="mt-3 flex-1 min-h-0 rounded-[28px] border border-[#6a522d] bg-[linear-gradient(180deg,#201f23_0%,#121318_100%)] p-3">
+                    <div className="relative h-full rounded-[24px] border-[7px] border-[#393a42] bg-[#07080d] overflow-hidden">
+                      <div className="absolute left-2 right-2 top-2 h-3 rounded-full bg-[#12141c] border border-[#4a4f5f]" />
+                      <div className="absolute left-4 right-4 top-8 bottom-6 rounded-[18px] border border-[#222732] bg-[radial-gradient(circle_at_50%_50%,#121722_0%,#080a11_72%)] flex items-center justify-center">
+                        <Clapperboard className="w-16 h-16 text-[#3f4a61]" />
+                      </div>
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-10 h-2 rounded-full bg-[#464a57]" />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex gap-3">
                     {session ? (
                       <>
                         <Button
                           onClick={() => signOut('kinoquiz')}
-                          className="sm:w-1/2 h-16 rounded-2xl border-[4px] border-[#21398f] bg-[#ff6f92] hover:bg-[#ff5d84] text-[#122c73] text-[34px] uppercase"
+                          className="w-1/2 h-13 rounded-xl border border-[#784725] bg-[#d54e63] hover:bg-[#e25a71] text-[#fff3db] text-[29px] uppercase"
                         >
                           Разлогиниться
                         </Button>
                         <Button
                           onClick={startQuiz}
                           disabled={isLoading}
-                          className="sm:w-1/2 h-16 rounded-2xl border-[4px] border-[#21398f] bg-[#ffd856] hover:bg-[#ffc93e] text-[#122c73] text-[38px] uppercase disabled:opacity-70"
+                          className="w-1/2 h-13 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[34px] uppercase disabled:opacity-70"
                         >
                           {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Начать'}
                         </Button>
@@ -713,9 +663,9 @@ function KinoQuizContent() {
                       <Button
                         onClick={() => signIn('kinoquiz')}
                         disabled={isAuthLoading}
-                        className="w-full h-16 rounded-2xl border-[4px] border-[#21398f] bg-[#9146FF] hover:bg-[#7d38ea] text-white text-[34px] uppercase disabled:opacity-70"
+                        className="w-full h-13 rounded-xl border border-[#7f6128] bg-[#9146FF] hover:bg-[#7d37ea] text-white text-[30px] uppercase disabled:opacity-70"
                       >
-                        {isAuthLoading ? 'Проверка...' : 'Войти через Twitch'}
+                        Войти через Twitch
                       </Button>
                     )}
                   </div>
@@ -725,74 +675,67 @@ function KinoQuizContent() {
               {screen === 'game' && currentMovie && (
                 <motion.div
                   key="game"
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="pt-4 flex-1 flex flex-col"
+                  exit={{ opacity: 0, y: -6 }}
+                  className="flex-1 min-h-0 flex flex-col"
                 >
-                  <div className="flex flex-wrap items-center gap-3 mb-4">
-                    <div className="rounded-xl border-[3px] border-[#2843a1] bg-white/85 px-3 py-1 text-[20px] uppercase text-[#2d49a6]">
+                  <div className="text-center mt-1 mb-2">
+                    <p className="text-[28px] uppercase text-[#d6b16f]">Кинотеатр Стримера</p>
+                    <h2 className="text-[42px] leading-none uppercase text-[#f1d48b]">{streamerName || 'СТРИМЕР'}</h2>
+                  </div>
+
+                  <div className="flex gap-2 flex-wrap mb-2">
+                    <div className="h-9 px-3 rounded-lg border border-[#71562f] bg-[#1c1816] text-[18px] uppercase flex items-center">
                       Раунд {currentRound + 1}/{activeRoundsCount}
                     </div>
-                    <div className="rounded-xl border-[3px] border-[#2843a1] bg-white/85 px-3 py-1 text-[20px] uppercase text-[#2d49a6]">
-                      {selectedType === 'movie' ? 'Фильмы' : selectedType === 'series' ? 'Сериалы' : 'Аниме'}
+                    <div className="h-9 px-3 rounded-lg border border-[#71562f] bg-[#1c1816] text-[18px] uppercase flex items-center">
+                      {selectedModeLabel}
                     </div>
-                    <div className="rounded-xl border-[3px] border-[#2843a1] bg-white/85 px-3 py-1 text-[20px] uppercase text-[#2d49a6]">
+                    <div className="h-9 px-3 rounded-lg border border-[#71562f] bg-[#1c1816] text-[18px] uppercase flex items-center">
                       {activeRoundDuration} сек
-                    </div>
-                    <div className="rounded-xl border-[3px] border-[#2843a1] bg-white/85 px-3 py-1 text-[20px] uppercase text-[#2d49a6]">
-                      Сложность: {currentMovie.difficulty}
                     </div>
                   </div>
 
-                  <div className="relative flex-1 rounded-[26px] border-[4px] border-[#223a94] bg-white/80 overflow-hidden">
-                    <img
-                      src={currentMovie.imageUrl}
-                      alt=""
-                      className="absolute inset-0 w-full h-full object-cover blur-[40px] opacity-30 scale-110"
-                    />
+                  <div className="flex-1 min-h-0 rounded-[28px] border border-[#6a522d] bg-[linear-gradient(180deg,#201f23_0%,#121318_100%)] p-3">
+                    <div className="relative h-full rounded-[24px] border-[8px] border-[#393a42] bg-[#07080d] overflow-hidden">
+                      <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141c] border border-[#4a4f5f]" />
+                      <div className="absolute left-4 right-4 top-9 bottom-8 rounded-[18px] border border-[#222732] bg-black overflow-hidden">
+                        <img
+                          src={currentMovie.imageUrl}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover blur-[36px] opacity-35 scale-110"
+                        />
+                        <div className="absolute inset-0 p-4 flex items-center justify-center">
+                          <img
+                            src={currentMovie.imageUrl}
+                            alt="Кадр"
+                            className={`max-w-full max-h-full rounded-[14px] border-[3px] border-[#3b3f49] transition-all duration-700 ${
+                              isRevealed ? 'blur-0 brightness-100' : 'blur-md brightness-50'
+                            }`}
+                          />
+                        </div>
 
-                    <div className="absolute inset-0 p-6 flex items-center justify-center">
-                      <img
-                        src={currentMovie.imageUrl}
-                        alt="Кадр"
-                        className={`max-w-full max-h-full rounded-[18px] border-[4px] border-[#22398f] shadow-xl transition-all duration-700 ${
-                          isRevealed ? 'blur-0 brightness-100' : 'blur-md brightness-50'
-                        }`}
-                      />
-                    </div>
+                        <div className="absolute top-3 right-3 w-20 h-20 rounded-full border-[3px] border-[#545864] bg-[#0f1219]/90 flex flex-col items-center justify-center">
+                          <span className={`text-[34px] leading-none ${timeLeft <= 5 ? 'text-[#f16d83]' : 'text-[#f4db9f]'}`}>{timeLeft}</span>
+                          <span className="text-[12px] uppercase text-[#a59a7f]">сек</span>
+                        </div>
 
-                    <div className="absolute top-4 right-4 w-28 h-28 rounded-full border-[4px] border-[#22398f] bg-white/90 flex flex-col items-center justify-center">
-                      <span className={`text-[44px] leading-none ${timeLeft <= 5 ? 'text-[#f05f79]' : 'text-[#2e4ba8]'}`}>{timeLeft}</span>
-                      <span className="text-[18px] uppercase text-[#4862ba]">сек</span>
-                    </div>
+                        {isRevealed && (
+                          <div className="absolute left-3 right-3 bottom-3 rounded-lg border border-[#7b5a2b] bg-[#f0c65b] px-3 py-2 text-center text-[#34210b]">
+                            <div className="text-[16px] uppercase">Верный ответ</div>
+                            <div className="text-[26px] leading-none uppercase">{currentMovie.title_ru}</div>
+                          </div>
+                        )}
+                      </div>
 
-                    <div className="absolute left-4 right-4 bottom-4 rounded-xl border-[3px] border-[#2c48a7] bg-white/90 p-2">
-                      <div className="h-4 rounded-full border-2 border-[#3552b3] bg-[#dae5ff] overflow-hidden">
+                      <div className="absolute left-4 right-4 bottom-3 h-4 rounded-full border border-[#545864] bg-[#0e1016] overflow-hidden">
                         <div
-                          className={`h-full ${timerPercent <= 20 ? 'bg-[#f06282]' : 'bg-[#5a7bed]'}`}
+                          className={`h-full ${timerPercent <= 20 ? 'bg-[#cb4f6a]' : 'bg-[#d3a142]'}`}
                           style={{ width: `${timerPercent}%` }}
                         />
                       </div>
-                      <p className="mt-1 text-center text-[18px] text-[#425fb8] uppercase">
-                        Ответы зрителей принимаются до первого правильного
-                      </p>
                     </div>
-
-                    <AnimatePresence>
-                      {isRevealed && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 12 }}
-                          className="absolute left-1/2 -translate-x-1/2 bottom-14 w-[min(900px,90%)] rounded-2xl border-[4px] border-[#21409f] bg-[#fff4bf] p-4 text-center"
-                        >
-                          <p className="text-[18px] uppercase text-[#425fb8]">Верный ответ</p>
-                          <h3 className="text-[42px] uppercase text-[#1d348b] leading-none">{currentMovie.title_ru}</h3>
-                          <p className="text-[20px] text-[#4f67be] uppercase">{currentMovie.title} • {currentMovie.year || '-'}</p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
                 </motion.div>
               )}
@@ -800,39 +743,38 @@ function KinoQuizContent() {
               {screen === 'results' && (
                 <motion.div
                   key="results"
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="pt-6 flex-1 flex flex-col items-center justify-center text-center"
+                  exit={{ opacity: 0, y: -6 }}
+                  className="flex-1 min-h-0 flex flex-col justify-center items-center"
                 >
-                  <Crown className="w-20 h-20 text-[#f5b730]" />
-                  <h2 className="mt-2 text-[64px] uppercase leading-none text-[#1d348b]">Игра завершена</h2>
-                  <p className="text-[28px] text-[#4561ba] uppercase">Сыграно {activeRoundsCount} раундов</p>
+                  <Crown className="w-20 h-20 text-[#f0c35a]" />
+                  <p className="text-[54px] leading-none uppercase text-[#f1d48b] mt-2">Финиш</p>
 
-                  <div className="mt-6 w-full max-w-[760px] rounded-[24px] border-[4px] border-[#2a47a6] bg-white/80 p-5 space-y-2">
-                    {scores.slice(0, 3).map((item, index) => (
+                  <div className="w-full max-w-[760px] mt-4 rounded-2xl border border-[#6a522d] bg-black/25 p-3 space-y-2">
+                    {scores.slice(0, 6).map((score, index) => (
                       <div
-                        key={`${item.username}-${index}`}
-                        className="rounded-xl border-[3px] border-[#9fb6ff] bg-white px-4 py-2 flex items-center justify-between"
+                        key={`${score.username}-${index}`}
+                        className="rounded-lg border border-[#674f28] bg-[#201a12] px-3 py-2 flex items-center justify-between text-[22px]"
                       >
-                        <span className="text-[28px] uppercase">{index + 1}. {item.username}</span>
-                        <span className="text-[30px]">{item.score}</span>
+                        <span className="truncate pr-3">{score.username}</span>
+                        <span>{score.score}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-6 flex flex-col sm:flex-row gap-4 w-full max-w-[760px]">
+                  <div className="mt-4 w-full max-w-[760px] flex gap-3">
                     <Button
                       onClick={backToLobby}
-                      className="sm:w-1/2 h-16 rounded-2xl border-[4px] border-[#21398f] bg-[#ff6f92] hover:bg-[#ff5d84] text-[#122c73] text-[34px] uppercase"
+                      className="w-1/2 h-12 rounded-xl border border-[#784725] bg-[#d54e63] hover:bg-[#e25a71] text-[#fff3db] text-[27px] uppercase"
                     >
                       В меню
                     </Button>
                     <Button
                       onClick={startQuiz}
-                      className="sm:w-1/2 h-16 rounded-2xl border-[4px] border-[#21398f] bg-[#ffd856] hover:bg-[#ffc93e] text-[#122c73] text-[34px] uppercase"
+                      className="w-1/2 h-12 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[27px] uppercase"
                     >
-                      Играть снова
+                      Играть
                     </Button>
                   </div>
                 </motion.div>
@@ -848,23 +790,31 @@ function KinoQuizContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] bg-black/45 backdrop-blur-sm p-4 flex items-center justify-center"
+            className="fixed inset-0 z-[200] bg-black/65 backdrop-blur-sm p-4 flex items-center justify-center"
           >
             <motion.div
-              initial={{ scale: 0.92, y: 20 }}
+              initial={{ scale: 0.94, y: 16 }}
               animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.92, y: 10 }}
-              className="w-full max-w-[760px] rounded-[30px] border-[5px] border-[#233d99] bg-[#fff6cb] shadow-[8px_8px_0_#1b2d74] p-7 text-center"
-              style={noteFont}
+              exit={{ scale: 0.94, y: 10 }}
+              className="w-full max-w-[700px] rounded-[24px] border-[2px] border-[#73572d] bg-[linear-gradient(180deg,#2a1f16_0%,#1a1410_100%)] shadow-[0_18px_50px_rgba(0,0,0,0.58)] p-6 text-center"
+              style={{ fontFamily: "'Waffle Soft', sans-serif" }}
             >
-              <p className="text-[24px] uppercase text-[#4d63bc]">Правильный ответ</p>
-              <h3 className="text-[62px] leading-none uppercase text-[#1f378f]">{winnerModal.answerRu}</h3>
-              <p className="text-[26px] uppercase text-[#4b63ba] mt-1">{winnerModal.answerOriginal}</p>
+              <p className="text-[21px] uppercase text-[#d8bb74]">Верный ответ</p>
+              <h3 className="text-[56px] leading-none uppercase text-[#ffd98b]">{winnerModal.answerRu}</h3>
+              <p className="text-[23px] uppercase text-[#bfa573] mt-1">{winnerModal.answerOriginal}</p>
 
-              <div className="mt-5 rounded-[20px] border-[4px] border-[#2d47a6] bg-white/80 p-4">
-                <p className="text-[24px] uppercase text-[#4462ba]">Первым угадал</p>
-                <p className="text-[52px] leading-none uppercase text-[#1f378f]">{winnerModal.username}</p>
-                <p className="text-[23px] text-[#4f66be] mt-1">Ответ в чате: «{winnerModal.submittedAnswer}»</p>
+              <div className="mt-4 rounded-xl border border-[#71562f] bg-black/30 p-3">
+                <p className="text-[22px] uppercase text-[#e5cb91]">{winnerModal.username}</p>
+              </div>
+
+              <div className="mt-5 flex justify-center">
+                <Button
+                  onClick={handleContinueAfterCorrect}
+                  className="h-12 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[28px] uppercase px-8"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Продолжить
+                </Button>
               </div>
             </motion.div>
           </motion.div>
