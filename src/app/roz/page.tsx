@@ -201,7 +201,7 @@ export default function Home() {
           userColorsRef.current.set(login, userColor)
         }
 
-        if (text === currentKeyword || text.startsWith(currentKeyword + ' ')) {
+        if (text === currentKeyword) {
           if (!participantsSet.current.has(login)) {
             participantsSet.current.add(login)
             setTotalMessages(prev => prev + 1)
