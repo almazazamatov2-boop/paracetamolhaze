@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/kinoquiz-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL_KINOQUIZ")
+}
+
+model KinoQuizMovie {
+  id         String   @id @default(cuid())
+  title      String
+  title_ru   String
+  imageUrl   String
+  type       String // 'movie', 'series', 'anime'
+  difficulty String // 'easy', 'medium', 'hard'
+  year       Int?
+  createdAt  DateTime @default(now())
+}
+
+model KinoQuizSession {
+  id           String   @id @default(cuid())
+  hostUsername String
+  status       String // 'waiting', 'playing', 'finished'
+  type         String // 'movie', 'series', 'anime'
+  currentRound Int      @default(0)
+  createdAt    DateTime @default(now())
+}
+
+model KinoQuizScore {
+  id        String   @id @default(cuid())
+  sessionId String
+  username  String
+  score     Int
+  updatedAt DateTime @updatedAt
+
+  @@unique([sessionId, username])
+}

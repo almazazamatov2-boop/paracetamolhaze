@@ -48,9 +48,9 @@ const PROJECTS = [
     href: '/kinokadr',
   },
   {
-    title: 'СекТрек',
-    desc: 'Угадай трек за секунду',
-    href: '#',
+    title: 'КИНОКВИЗ',
+    desc: 'интерактив со зрителями',
+    href: '/kinoquiz',
     disabled: true,
   },
   {
