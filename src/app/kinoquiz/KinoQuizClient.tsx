@@ -223,7 +223,10 @@ export default function KinoQuizClient() {
                  <span className="text-xs font-bold">{session.user?.name}</span>
               </div>
             ) : (
-              <Button onClick={() => signIn('twitch')} className="bg-[#9146FF] hover:bg-[#7c3aed] rounded-xl h-10 font-bold">
+              <Button 
+                onClick={() => signIn('twitch', { callbackUrl: window.location.href })} 
+                className="bg-[#9146FF] hover:bg-[#7c3aed] rounded-xl h-10 font-bold"
+              >
                 Вход Twitch
               </Button>
             )}
@@ -273,19 +276,30 @@ export default function KinoQuizClient() {
               </div>
 
               <div className="max-w-md mx-auto space-y-4">
-                <div className="relative">
-                  <span className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-500 font-bold">@</span>
-                  <input 
-                    className="w-full h-14 pl-12 pr-6 bg-white/[0.05] border border-white/10 rounded-2xl focus:outline-none focus:border-cyan-500/50 transition-all font-bold"
-                    placeholder="Ваш Twitch никнейм..."
-                    value={streamerName}
-                    onChange={(e) => setStreamerName(e.target.value)}
-                  />
-                </div>
+                {!session && (
+                  <div className="relative">
+                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-500 font-bold">@</span>
+                    <input 
+                      className="w-full h-14 pl-12 pr-6 bg-white/[0.05] border border-white/10 rounded-2xl focus:outline-none focus:border-cyan-500/50 transition-all font-bold text-center"
+                      placeholder="Ваш Twitch никнейм..."
+                      value={streamerName}
+                      onChange={(e) => setStreamerName(e.target.value)}
+                    />
+                  </div>
+                )}
+                
+                {session && (
+                  <div className="flex flex-col items-center gap-2 mb-6">
+                    <div className="px-6 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-black uppercase italic tracking-widest text-xs">
+                      Активный стример: {session.user?.name}
+                    </div>
+                  </div>
+                )}
+
                 <Button 
                   onClick={startQuiz}
-                  disabled={isLoading || !streamerName}
-                  className="w-full h-20 rounded-[2rem] bg-white text-black text-2xl font-black uppercase italic hover:bg-neutral-200 transition-all shadow-2xl shadow-white/5 disabled:opacity-50"
+                  disabled={isLoading || (!streamerName && !session?.user?.name)}
+                  className="w-full h-20 rounded-[2rem] bg-white text-black text-3xl font-black uppercase italic hover:bg-neutral-200 transition-all shadow-2xl shadow-white/5 disabled:opacity-50"
                 >
                   {isLoading ? <Loader2 className="animate-spin w-8 h-8" /> : 'Начать игру'}
                 </Button>
