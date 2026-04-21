@@ -1,22 +1,47 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+function targetUrl(baseUrl: string, source: string | null, error?: string) {
+  const path =
+    source === '67'
+      ? '/67'
+      : source === 'kinokadr'
+        ? '/kinokadr'
+        : source === 'emojino'
+          ? '/emojino'
+          : source === 'poker'
+            ? '/poker'
+            : source === 'kinoquiz'
+              ? '/kinoquiz'
+              : '/overlays/dashboard';
+
+  return error ? `${baseUrl}${path}?error=${error}` : `${baseUrl}${path}`;
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
-  const source = searchParams.get('state'); // Twitch returns state as search param
-  const baseUrl = request.nextUrl.origin;
+  const source = searchParams.get('state');
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const baseUrl = forwardedHost
+    ? `${forwardedProto || 'https'}://${forwardedHost}`
+    : request.nextUrl.origin;
 
   if (error) {
-    return NextResponse.redirect(`${baseUrl}/overlays?error=${error}`);
+    return NextResponse.redirect(targetUrl(baseUrl, source, error));
   }
 
   if (!code) {
-    return NextResponse.redirect(`${baseUrl}/overlays?error=no_code`);
+    return NextResponse.redirect(targetUrl(baseUrl, source, 'no_code'));
   }
 
   const clientId = process.env.TWITCH_CLIENT_ID;
   const clientSecret = process.env.TWITCH_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    return NextResponse.redirect(targetUrl(baseUrl, source, 'twitch_env_missing'));
+  }
+
   const redirectUri = `${baseUrl}/api/auth/twitch/callback`;
 
   try {
@@ -36,7 +61,7 @@ export async function GET(request: NextRequest) {
 
     if (!response.ok) {
       console.error('Twitch Token Error:', data);
-      return NextResponse.redirect(`${baseUrl}/overlays?error=auth_failed`);
+      return NextResponse.redirect(targetUrl(baseUrl, source, 'auth_failed'));
     }
 
     // 1. Fetch user ID to register webhook
@@ -107,29 +132,18 @@ export async function GET(request: NextRequest) {
       if (syncError) console.error('Supabase User Sync Error:', syncError);
     }
 
-    // Determine target redirect
-    const target = source === '67' 
-      ? `${baseUrl}/67` 
-      : source === 'kinokadr' 
-        ? `${baseUrl}/kinokadr` 
-        : source === 'emojino'
-          ? `${baseUrl}/emojino`
-          : source === 'poker'
-            ? `${baseUrl}/poker`
-            : source === 'kinoquiz'
-              ? `${baseUrl}/kinoquiz`
-              : `${baseUrl}/overlays/dashboard`;
-    const res = NextResponse.redirect(target);
+    const res = NextResponse.redirect(targetUrl(baseUrl, source));
     res.cookies.set('twitch_token', data.access_token, {
       httpOnly: true,
-      secure: true,
+      secure: baseUrl.startsWith('https://'),
       sameSite: 'lax',
+      path: '/',
       maxAge: data.expires_in,
     });
 
     return res;
   } catch (err) {
     console.error('Callback error:', err);
-    return NextResponse.redirect(`${baseUrl}/overlays?error=server_error`);
+    return NextResponse.redirect(targetUrl(baseUrl, source, 'server_error'));
   }
 }

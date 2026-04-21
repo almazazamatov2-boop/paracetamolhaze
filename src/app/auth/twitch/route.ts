@@ -1,20 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+function sourcePath(source: string) {
+  if (source === '67') return '/67';
+  if (source === 'kinokadr') return '/kinokadr';
+  if (source === 'emojino') return '/emojino';
+  if (source === 'poker') return '/poker';
+  if (source === 'kinoquiz') return '/kinoquiz';
+  return '/overlays/dashboard';
+}
+
 export async function GET(request: NextRequest) {
   const clientId = process.env.TWITCH_CLIENT_ID;
-  const origin = process.env.NEXT_PUBLIC_BASE_URL || request.nextUrl.origin;
+  const source = request.nextUrl.searchParams.get('source') || '67';
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const forwardedHost = request.headers.get('x-forwarded-host');
+  const origin = forwardedHost
+    ? `${forwardedProto || 'https'}://${forwardedHost}`
+    : request.nextUrl.origin;
   const redirectUri = `${origin}/api/auth/twitch/callback`;
   const scope = 'user:read:email chat:read chat:edit channel:read:redemptions';
   
   if (!clientId) {
-    return NextResponse.json({ 
-      error: 'TWITCH_CLIENT_ID missing', 
-      origin: origin,
-      info: 'Please redeploy your Vercel project after adding Environment Variables.'
-    }, { status: 500 });
+    return NextResponse.redirect(`${origin}${sourcePath(source)}?error=twitch_client_id_missing`);
   }
 
-  const source = request.nextUrl.searchParams.get('source') || '';
   const twitchAuthUrl = `https://id.twitch.tv/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&state=${source}`;
 
   return NextResponse.redirect(twitchAuthUrl);
