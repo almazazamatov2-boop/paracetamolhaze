@@ -12,6 +12,7 @@ import {
   Logout01Icon,
   VolumeHighIcon
 } from '@hugeicons/core-free-icons';
+import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/67/ui/button';
 import { AuthProvider, signIn, signOut, useSession } from '@/lib/67/authHook';
 
@@ -43,6 +44,8 @@ interface RoundWinner {
   answerOriginal: string;
   submittedAnswer: string;
 }
+
+type EffectKey = 'start' | 'success' | 'timeout' | 'continue';
 
 type Screen = 'lobby' | 'game' | 'results';
 type PickerKey = 'mode' | 'time' | 'rounds' | null;
@@ -98,9 +101,20 @@ function KinoQuizContent() {
   const [winnerModal, setWinnerModal] = useState<RoundWinner | null>(null);
   const [showWinnerModal, setShowWinnerModal] = useState<boolean>(false);
   const [openPicker, setOpenPicker] = useState<PickerKey>(null);
+  const [loadError, setLoadError] = useState<string>('');
+  const [soundPanelOpen, setSoundPanelOpen] = useState<boolean>(false);
+  const [musicVolume, setMusicVolume] = useState<number>(0.18);
+  const [effectsVolume, setEffectsVolume] = useState<number>(0.72);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const musicRef = useRef<HTMLAudioElement | null>(null);
+  const effectsRef = useRef<Record<EffectKey, HTMLAudioElement | null>>({
+    start: null,
+    success: null,
+    timeout: null,
+    continue: null
+  });
   const screenRef = useRef<Screen>('lobby');
   const currentRoundRef = useRef<number>(0);
   const moviesRef = useRef<Movie[]>([]);
@@ -120,14 +134,88 @@ function KinoQuizContent() {
     return Math.max(0, Math.min(100, Math.round((timeLeft / activeRoundDuration) * 100)));
   }, [timeLeft, activeRoundDuration]);
 
+  const playMusic = async () => {
+    const music = musicRef.current;
+    if (!music) return;
+    music.volume = musicVolume;
+    if (musicVolume <= 0) {
+      music.pause();
+      return;
+    }
+    try {
+      await music.play();
+    } catch {
+      // Browser may block autoplay before first user gesture.
+    }
+  };
+
+  const stopMusic = () => {
+    const music = musicRef.current;
+    if (!music) return;
+    music.pause();
+    music.currentTime = 0;
+  };
+
+  const playEffect = async (key: EffectKey) => {
+    const clip = effectsRef.current[key];
+    if (!clip || effectsVolume <= 0) return;
+    clip.pause();
+    clip.currentTime = 0;
+    clip.volume = effectsVolume;
+    try {
+      await clip.play();
+    } catch {
+      // Ignore blocked play attempts.
+    }
+  };
+
   useEffect(() => {
     if (session?.user?.name) setStreamerName(session.user.name);
   }, [session?.user?.name]);
 
   useEffect(() => {
+    const music = new Audio('/overlays/defaults/sounds/roll.mp3');
+    music.loop = true;
+    music.volume = musicVolume;
+    musicRef.current = music;
+
+    effectsRef.current = {
+      start: new Audio('/overlays/defaults/sounds/in.mp3'),
+      success: new Audio('/overlays/defaults/sounds/win.mp3'),
+      timeout: new Audio('/overlays/defaults/sounds/lose.mp3'),
+      continue: new Audio('/overlays/defaults/sounds/out.mp3')
+    };
+
+    return () => {
+      stopMusic();
+      Object.values(effectsRef.current).forEach(clip => {
+        if (!clip) return;
+        clip.pause();
+        clip.currentTime = 0;
+      });
+      effectsRef.current = { start: null, success: null, timeout: null, continue: null };
+    };
+  }, []);
+
+  useEffect(() => {
+    if (musicRef.current) {
+      musicRef.current.volume = musicVolume;
+      if (musicVolume <= 0) musicRef.current.pause();
+    }
+  }, [musicVolume]);
+
+  useEffect(() => {
+    Object.values(effectsRef.current).forEach(clip => {
+      if (!clip) return;
+      clip.volume = effectsVolume;
+    });
+  }, [effectsVolume]);
+
+  useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target?.closest('[data-picker-root="true"]')) setOpenPicker(null);
+      if (!target?.closest('[data-sound-panel="true"]')) setSoundPanelOpen(false);
     };
     document.addEventListener('mousedown', onPointerDown);
     return () => document.removeEventListener('mousedown', onPointerDown);
@@ -207,6 +295,7 @@ function KinoQuizContent() {
     const hasNextRound = nextRound < activeRoundsRef.current && !!moviesRef.current[nextRound];
 
     if (hasNextRound) {
+      void playEffect('continue');
       setCurrentRound(nextRound);
       currentRoundRef.current = nextRound;
       startRound();
@@ -233,6 +322,7 @@ function KinoQuizContent() {
       setTimeLeft(previous => {
         if (previous <= 1) {
           clearRoundTimer();
+          void playEffect('timeout');
           setIsRevealed(true);
           isRevealedRef.current = true;
           setTimeout(() => {
@@ -253,6 +343,7 @@ function KinoQuizContent() {
     if (!current) return;
 
     clearRoundTimer();
+    void playEffect('success');
     setIsRevealed(true);
     isRevealedRef.current = true;
     setWinnerModal({
@@ -266,6 +357,7 @@ function KinoQuizContent() {
   };
 
   const handleContinueAfterCorrect = () => {
+    void playEffect('continue');
     setShowWinnerModal(false);
     handleNext();
   };
@@ -315,33 +407,48 @@ function KinoQuizContent() {
   const startQuiz = async () => {
     if (!session || !streamerName.trim()) return;
 
+    setLoadError('');
     setIsLoading(true);
     try {
       const response = await fetch(`/api/kinoquiz/rounds?type=${selectedType}`);
       const data = await response.json();
-      if (data.movies?.length) {
-        const preparedMovies = shuffleMovies<Movie>(data.movies).slice(0, roundsCount);
-        if (preparedMovies.length === 0) return;
-
-        setActiveRoundDuration(roundDuration);
-        activeRoundDurationRef.current = roundDuration;
-        setActiveRoundsCount(preparedMovies.length);
-        activeRoundsRef.current = preparedMovies.length;
-        setMovies(preparedMovies);
-        moviesRef.current = preparedMovies;
-        setScores([]);
-        setChatMessages([]);
-        setWinnerModal(null);
-        setShowWinnerModal(false);
-        setCurrentRound(0);
-        currentRoundRef.current = 0;
-        setScreen('game');
-        screenRef.current = 'game';
-        connectToTwitch();
-        startRound();
+      if (!response.ok) {
+        setLoadError(data?.error || 'Не удалось загрузить кадры. Проверьте базу данных.');
+        return;
       }
+
+      if (!data.movies?.length) {
+        setLoadError('В базе нет кадров для выбранного режима.');
+        return;
+      }
+
+      const preparedMovies = shuffleMovies<Movie>(data.movies).slice(0, roundsCount);
+      if (preparedMovies.length === 0) {
+        setLoadError('Не удалось сформировать раунды.');
+        return;
+      }
+
+      setActiveRoundDuration(roundDuration);
+      activeRoundDurationRef.current = roundDuration;
+      setActiveRoundsCount(preparedMovies.length);
+      activeRoundsRef.current = preparedMovies.length;
+      setMovies(preparedMovies);
+      moviesRef.current = preparedMovies;
+      setScores([]);
+      setChatMessages([]);
+      setWinnerModal(null);
+      setShowWinnerModal(false);
+      setCurrentRound(0);
+      currentRoundRef.current = 0;
+      setScreen('game');
+      screenRef.current = 'game';
+      void playMusic();
+      void playEffect('start');
+      connectToTwitch();
+      startRound();
     } catch (error) {
       console.error(error);
+      setLoadError('Ошибка сети при запуске игры.');
     } finally {
       setIsLoading(false);
     }
@@ -364,6 +471,8 @@ function KinoQuizContent() {
   const backToLobby = () => {
     clearRoundTimer();
     disconnectTwitch();
+    stopMusic();
+    setLoadError('');
     setScreen('lobby');
     setShowWinnerModal(false);
     setWinnerModal(null);
@@ -460,14 +569,85 @@ function KinoQuizContent() {
           <div className="absolute top-0 left-0 right-0 h-6 pointer-events-none bg-[repeating-radial-gradient(circle_at_18px_12px,#846534_0px,#846534_6px,transparent_7px,transparent_40px)] opacity-5" />
 
           <div className="relative z-10 h-full p-4 pt-7 flex flex-col min-h-0">
-            <div className="flex items-center justify-between">
+            <div className="relative flex items-center justify-between" data-sound-panel="true">
               <Button
                 variant="ghost"
                 type="button"
+                onClick={() => setSoundPanelOpen(previous => !previous)}
                 className="h-9 w-9 p-0 rounded-lg border border-[#71562f] bg-black/30 text-[#e9c57e] hover:bg-black/50"
               >
                 <HugeiconsIcon icon={VolumeHighIcon} size={18} color="#e9c57e" strokeWidth={1.9} />
               </Button>
+              <AnimatePresence>
+                {soundPanelOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    className="absolute left-0 top-11 z-40 w-[280px] rounded-xl border border-[#71562f] bg-[#f5f2e7] text-[#23204a] p-3"
+                  >
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-[18px] uppercase mb-1">Музыка</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMusicVolume(previous => Math.max(0, Number((previous - 0.1).toFixed(2))))}
+                            className="h-8 w-8 rounded-md border border-[#2d3795] text-[22px] leading-none"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={musicVolume}
+                            onChange={event => setMusicVolume(Number(event.target.value))}
+                            className="w-full accent-[#2d3795]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setMusicVolume(previous => Math.min(1, Number((previous + 0.1).toFixed(2))))}
+                            className="h-8 w-8 rounded-md border border-[#2d3795] text-[22px] leading-none"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="text-[18px] uppercase mb-1">Эффекты</p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setEffectsVolume(previous => Math.max(0, Number((previous - 0.1).toFixed(2))))}
+                            className="h-8 w-8 rounded-md border border-[#2d3795] text-[22px] leading-none"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={effectsVolume}
+                            onChange={event => setEffectsVolume(Number(event.target.value))}
+                            className="w-full accent-[#2d3795]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEffectsVolume(previous => Math.min(1, Number((previous + 0.1).toFixed(2))))}
+                            className="h-8 w-8 rounded-md border border-[#2d3795] text-[22px] leading-none"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div />
             </div>
 
@@ -614,6 +794,12 @@ function KinoQuizContent() {
                         </Button>
                       </div>
                     )}
+
+                    {loadError && (
+                      <div className="mt-2 rounded-xl border border-[#96595f] bg-[#311a1d] px-3 py-2 text-[17px] text-[#ffb8c1]">
+                        {loadError}
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -724,10 +910,10 @@ function KinoQuizContent() {
               style={{ fontFamily: "'Waffle Soft', sans-serif" }}
             >
               <p className="text-[22px] uppercase text-[#d8bb74]">Верный ответ</p>
-              <h3 className="mx-auto mt-1 max-w-[640px] text-[clamp(34px,6vw,64px)] leading-[0.95] uppercase text-[#ffd98b] break-words [overflow-wrap:anywhere]">
+              <h3 className="mx-auto mt-1 max-w-[640px] text-[clamp(30px,5vw,52px)] leading-[1.02] uppercase text-[#ffd98b] break-words [overflow-wrap:anywhere]">
                 {winnerModal.answerRu}
               </h3>
-              <p className="text-[24px] uppercase text-[#bfa573] mt-1 break-words [overflow-wrap:anywhere]">{winnerModal.answerOriginal}</p>
+              <p className="text-[22px] uppercase text-[#bfa573] mt-1 break-words [overflow-wrap:anywhere]">{winnerModal.answerOriginal}</p>
 
               <div className="mt-4 rounded-xl border border-[#71562f] bg-black/30 p-3">
                 <p className="text-[24px] uppercase text-[#e5cb91] break-words [overflow-wrap:anywhere]">{winnerModal.username}</p>
@@ -736,7 +922,7 @@ function KinoQuizContent() {
               <div className="mt-5 flex items-center justify-center">
                 <Button
                   onClick={handleContinueAfterCorrect}
-                  className="h-12 min-w-[270px] rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[30px] uppercase inline-flex items-center justify-center"
+                  className="h-12 min-w-[270px] rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[28px] uppercase inline-flex items-center justify-center"
                 >
                   Продолжить
                 </Button>

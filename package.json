@@ -10,7 +10,8 @@
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "kinoquiz:seed": "node ./scripts/kinoquiz/seed_tmdb_dataset.mjs"
   },
   "dependencies": {
     "@hugeicons/core-free-icons": "^4.1.1",

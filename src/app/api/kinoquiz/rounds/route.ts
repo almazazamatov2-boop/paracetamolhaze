@@ -1,51 +1,70 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { kinoquizAdmin, KINOQUIZ_TABLE } from '@/lib/kinoquizSupabase';
+
+type MediaType = 'movie' | 'series' | 'anime';
+type Difficulty = 'easy' | 'medium' | 'hard';
+
+interface DbQuestion {
+  id: number;
+  tmdb_id: number;
+  media_type: MediaType;
+  difficulty: Difficulty;
+  title: string;
+  title_ru: string;
+  original_title: string;
+  image_url: string;
+  year: number | null;
+}
+
+function shuffle<T>(items: T[]) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
+async function loadByDifficulty(type: MediaType, difficulty: Difficulty, take: number) {
+  const { data, error } = await kinoquizAdmin
+    .from(KINOQUIZ_TABLE)
+    .select('id,tmdb_id,media_type,difficulty,title,title_ru,original_title,image_url,year')
+    .eq('media_type', type)
+    .eq('difficulty', difficulty)
+    .limit(180);
+
+  if (error) {
+    throw new Error(`[kinoquiz][${type}/${difficulty}] ${error.message}`);
+  }
+
+  return shuffle((data || []) as DbQuestion[]).slice(0, take);
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') || 'movie';
+  const requestedType = (searchParams.get('type') || 'movie') as MediaType;
+  const type: MediaType = ['movie', 'series', 'anime'].includes(requestedType) ? requestedType : 'movie';
 
   try {
-    // Fetch 10 easy, 10 medium, 10 hard from Supabase
-    // Table: kinoquiz_movies
-    
-    const { data: easy } = await supabase
-      .from('kinoquiz_movies')
-      .select('*')
-      .eq('type', type)
-      .eq('difficulty', 'easy')
-      .limit(10);
+    const [easy, medium, hard] = await Promise.all([
+      loadByDifficulty(type, 'easy', 10),
+      loadByDifficulty(type, 'medium', 10),
+      loadByDifficulty(type, 'hard', 10)
+    ]);
 
-    const { data: medium } = await supabase
-      .from('kinoquiz_movies')
-      .select('*')
-      .eq('type', type)
-      .eq('difficulty', 'medium')
-      .limit(10);
+    const rows = [...easy, ...medium, ...hard];
 
-    const { data: hard } = await supabase
-      .from('kinoquiz_movies')
-      .select('*')
-      .eq('type', type)
-      .eq('difficulty', 'hard')
-      .limit(10);
-
-    const movies = [...(easy || []), ...(medium || []), ...(hard || [])];
-
-    // Fallback if DB is empty
-    if (movies.length === 0) {
-      return NextResponse.json({ 
-        movies: Array.from({ length: 30 }).map((_, i) => ({
-          id: `demo-${i}`,
-          title: 'Demo Movie',
-          title_ru: 'Демонстрационный фильм',
-          imageUrl: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?q=80&w=1000',
-          type,
-          difficulty: i < 10 ? 'easy' : i < 20 ? 'medium' : 'hard',
-          year: 2024
-        }))
-      });
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { error: 'KinoQuiz dataset is empty. Seed `kinoquiz.questions` first.' },
+        { status: 503 }
+      );
     }
+
+    const movies = rows.map(row => ({
+      id: `tmdb-${row.media_type}-${row.tmdb_id}`,
+      title: row.original_title || row.title,
+      title_ru: row.title_ru || row.title || row.original_title,
+      imageUrl: row.image_url,
+      type: row.media_type,
+      difficulty: row.difficulty,
+      year: row.year || undefined
+    }));
 
     return NextResponse.json({ movies });
   } catch (error: any) {

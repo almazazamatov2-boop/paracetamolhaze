@@ -1,28 +1,43 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { kinoquizAdmin, KINOQUIZ_TABLE } from '@/lib/kinoquizSupabase';
+
+const TYPES = ['movie', 'series', 'anime'] as const;
+const DIFFICULTIES = ['easy', 'medium', 'hard'] as const;
 
 export async function GET() {
   try {
-    // 1. Check if we can connect and list tables
-    const { data, error } = await supabase.from('kinoquiz_movies').select('id').limit(1);
-    
-    if (error) {
-      if (error.code === '42P01') {
-        return NextResponse.json({ 
-          success: false, 
-          error: 'Table "kinoquiz_movies" does not exist. Please run the SQL migration.',
-          code: error.code
-        }, { status: 404 });
+    const { count: total, error: totalError } = await kinoquizAdmin
+      .from(KINOQUIZ_TABLE)
+      .select('*', { count: 'exact', head: true });
+
+    if (totalError) throw totalError;
+
+    const breakdown: Record<string, number> = {};
+
+    for (const type of TYPES) {
+      for (const difficulty of DIFFICULTIES) {
+        const key = `${type}_${difficulty}`;
+        const { count, error } = await kinoquizAdmin
+          .from(KINOQUIZ_TABLE)
+          .select('*', { count: 'exact', head: true })
+          .eq('media_type', type)
+          .eq('difficulty', difficulty);
+
+        if (error) throw error;
+        breakdown[key] = count || 0;
       }
-      return NextResponse.json({ success: false, error: error.message, code: error.code }, { status: 500 });
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Supabase connection healthy. Table "kinoquiz_movies" found.',
-      sample_data: data
+    return NextResponse.json({
+      success: true,
+      schema: 'kinoquiz',
+      table: 'questions',
+      total: total || 0,
+      breakdown
     });
   } catch (error: any) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    const message = error?.message || 'Unknown DB error';
+    const code = error?.code || null;
+    return NextResponse.json({ success: false, error: message, code }, { status: 500 });
   }
 }
