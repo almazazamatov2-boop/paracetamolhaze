@@ -258,6 +258,7 @@ export default function Home() {
       wheelRef.current.style.transform = 'translateX(calc(50% - 64px))'
     }
     setSpinWinner(null)
+    setWinner(null)
     setIsSpinning(false)
     setRouletteOpen(true)
   }
@@ -265,6 +266,8 @@ export default function Home() {
   const handleSpinRoulette = () => {
     if (!wheelRef.current || participants.length < 2) return
     setIsSpinning(true)
+    setSpinWinner(null)
+    setWinner(null)
 
     const winnerIdx = Math.floor(Math.random() * participants.length)
     const w = participants[winnerIdx]
@@ -310,6 +313,7 @@ export default function Home() {
     setVasePlayers(shuffled)
     setVaseWinnerIdx(Math.floor(Math.random() * shuffled.length))
     setVaseBroken([])
+    setWinner(null)
     setVaseOpen(true)
   }
 
@@ -632,7 +636,7 @@ export default function Home() {
           <div className="flex gap-3 p-6 pt-4">
             <Button
               onClick={handleSpinRoulette}
-              disabled={isSpinning || !!spinWinner}
+              disabled={isSpinning}
               className="flex-1 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl h-11"
             >
               <RotateCcw className={`w-4 h-4 mr-2 ${isSpinning ? 'animate-spin' : ''}`} />
@@ -711,11 +715,18 @@ export default function Home() {
             </div>
           )}
 
-          <div className="p-6 pt-2">
+          <div className="flex gap-3 p-6 pt-2">
+            <Button
+              onClick={handleStartVase}
+              className="flex-1 bg-orange-500 hover:bg-orange-400 text-white font-semibold rounded-xl h-11 shadow-lg shadow-orange-500/20"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Реролл
+            </Button>
             <Button
               onClick={() => setVaseOpen(false)}
               variant="secondary"
-              className="w-full bg-[#2a2a2a] hover:bg-[#333] text-gray-300 border border-[#444] rounded-xl h-11"
+              className="flex-1 bg-[#2a2a2a] hover:bg-[#333] text-gray-300 border border-[#444] rounded-xl h-11"
             >
               <X className="w-4 h-4 mr-2" />
               Закрыть
