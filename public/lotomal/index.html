@@ -176,61 +176,55 @@
       transition:all .3s ease; margin-top:20px;
     }
     .btn-primary:hover{ transform:translateY(-3px); box-shadow:0 10px 25px rgba(255,215,0,.6); }
+      margin-top:20px;
+    }
     .btn-secondary{
       width:100%; padding:20px;
       background: linear-gradient(145deg, #666 0%, #444 100%);
       border:none; border-radius:15px; color:#fff; font-size:18px; font-weight:700; cursor:pointer;
-      transition:all .3s ease; margin-top:15px;
+      margin-top:15px;
     }
     .btn-danger{ background: linear-gradient(145deg, #ff6b6b 0%, #ee5a6f 100%); }
 
     /* Карточка лото */
     .game-container{ 
       max-width:1400px; margin:0 auto; padding: 10px; 
-      display: flex; flex-direction: column; height: calc(100vh - 60px);
-      overflow: hidden;
+      display: flex; flex-direction: column; height: 90vh;
+      justify-content: space-between; overflow: hidden;
     }
     .drawn-numbers{
-      background:rgba(0,0,0,.4);
-      border:2px solid rgba(255,215,0,.3);
-      border-radius:15px; padding:15px; margin-bottom:20px;
+      background:rgba(0,0,0,0.5);
+      border:2px solid rgba(255,215,0,0.4);
+      border-radius:15px; padding:10px; margin-bottom:10px; flex-shrink:0;
     }
     .drawn-numbers-title{ color:#FFD700; font-size:16px; font-weight:700; margin-bottom:10px; text-align:center; }
-    .drawn-list{ display:flex; flex-wrap:nowrap; gap:6px; min-height:48px; overflow-x:auto; padding-bottom:6px; align-items:center; }
-    .drawn-list::-webkit-scrollbar { height: 3px; }
-    .drawn-list::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.4); border-radius:3px; }
-    .drawn-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius:3px; }
+    .drawn-list{ display:flex; flex-wrap:nowrap; gap:10px; overflow-x:auto; padding-bottom:5px; scroll-behavior: smooth; }
     .drawn-number{
-      width:70px; height:70px; min-width:70px;
+      width: 8vh; height: 8vh; min-width: 8vh;
       background: linear-gradient(145deg, #FFD700 0%, #DAA520 100%);
       border-radius:50%; display:flex; align-items:center; justify-content:center;
-      font-weight:900; color:#000; font-size:32px;
-      box-shadow:0 6px 12px rgba(0,0,0,.4);
-      flex-shrink:0;
-    }
-    .card-wrapper{
-      background: linear-gradient(145deg, #2a2a3e 0%, #1f1f2e 100%);
-      border:3px solid #FFD700; border-radius:20px; padding:20px; margin-bottom:20px;
+      font-weight:900; color:#000; font-size: 4vh;
+      box-shadow:0 6px 12px rgba(0,0,0,0.4); flex-shrink:0;
     }
     .loto-card{
       display:grid; grid-template-columns:repeat(9,1fr); grid-template-rows:repeat(3,1fr);
-      gap:4px; background:rgba(0,0,0,.3); padding:8px; border-radius:12px;
+      gap:8px; background:rgba(255,215,0,0.05); padding:12px; border-radius:15px;
+      border: 3px solid rgba(255,215,0,0.2); flex: 1.5;
     }
     .cell{
-      aspect-ratio:1.6;
+      aspect-ratio:1.4;
       background: linear-gradient(145deg, #3a3a4e 0%, #2a2a3e 100%);
-      border:3px solid rgba(255,215,0,.3);
+      border:2px solid rgba(255,215,0,0.3);
       border-radius:12px;
       display:flex; align-items:center; justify-content:center;
-      font-size:48px; font-weight:800; color:#fff;
-      cursor:pointer; transition:all .2s ease;
+      font-size: 6vh; font-weight:900; color:#fff;
+      cursor:pointer; transition: transform 0.1s ease;
       position:relative; overflow:hidden; user-select:none;
     }
     .cell.empty{ background:rgba(0,0,0,.5); border:2px solid rgba(255,215,0,.1); cursor:default; }
-    .cell:not(.empty):not(.marked):not(.disabled):hover{ transform:scale(1.1); border-color:#FFD700; }
     .cell.marked{
-      background: linear-gradient(145deg, #DAA520 0%, #B8860B 100%);
-      color:#000; border-color:#FFD700; box-shadow:0 0 15px rgba(255,215,0,.4);
+      background: linear-gradient(145deg, #FFD700 0%, #DAA520 100%);
+      color:#000; border-color:#fff; box-shadow:0 0 20px rgba(255,215,0,0.5);
     }
     .cell.marked::after{ content:'✓'; position:absolute; font-size:24px; color:rgba(0,0,0,.5); }
     .cell.marked.has-icon::after{ content:''; display:none; }
@@ -1106,26 +1100,31 @@
       const _sid = sessionStorage.getItem('currentLobbyId');
       const _savedGameScreen = sessionStorage.getItem('gameScreenShown') === 'true';
       const _savedCard = sessionStorage.getItem('cardNumbers');
-      const _savedMarked = sessionStorage.getItem('markedCells');
+      const _markedArr = sessionStorage.getItem('markedCells');
 
+      // 1. Сначала восстанавливаем UI
       if (_sid) {
         currentLobbyId = _sid;
         isAdmin = sessionStorage.getItem('isAdmin') === 'true';
-        subscribeToLobby(_sid);
         
         if (_savedCard) { try { cardNumbers = JSON.parse(_savedCard); } catch(e) {} }
-        if (_savedMarked) { try { markedCells = new Set(JSON.parse(_savedMarked)); } catch(e) {} }
+        if (_markedArr) { try { markedCells = new Set(JSON.parse(_markedArr)); } catch(e) {} }
         
         if (_savedGameScreen) {
           gameScreenShown = true;
           document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
           const gs = document.getElementById('gameScreen');
-          if (gs) { gs.classList.add('active'); currentScreen = 'gameScreen'; }
+          if (gs) { 
+             gs.classList.add('active'); 
+             currentScreen = 'gameScreen';
+          }
           if (cardNumbers && cardNumbers.length > 0) renderCard();
           updateGameDisplay();
+          updateGameStats();
         }
       }
       
+      // 2. Затем подключаемся
       setConnStatus('connecting', 'Подключение...');
       sendAPI({ action: 'auth', userId, nickname: userProfile.nickname })
         .then(msg => {
@@ -1134,17 +1133,19 @@
           if (currentLobbyId) subscribeToLobby(currentLobbyId);
         });
 
+      // 3. Поллинг (только если мы в лобби или игре)
       if (!pollInterval) {
         pollInterval = setInterval(async () => {
-          if (currentLobbyId && (currentScreen === 'gameScreen' || currentScreen === 'lobbyWaitScreen')) {
-             try {
-               const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`);
-               if (res.ok) {
-                 const m = await res.json();
-                 handleWsMessage(m);
-               }
-             } catch(e) {}
-          }
+          if (!currentLobbyId) return;
+          if (currentScreen !== 'gameScreen' && currentScreen !== 'lobbyWaitScreen') return;
+          
+          try {
+            const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`);
+            if (res.ok) {
+              const m = await res.json();
+              if (m && m.type === 'state_update') handleWsMessage(m);
+            }
+          } catch(e) {}
         }, 2000);
       }
     }
