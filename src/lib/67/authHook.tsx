@@ -38,9 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = () => {
-    // Basic sign out by clearing cookie (needs to be done on server usually)
-    document.cookie = 'twitch_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    window.location.href = '/';
+    window.location.href = '/api/auth/logout?source=67';
   };
 
   return (
@@ -57,8 +55,7 @@ export const signIn = (source: string = '67') => {
 };
 
 export const signOut = (source: string = '67') => {
-  document.cookie = 'twitch_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-  window.location.href = `/${source}`;
+  window.location.href = `/api/auth/logout?source=${encodeURIComponent(source)}`;
 };
 
 // Backwards compatibility shim for useSession-like usage

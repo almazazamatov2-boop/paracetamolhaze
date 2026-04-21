@@ -2,15 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Camera,
-  ChevronDown,
-  Clapperboard,
-  Crown,
-  Loader2,
-  Play,
-  Volume2
-} from 'lucide-react';
+  ArrowDown01Icon,
+  Camera01Icon,
+  CrownIcon,
+  FilmRoll01Icon,
+  Login01Icon,
+  Logout01Icon,
+  VolumeHighIcon
+} from '@hugeicons/core-free-icons';
 import { Button } from '@/components/67/ui/button';
 import { AuthProvider, signIn, signOut, useSession } from '@/lib/67/authHook';
 
@@ -99,9 +100,7 @@ function KinoQuizContent() {
   const [openPicker, setOpenPicker] = useState<PickerKey>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const nextRoundTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
-
   const screenRef = useRef<Screen>('lobby');
   const currentRoundRef = useRef<number>(0);
   const moviesRef = useRef<Movie[]>([]);
@@ -111,35 +110,27 @@ function KinoQuizContent() {
   const activeRoundDurationRef = useRef<number>(90);
 
   const currentMovie = movies[currentRound];
+  const selectedModeLabel = useMemo(
+    () => modeOptions.find(mode => mode.id === selectedType)?.label || 'ФИЛЬМЫ',
+    [selectedType]
+  );
 
   const timerPercent = useMemo(() => {
     if (activeRoundDuration <= 0) return 0;
     return Math.max(0, Math.min(100, Math.round((timeLeft / activeRoundDuration) * 100)));
   }, [timeLeft, activeRoundDuration]);
 
-  const selectedModeLabel = useMemo(
-    () => modeOptions.find(option => option.id === selectedType)?.label || 'ФИЛЬМЫ',
-    [selectedType]
-  );
-
   useEffect(() => {
-    if (session?.user?.name) {
-      setStreamerName(session.user.name);
-    }
+    if (session?.user?.name) setStreamerName(session.user.name);
   }, [session?.user?.name]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
-      if (!target?.closest('[data-picker-root="true"]')) {
-        setOpenPicker(null);
-      }
+      if (!target?.closest('[data-picker-root="true"]')) setOpenPicker(null);
     };
-
     document.addEventListener('mousedown', onPointerDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-    };
+    return () => document.removeEventListener('mousedown', onPointerDown);
   }, []);
 
   useEffect(() => {
@@ -180,19 +171,14 @@ function KinoQuizContent() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (nextRoundTimeoutRef.current) clearTimeout(nextRoundTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
   }, []);
 
-  const clearRoundTimers = () => {
+  const clearRoundTimer = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
-    }
-    if (nextRoundTimeoutRef.current) {
-      clearTimeout(nextRoundTimeoutRef.current);
-      nextRoundTimeoutRef.current = null;
     }
   };
 
@@ -205,14 +191,14 @@ function KinoQuizContent() {
   };
 
   const handleSubscriberAnswer = (username: string, points: number) => {
-    setScores(prev => {
-      const existing = prev.find(s => s.username === username);
+    setScores(previous => {
+      const existing = previous.find(score => score.username === username);
       if (existing) {
-        return prev
+        return previous
           .map(score => (score.username === username ? { ...score, score: score.score + points } : score))
           .sort((a, b) => b.score - a.score);
       }
-      return [...prev, { username, score: points }].sort((a, b) => b.score - a.score);
+      return [...previous, { username, score: points }].sort((a, b) => b.score - a.score);
     });
   };
 
@@ -227,14 +213,14 @@ function KinoQuizContent() {
       return;
     }
 
-    clearRoundTimers();
+    clearRoundTimer();
     disconnectTwitch();
     setScreen('results');
   };
 
   const startRound = () => {
     const duration = activeRoundDurationRef.current;
-    clearRoundTimers();
+    clearRoundTimer();
     setIsRevealed(false);
     isRevealedRef.current = false;
     setGuessInput('');
@@ -246,15 +232,12 @@ function KinoQuizContent() {
     timerRef.current = setInterval(() => {
       setTimeLeft(previous => {
         if (previous <= 1) {
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
+          clearRoundTimer();
           setIsRevealed(true);
           isRevealedRef.current = true;
-          nextRoundTimeoutRef.current = setTimeout(() => {
-            handleNext();
-          }, 2600);
+          setTimeout(() => {
+            if (!showWinnerModal) handleNext();
+          }, 2200);
           return 0;
         }
         const next = previous - 1;
@@ -264,20 +247,14 @@ function KinoQuizContent() {
     }, 1000);
   };
 
-  const handleContinueAfterCorrect = () => {
-    setShowWinnerModal(false);
-    handleNext();
-  };
-
   const handleCorrectAnswer = (username: string, submittedAnswer: string) => {
     if (isRevealedRef.current) return;
     const current = moviesRef.current[currentRoundRef.current];
     if (!current) return;
 
-    clearRoundTimers();
+    clearRoundTimer();
     setIsRevealed(true);
     isRevealedRef.current = true;
-
     setWinnerModal({
       username,
       answerRu: current.title_ru,
@@ -286,6 +263,11 @@ function KinoQuizContent() {
     });
     setShowWinnerModal(true);
     handleSubscriberAnswer(username, Math.max(timeLeftRef.current, 1));
+  };
+
+  const handleContinueAfterCorrect = () => {
+    setShowWinnerModal(false);
+    handleNext();
   };
 
   const connectToTwitch = () => {
@@ -302,13 +284,8 @@ function KinoQuizContent() {
       setIsConnected(true);
     };
 
-    ws.onclose = () => {
-      setIsConnected(false);
-    };
-
-    ws.onerror = () => {
-      setIsConnected(false);
-    };
+    ws.onclose = () => setIsConnected(false);
+    ws.onerror = () => setIsConnected(false);
 
     ws.onmessage = event => {
       const lines = event.data.split('\r\n');
@@ -328,17 +305,15 @@ function KinoQuizContent() {
         const canCheck = screenRef.current === 'game' && !isRevealedRef.current && !!current;
         const correct = canCheck && current ? isCorrectAnswer(textRaw, current) : false;
 
-        setChatMessages(previous => [...previous.slice(-139), { user, text: textRaw, isCorrect: correct, source: 'chat' }]);
+        setChatMessages(previous => [...previous.slice(-159), { user, text: textRaw, isCorrect: correct, source: 'chat' }]);
 
-        if (correct) {
-          handleCorrectAnswer(user, textRaw);
-        }
+        if (correct) handleCorrectAnswer(user, textRaw);
       });
     };
   };
 
   const startQuiz = async () => {
-    if (!streamerName.trim()) return;
+    if (!session || !streamerName.trim()) return;
 
     setIsLoading(true);
     try {
@@ -352,7 +327,6 @@ function KinoQuizContent() {
         activeRoundDurationRef.current = roundDuration;
         setActiveRoundsCount(preparedMovies.length);
         activeRoundsRef.current = preparedMovies.length;
-
         setMovies(preparedMovies);
         moviesRef.current = preparedMovies;
         setScores([]);
@@ -363,7 +337,6 @@ function KinoQuizContent() {
         currentRoundRef.current = 0;
         setScreen('game');
         screenRef.current = 'game';
-
         connectToTwitch();
         startRound();
       }
@@ -382,21 +355,14 @@ function KinoQuizContent() {
 
     const displayName = streamerName || 'Стример';
     const correct = isCorrectAnswer(input, current);
-
-    setChatMessages(previous => [
-      ...previous.slice(-139),
-      { user: displayName, text: input, isCorrect: correct, source: 'streamer' }
-    ]);
-
-    if (correct) {
-      handleCorrectAnswer(displayName, input);
-    }
-
+    setChatMessages(previous => [...previous.slice(-159), { user: displayName, text: input, isCorrect: correct, source: 'streamer' }]);
     setGuessInput('');
+
+    if (correct) handleCorrectAnswer(displayName, input);
   };
 
   const backToLobby = () => {
-    clearRoundTimers();
+    clearRoundTimer();
     disconnectTwitch();
     setScreen('lobby');
     setShowWinnerModal(false);
@@ -406,34 +372,33 @@ function KinoQuizContent() {
     setOpenPicker(null);
   };
 
-  const basePanel =
-    'rounded-[28px] border-[2px] border-[#4f3f27] bg-[linear-gradient(180deg,#2d2b2c_0%,#1d1b1c_100%)] shadow-[0_10px_24px_rgba(0,0,0,0.38)]';
+  const panelClass =
+    'rounded-[28px] border-[2px] border-[#6f542d] bg-[linear-gradient(180deg,#2b2a2f_0%,#17171b_100%)] shadow-[inset_0_0_0_1px_rgba(255,213,124,0.08),0_16px_28px_rgba(0,0,0,0.45)]';
 
   return (
     <div
-      className="h-screen overflow-hidden p-3 text-[#f5e7c7]"
+      className="h-screen overflow-hidden p-3 text-[#f4e2bb]"
       style={{
         fontFamily: "'Waffle Soft', sans-serif",
-        background:
-          'radial-gradient(circle at 50% 15%, #4f1f2d 0%, #2f1620 33%, #19141a 65%, #0d0f12 100%)'
+        background: 'radial-gradient(circle at 45% 12%, #531f2f 0%, #2b1520 30%, #141419 66%, #0b0d12 100%)'
       }}
     >
-      <div className="mx-auto h-full max-w-[1840px] grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-3">
+      <div className="mx-auto h-full max-w-[1740px] grid grid-cols-1 xl:grid-cols-[350px_1fr] gap-3">
         <aside className="min-h-0 flex flex-col gap-3">
-          <div className={`${basePanel} h-[165px] p-4 flex items-center justify-center`}>
+          <div className={`${panelClass} h-[148px] p-3`}>
             {screen === 'lobby' ? (
-              <div className="text-center leading-none">
-                <div className="text-[34px] uppercase tracking-[0.15em] text-[#d8bb74]">KINO</div>
-                <div className="text-[58px] uppercase text-[#ffd56e] drop-shadow-[0_3px_0_#a05f1f]">SHOW</div>
+              <div className="h-full rounded-2xl border border-[#70562f] bg-black/25 flex flex-col items-center justify-center leading-none">
+                <span className="text-[32px] uppercase tracking-[0.16em] text-[#d8bb74]">KINO</span>
+                <span className="text-[56px] uppercase text-[#ffd56e] drop-shadow-[0_3px_0_#a15f1f]">SHOW</span>
               </div>
             ) : (
-              <div className="w-full h-full rounded-2xl border border-[#5d4827] bg-black/35 p-3 overflow-y-auto space-y-2">
+              <div className="h-full rounded-2xl border border-[#70562f] bg-black/25 p-2 overflow-y-auto space-y-1.5">
                 {scores.slice(0, 9).map((score, index) => (
                   <div
                     key={`${score.username}-${index}`}
-                    className="rounded-lg border border-[#674f28] bg-[#201a12] px-2 py-1.5 flex items-center justify-between text-[19px]"
+                    className="h-9 rounded-md border border-[#71572f] bg-[#1f1a14] px-2 flex items-center justify-between text-[20px]"
                   >
-                    <span className="truncate pr-3">{score.username}</span>
+                    <span className="truncate pr-2">{score.username}</span>
                     <span>{score.score}</span>
                   </div>
                 ))}
@@ -441,35 +406,34 @@ function KinoQuizContent() {
             )}
           </div>
 
-          <div className={`${basePanel} min-h-0 flex-1 p-3`}>
-            <div className="h-full rounded-[20px] border border-[#5d4827] bg-black/30 overflow-y-auto p-2 space-y-1.5">
+          <div className={`${panelClass} min-h-0 flex-1 p-2.5`}>
+            <div className="h-full rounded-[20px] border border-[#70562f] bg-black/30 overflow-y-auto p-2 space-y-1.5">
               {chatMessages
                 .slice()
                 .reverse()
                 .map((message, index) => (
                   <div
                     key={`${message.user}-${index}`}
-                    className={`rounded-md px-2 py-1 text-[17px] border ${
+                    className={`rounded-md border px-2 py-1 text-[18px] leading-[1.15] ${
                       message.isCorrect
-                        ? 'bg-[#22412c] border-[#4aa465] text-[#b9f2c8]'
+                        ? 'bg-[#1f4a2b] border-[#58b174] text-[#b6f5c8]'
                         : message.source === 'streamer'
-                          ? 'bg-[#1f2f49] border-[#4f76b8] text-[#c7d8ff]'
-                          : 'bg-[#1d1b1d] border-[#3d3528] text-[#d7c7a2]'
+                          ? 'bg-[#243857] border-[#5c83ca] text-[#d0ddff]'
+                          : 'bg-[#1b1b1f] border-[#3b3327] text-[#dbc99f]'
                     }`}
                   >
-                    <span className="text-[#f2dba8]">{message.user}:</span> {message.text}
+                    <span className="text-[#f3dfa9]">{message.user}:</span> {message.text}
                   </div>
                 ))}
             </div>
           </div>
 
-          <div className={`${basePanel} h-[215px] p-3`}>
-            <div className="relative h-full rounded-[20px] border border-[#5d4827] overflow-hidden bg-[radial-gradient(circle_at_50%_20%,#3b2e26_0%,#271f1a_55%,#1a1614_100%)]">
-              <div className="absolute bottom-[-44px] left-4 right-4 h-[110px] rounded-[50%] border border-[#6b4f2c] bg-[linear-gradient(180deg,#5a141a_0%,#35090e_100%)]" />
-              <div className="absolute inset-x-0 top-6 flex justify-center">
-                <Camera className="w-11 h-11 text-[#f2c872]" />
+          <div className={`${panelClass} h-[280px] p-3`}>
+            <div className="relative h-full rounded-[22px] border border-[#70562f] overflow-hidden bg-[radial-gradient(circle_at_50%_20%,#3a2d23_0%,#251d19_57%,#171412_100%)]">
+              <div className="absolute bottom-[-58px] left-3 right-3 h-[138px] rounded-[50%] border border-[#7c5730] bg-[linear-gradient(180deg,#67111a_0%,#36090e_100%)]" />
+              <div className="absolute top-7 inset-x-0 flex justify-center">
+                <HugeiconsIcon icon={Camera01Icon} size={46} color="#f1c86c" strokeWidth={1.8} />
               </div>
-
               {screen === 'game' && (
                 <div className="absolute left-3 right-3 bottom-4 flex gap-2">
                   <input
@@ -477,11 +441,11 @@ function KinoQuizContent() {
                     onChange={event => setGuessInput(event.target.value)}
                     onKeyDown={event => event.key === 'Enter' && handleManualGuess()}
                     placeholder="Ответ стримера..."
-                    className="flex-1 h-10 rounded-lg border border-[#6b542d] bg-[#191614] px-2 text-[17px] text-[#f2e5c6] placeholder:text-[#997f57] outline-none"
+                    className="flex-1 h-10 rounded-lg border border-[#785f34] bg-[#161311] px-2 text-[17px] text-[#f0e2bf] placeholder:text-[#997f57] outline-none"
                   />
                   <Button
                     onClick={handleManualGuess}
-                    className="h-10 rounded-lg border border-[#845e26] bg-[#efb73e] hover:bg-[#ffca58] text-[#251706] text-[17px] uppercase px-3"
+                    className="h-10 rounded-lg border border-[#856128] bg-[#efbe48] hover:bg-[#ffd15f] text-[#2f1d09] text-[18px] uppercase px-3"
                   >
                     OK
                   </Button>
@@ -491,30 +455,20 @@ function KinoQuizContent() {
           </div>
         </aside>
 
-        <section className="min-h-0 rounded-[34px] border-[3px] border-[#5a4526] bg-[linear-gradient(180deg,#27262a_0%,#151619_100%)] shadow-[0_16px_38px_rgba(0,0,0,0.5)] overflow-hidden relative">
-          <div className="absolute inset-0 pointer-events-none opacity-25 bg-[repeating-linear-gradient(90deg,transparent_0px,transparent_34px,rgba(255,255,255,0.03)_34px,rgba(255,255,255,0.03)_36px)]" />
-          <div className="absolute top-0 left-0 right-0 h-6 pointer-events-none bg-[repeating-radial-gradient(circle_at_18px_12px,#7c6234_0px,#7c6234_6px,transparent_7px,transparent_46px)] opacity-45" />
+        <section className="relative min-h-0 rounded-[34px] border-[3px] border-[#71562d] bg-[linear-gradient(180deg,#27262c_0%,#17171c_100%)] shadow-[inset_0_0_0_1px_rgba(255,214,128,0.16),0_20px_40px_rgba(0,0,0,0.55)] overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none opacity-24 bg-[repeating-linear-gradient(90deg,transparent_0px,transparent_32px,rgba(255,255,255,0.03)_32px,rgba(255,255,255,0.03)_34px)]" />
+          <div className="absolute top-0 left-0 right-0 h-6 pointer-events-none bg-[repeating-radial-gradient(circle_at_18px_12px,#846534_0px,#846534_6px,transparent_7px,transparent_40px)] opacity-5" />
 
           <div className="relative z-10 h-full p-4 pt-7 flex flex-col min-h-0">
             <div className="flex items-center justify-between">
               <Button
                 variant="ghost"
                 type="button"
-                className="h-9 w-9 p-0 rounded-lg border border-[#6d5630] bg-black/30 text-[#eac27a] hover:bg-black/50"
+                className="h-9 w-9 p-0 rounded-lg border border-[#71562f] bg-black/30 text-[#e9c57e] hover:bg-black/50"
               >
-                <Volume2 className="w-4 h-4" />
+                <HugeiconsIcon icon={VolumeHighIcon} size={18} color="#e9c57e" strokeWidth={1.9} />
               </Button>
-
-              {!session ? (
-                <Button
-                  onClick={() => signIn('kinoquiz')}
-                  className="h-10 rounded-lg border border-[#7e5c29] bg-[#9146FF] hover:bg-[#7d37ea] text-white text-[17px] uppercase px-4"
-                >
-                  Вход через Twitch
-                </Button>
-              ) : (
-                <div />
-              )}
+              <div />
             </div>
 
             <AnimatePresence mode="wait">
@@ -531,24 +485,15 @@ function KinoQuizContent() {
                     <h1 className="text-[52px] leading-none uppercase text-[#f1d48b]">{streamerName || 'TIKTOKEVELONE888'}</h1>
                   </div>
 
-                  <div className="rounded-[24px] border border-[#5f4929] bg-black/25 p-3">
-                    <input
-                      value={streamerName}
-                      onChange={event => setStreamerName(event.target.value)}
-                      placeholder="Ник стримера"
-                      className="w-full h-11 rounded-lg border border-[#725a31] bg-[#191614] px-3 text-[22px] uppercase text-[#f0dfb8] placeholder:text-[#9a835b] outline-none"
-                    />
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
-                    <div className="relative" data-picker-root="true">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3" data-picker-root="true">
+                    <div className="relative">
                       <button
                         type="button"
                         onClick={() => setOpenPicker(previous => (previous === 'mode' ? null : 'mode'))}
-                        className="w-full h-12 rounded-xl border border-[#745b31] bg-[#1c1816] px-3 flex items-center justify-between text-[20px] uppercase"
+                        className="w-full h-12 rounded-xl border border-[#755b31] bg-[#1c1916] px-3 flex items-center justify-between text-[21px] uppercase"
                       >
                         <span>{selectedModeLabel}</span>
-                        <ChevronDown className={`w-5 h-5 transition-transform ${openPicker === 'mode' ? 'rotate-180' : ''}`} />
+                        <HugeiconsIcon icon={ArrowDown01Icon} size={19} color="#e4c78c" strokeWidth={1.9} className={`transition-transform ${openPicker === 'mode' ? 'rotate-180' : ''}`} />
                       </button>
                       {openPicker === 'mode' && (
                         <div className="absolute z-30 left-0 right-0 top-[52px] rounded-xl border border-[#7a5f32] bg-[#151211] overflow-hidden">
@@ -560,7 +505,7 @@ function KinoQuizContent() {
                                 setSelectedType(option.id);
                                 setOpenPicker(null);
                               }}
-                              className={`w-full px-3 h-10 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
+                              className={`w-full h-10 px-3 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
                                 selectedType === option.id ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
@@ -571,14 +516,14 @@ function KinoQuizContent() {
                       )}
                     </div>
 
-                    <div className="relative" data-picker-root="true">
+                    <div className="relative">
                       <button
                         type="button"
                         onClick={() => setOpenPicker(previous => (previous === 'time' ? null : 'time'))}
-                        className="w-full h-12 rounded-xl border border-[#745b31] bg-[#1c1816] px-3 flex items-center justify-between text-[20px] uppercase"
+                        className="w-full h-12 rounded-xl border border-[#755b31] bg-[#1c1916] px-3 flex items-center justify-between text-[21px] uppercase"
                       >
                         <span>{roundDuration} сек</span>
-                        <ChevronDown className={`w-5 h-5 transition-transform ${openPicker === 'time' ? 'rotate-180' : ''}`} />
+                        <HugeiconsIcon icon={ArrowDown01Icon} size={19} color="#e4c78c" strokeWidth={1.9} className={`transition-transform ${openPicker === 'time' ? 'rotate-180' : ''}`} />
                       </button>
                       {openPicker === 'time' && (
                         <div className="absolute z-30 left-0 right-0 top-[52px] rounded-xl border border-[#7a5f32] bg-[#151211] overflow-hidden">
@@ -590,7 +535,7 @@ function KinoQuizContent() {
                                 setRoundDuration(value);
                                 setOpenPicker(null);
                               }}
-                              className={`w-full px-3 h-10 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
+                              className={`w-full h-10 px-3 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
                                 roundDuration === value ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
@@ -601,14 +546,14 @@ function KinoQuizContent() {
                       )}
                     </div>
 
-                    <div className="relative" data-picker-root="true">
+                    <div className="relative">
                       <button
                         type="button"
                         onClick={() => setOpenPicker(previous => (previous === 'rounds' ? null : 'rounds'))}
-                        className="w-full h-12 rounded-xl border border-[#745b31] bg-[#1c1816] px-3 flex items-center justify-between text-[20px] uppercase"
+                        className="w-full h-12 rounded-xl border border-[#755b31] bg-[#1c1916] px-3 flex items-center justify-between text-[21px] uppercase"
                       >
                         <span>{roundsCount} раундов</span>
-                        <ChevronDown className={`w-5 h-5 transition-transform ${openPicker === 'rounds' ? 'rotate-180' : ''}`} />
+                        <HugeiconsIcon icon={ArrowDown01Icon} size={19} color="#e4c78c" strokeWidth={1.9} className={`transition-transform ${openPicker === 'rounds' ? 'rotate-180' : ''}`} />
                       </button>
                       {openPicker === 'rounds' && (
                         <div className="absolute z-30 left-0 right-0 top-[52px] rounded-xl border border-[#7a5f32] bg-[#151211] overflow-hidden">
@@ -620,7 +565,7 @@ function KinoQuizContent() {
                                 setRoundsCount(value);
                                 setOpenPicker(null);
                               }}
-                              className={`w-full px-3 h-10 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
+                              className={`w-full h-10 px-3 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
                                 roundsCount === value ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
@@ -632,41 +577,42 @@ function KinoQuizContent() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex-1 min-h-0 rounded-[28px] border border-[#6a522d] bg-[linear-gradient(180deg,#201f23_0%,#121318_100%)] p-3">
-                    <div className="relative h-full rounded-[24px] border-[7px] border-[#393a42] bg-[#07080d] overflow-hidden">
-                      <div className="absolute left-2 right-2 top-2 h-3 rounded-full bg-[#12141c] border border-[#4a4f5f]" />
-                      <div className="absolute left-4 right-4 top-8 bottom-6 rounded-[18px] border border-[#222732] bg-[radial-gradient(circle_at_50%_50%,#121722_0%,#080a11_72%)] flex items-center justify-center">
-                        <Clapperboard className="w-16 h-16 text-[#3f4a61]" />
+                  <div className="mt-3 flex-1 min-h-0 rounded-[26px] border-[3px] border-[#6f542d] bg-[linear-gradient(180deg,#201f24_0%,#101219_100%)] p-3 shadow-[inset_0_0_0_1px_rgba(255,213,125,0.1)]">
+                    <div className="relative h-full rounded-[20px] border-[7px] border-[#3d4049] bg-[#07080d] overflow-hidden">
+                      <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141d] border border-[#4a4f5f]" />
+                      <div className="absolute left-4 right-4 top-9 bottom-6 rounded-[16px] border border-[#222832] bg-[radial-gradient(circle_at_50%_50%,#141924_0%,#080a11_76%)] flex items-center justify-center">
+                        <HugeiconsIcon icon={FilmRoll01Icon} size={72} color="#434d63" strokeWidth={1.7} />
                       </div>
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-10 h-2 rounded-full bg-[#464a57]" />
                     </div>
                   </div>
 
-                  <div className="mt-3 flex gap-3">
-                    {session ? (
-                      <>
+                  <div className="mt-3">
+                    {!session ? (
+                      <Button
+                        onClick={() => signIn('kinoquiz')}
+                        disabled={isAuthLoading}
+                        className="w-full h-13 rounded-xl border border-[#7b5f2c] bg-[#9146FF] hover:bg-[#7e37ea] text-white text-[32px] uppercase disabled:opacity-70"
+                      >
+                        <HugeiconsIcon icon={Login01Icon} size={20} color="currentColor" strokeWidth={2} className="mr-2" />
+                        Авторизовать через Twitch
+                      </Button>
+                    ) : (
+                      <div className="flex gap-3">
                         <Button
                           onClick={() => signOut('kinoquiz')}
-                          className="w-1/2 h-13 rounded-xl border border-[#784725] bg-[#d54e63] hover:bg-[#e25a71] text-[#fff3db] text-[29px] uppercase"
+                          className="w-1/2 h-13 rounded-xl border border-[#784726] bg-[#d44f64] hover:bg-[#e05a71] text-[#fff4de] text-[30px] uppercase"
                         >
+                          <HugeiconsIcon icon={Logout01Icon} size={20} color="currentColor" strokeWidth={2} className="mr-2" />
                           Разлогиниться
                         </Button>
                         <Button
                           onClick={startQuiz}
                           disabled={isLoading}
-                          className="w-1/2 h-13 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[34px] uppercase disabled:opacity-70"
+                          className="w-1/2 h-13 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffd15f] text-[#2f1d09] text-[36px] uppercase disabled:opacity-70"
                         >
                           {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Начать'}
                         </Button>
-                      </>
-                    ) : (
-                      <Button
-                        onClick={() => signIn('kinoquiz')}
-                        disabled={isAuthLoading}
-                        className="w-full h-13 rounded-xl border border-[#7f6128] bg-[#9146FF] hover:bg-[#7d37ea] text-white text-[30px] uppercase disabled:opacity-70"
-                      >
-                        Войти через Twitch
-                      </Button>
+                      </div>
                     )}
                   </div>
                 </motion.div>
@@ -678,34 +624,13 @@ function KinoQuizContent() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  className="flex-1 min-h-0 flex flex-col"
+                  className="flex-1 min-h-0 mt-2"
                 >
-                  <div className="text-center mt-1 mb-2">
-                    <p className="text-[28px] uppercase text-[#d6b16f]">Кинотеатр Стримера</p>
-                    <h2 className="text-[42px] leading-none uppercase text-[#f1d48b]">{streamerName || 'СТРИМЕР'}</h2>
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap mb-2">
-                    <div className="h-9 px-3 rounded-lg border border-[#71562f] bg-[#1c1816] text-[18px] uppercase flex items-center">
-                      Раунд {currentRound + 1}/{activeRoundsCount}
-                    </div>
-                    <div className="h-9 px-3 rounded-lg border border-[#71562f] bg-[#1c1816] text-[18px] uppercase flex items-center">
-                      {selectedModeLabel}
-                    </div>
-                    <div className="h-9 px-3 rounded-lg border border-[#71562f] bg-[#1c1816] text-[18px] uppercase flex items-center">
-                      {activeRoundDuration} сек
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-h-0 rounded-[28px] border border-[#6a522d] bg-[linear-gradient(180deg,#201f23_0%,#121318_100%)] p-3">
-                    <div className="relative h-full rounded-[24px] border-[8px] border-[#393a42] bg-[#07080d] overflow-hidden">
-                      <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141c] border border-[#4a4f5f]" />
-                      <div className="absolute left-4 right-4 top-9 bottom-8 rounded-[18px] border border-[#222732] bg-black overflow-hidden">
-                        <img
-                          src={currentMovie.imageUrl}
-                          alt=""
-                          className="absolute inset-0 w-full h-full object-cover blur-[36px] opacity-35 scale-110"
-                        />
+                  <div className="h-full rounded-[26px] border-[3px] border-[#73572f] bg-[linear-gradient(180deg,#1f2026_0%,#0f1119_100%)] p-3 shadow-[inset_0_0_0_1px_rgba(255,214,129,0.1)]">
+                    <div className="relative h-full rounded-[20px] border-[8px] border-[#3d4049] bg-[#07080d] overflow-hidden">
+                      <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141d] border border-[#4a4f5f]" />
+                      <div className="absolute left-4 right-4 top-9 bottom-7 rounded-[16px] border border-[#222832] bg-black overflow-hidden">
+                        <img src={currentMovie.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover blur-[36px] opacity-35 scale-110" />
                         <div className="absolute inset-0 p-4 flex items-center justify-center">
                           <img
                             src={currentMovie.imageUrl}
@@ -716,24 +641,21 @@ function KinoQuizContent() {
                           />
                         </div>
 
-                        <div className="absolute top-3 right-3 w-20 h-20 rounded-full border-[3px] border-[#545864] bg-[#0f1219]/90 flex flex-col items-center justify-center">
-                          <span className={`text-[34px] leading-none ${timeLeft <= 5 ? 'text-[#f16d83]' : 'text-[#f4db9f]'}`}>{timeLeft}</span>
-                          <span className="text-[12px] uppercase text-[#a59a7f]">сек</span>
+                        <div className="absolute top-3 right-3 px-3 py-2 rounded-full border-[2px] border-[#4e5667] bg-[#0f1219]/90 text-center">
+                          <div className={`text-[34px] leading-none ${timeLeft <= 5 ? 'text-[#f16d83]' : 'text-[#f4db9f]'}`}>{timeLeft}</div>
+                          <div className="text-[11px] uppercase text-[#b3a88f]">сек</div>
                         </div>
 
                         {isRevealed && (
-                          <div className="absolute left-3 right-3 bottom-3 rounded-lg border border-[#7b5a2b] bg-[#f0c65b] px-3 py-2 text-center text-[#34210b]">
+                          <div className="absolute left-3 right-3 bottom-3 rounded-lg border border-[#7c5a2b] bg-[#f0c65b] px-3 py-2 text-center text-[#34210b]">
                             <div className="text-[16px] uppercase">Верный ответ</div>
-                            <div className="text-[26px] leading-none uppercase">{currentMovie.title_ru}</div>
+                            <div className="text-[24px] leading-none uppercase break-words [overflow-wrap:anywhere]">{currentMovie.title_ru}</div>
                           </div>
                         )}
                       </div>
 
                       <div className="absolute left-4 right-4 bottom-3 h-4 rounded-full border border-[#545864] bg-[#0e1016] overflow-hidden">
-                        <div
-                          className={`h-full ${timerPercent <= 20 ? 'bg-[#cb4f6a]' : 'bg-[#d3a142]'}`}
-                          style={{ width: `${timerPercent}%` }}
-                        />
+                        <div className={`h-full ${timerPercent <= 20 ? 'bg-[#cb4f6a]' : 'bg-[#d3a142]'}`} style={{ width: `${timerPercent}%` }} />
                       </div>
                     </div>
                   </div>
@@ -746,36 +668,38 @@ function KinoQuizContent() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  className="flex-1 min-h-0 flex flex-col justify-center items-center"
+                  className="flex-1 min-h-0 flex items-center justify-center"
                 >
-                  <Crown className="w-20 h-20 text-[#f0c35a]" />
-                  <p className="text-[54px] leading-none uppercase text-[#f1d48b] mt-2">Финиш</p>
+                  <div className="w-full max-w-[760px] text-center">
+                    <HugeiconsIcon icon={CrownIcon} size={88} color="#f0c35a" strokeWidth={1.8} className="mx-auto" />
+                    <p className="text-[58px] uppercase leading-none text-[#f1d48b] mt-2">Финиш</p>
 
-                  <div className="w-full max-w-[760px] mt-4 rounded-2xl border border-[#6a522d] bg-black/25 p-3 space-y-2">
-                    {scores.slice(0, 6).map((score, index) => (
-                      <div
-                        key={`${score.username}-${index}`}
-                        className="rounded-lg border border-[#674f28] bg-[#201a12] px-3 py-2 flex items-center justify-between text-[22px]"
+                    <div className="mt-4 rounded-2xl border border-[#6a522d] bg-black/25 p-3 space-y-2">
+                      {scores.slice(0, 6).map((score, index) => (
+                        <div
+                          key={`${score.username}-${index}`}
+                          className="h-11 rounded-lg border border-[#674f28] bg-[#201a12] px-3 flex items-center justify-between text-[23px]"
+                        >
+                          <span className="truncate pr-2">{score.username}</span>
+                          <span>{score.score}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex gap-3">
+                      <Button
+                        onClick={backToLobby}
+                        className="w-1/2 h-12 rounded-xl border border-[#784725] bg-[#d54e63] hover:bg-[#e25a71] text-[#fff3db] text-[28px] uppercase"
                       >
-                        <span className="truncate pr-3">{score.username}</span>
-                        <span>{score.score}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-4 w-full max-w-[760px] flex gap-3">
-                    <Button
-                      onClick={backToLobby}
-                      className="w-1/2 h-12 rounded-xl border border-[#784725] bg-[#d54e63] hover:bg-[#e25a71] text-[#fff3db] text-[27px] uppercase"
-                    >
-                      В меню
-                    </Button>
-                    <Button
-                      onClick={startQuiz}
-                      className="w-1/2 h-12 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[27px] uppercase"
-                    >
-                      Играть
-                    </Button>
+                        В меню
+                      </Button>
+                      <Button
+                        onClick={startQuiz}
+                        className="w-1/2 h-12 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[28px] uppercase"
+                      >
+                        Играть
+                      </Button>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -796,23 +720,24 @@ function KinoQuizContent() {
               initial={{ scale: 0.94, y: 16 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.94, y: 10 }}
-              className="w-full max-w-[700px] rounded-[24px] border-[2px] border-[#73572d] bg-[linear-gradient(180deg,#2a1f16_0%,#1a1410_100%)] shadow-[0_18px_50px_rgba(0,0,0,0.58)] p-6 text-center"
+              className="w-full max-w-[760px] rounded-[24px] border-[2px] border-[#73572d] bg-[linear-gradient(180deg,#2a1f16_0%,#1a1410_100%)] shadow-[0_18px_50px_rgba(0,0,0,0.58)] p-6 text-center"
               style={{ fontFamily: "'Waffle Soft', sans-serif" }}
             >
-              <p className="text-[21px] uppercase text-[#d8bb74]">Верный ответ</p>
-              <h3 className="text-[56px] leading-none uppercase text-[#ffd98b]">{winnerModal.answerRu}</h3>
-              <p className="text-[23px] uppercase text-[#bfa573] mt-1">{winnerModal.answerOriginal}</p>
+              <p className="text-[22px] uppercase text-[#d8bb74]">Верный ответ</p>
+              <h3 className="mx-auto mt-1 max-w-[640px] text-[clamp(34px,6vw,64px)] leading-[0.95] uppercase text-[#ffd98b] break-words [overflow-wrap:anywhere]">
+                {winnerModal.answerRu}
+              </h3>
+              <p className="text-[24px] uppercase text-[#bfa573] mt-1 break-words [overflow-wrap:anywhere]">{winnerModal.answerOriginal}</p>
 
               <div className="mt-4 rounded-xl border border-[#71562f] bg-black/30 p-3">
-                <p className="text-[22px] uppercase text-[#e5cb91]">{winnerModal.username}</p>
+                <p className="text-[24px] uppercase text-[#e5cb91] break-words [overflow-wrap:anywhere]">{winnerModal.username}</p>
               </div>
 
-              <div className="mt-5 flex justify-center">
+              <div className="mt-5 flex items-center justify-center">
                 <Button
                   onClick={handleContinueAfterCorrect}
-                  className="h-12 rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[28px] uppercase px-8"
+                  className="h-12 min-w-[270px] rounded-xl border border-[#7f6128] bg-[#efbf4a] hover:bg-[#ffcf5d] text-[#2f1e08] text-[30px] uppercase inline-flex items-center justify-center"
                 >
-                  <Play className="w-4 h-4 mr-2" />
                   Продолжить
                 </Button>
               </div>
