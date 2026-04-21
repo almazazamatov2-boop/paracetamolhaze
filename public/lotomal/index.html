@@ -186,8 +186,8 @@
 
     /* Карточка лото */
     .game-container{ 
-      max-width:1200px; margin:0 auto; padding: 10px; 
-      display: flex; flex-direction: column; height: calc(100vh - 80px);
+      max-width:1400px; margin:0 auto; padding: 10px; 
+      display: flex; flex-direction: column; height: calc(100vh - 60px);
       overflow: hidden;
     }
     .drawn-numbers{
@@ -201,11 +201,11 @@
     .drawn-list::-webkit-scrollbar-thumb { background: rgba(255,215,0,0.4); border-radius:3px; }
     .drawn-list::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius:3px; }
     .drawn-number{
-      width:50px; height:50px; min-width:50px;
+      width:70px; height:70px; min-width:70px;
       background: linear-gradient(145deg, #FFD700 0%, #DAA520 100%);
       border-radius:50%; display:flex; align-items:center; justify-content:center;
-      font-weight:800; color:#000; font-size:20px;
-      box-shadow:0 4px 8px rgba(0,0,0,.3);
+      font-weight:900; color:#000; font-size:32px;
+      box-shadow:0 6px 12px rgba(0,0,0,.4);
       flex-shrink:0;
     }
     .card-wrapper{
@@ -219,10 +219,10 @@
     .cell{
       aspect-ratio:1.6;
       background: linear-gradient(145deg, #3a3a4e 0%, #2a2a3e 100%);
-      border:2px solid rgba(255,215,0,.25);
-      border-radius:10px;
+      border:3px solid rgba(255,215,0,.3);
+      border-radius:12px;
       display:flex; align-items:center; justify-content:center;
-      font-size:24px; font-weight:800; color:#fff;
+      font-size:48px; font-weight:800; color:#fff;
       cursor:pointer; transition:all .2s ease;
       position:relative; overflow:hidden; user-select:none;
     }
@@ -1102,14 +1102,30 @@
 
     function initWS() {
       wsReady = true;
-      // Восстановление сессии
-      const _sid   = sessionStorage.getItem('currentLobbyId');
+      
+      const _sid = sessionStorage.getItem('currentLobbyId');
+      const _savedGameScreen = sessionStorage.getItem('gameScreenShown') === 'true';
+      const _savedCard = sessionStorage.getItem('cardNumbers');
+      const _savedMarked = sessionStorage.getItem('markedCells');
+
       if (_sid) {
         currentLobbyId = _sid;
+        isAdmin = sessionStorage.getItem('isAdmin') === 'true';
         subscribeToLobby(_sid);
+        
+        if (_savedCard) { try { cardNumbers = JSON.parse(_savedCard); } catch(e) {} }
+        if (_savedMarked) { try { markedCells = new Set(JSON.parse(_savedMarked)); } catch(e) {} }
+        
+        if (_savedGameScreen) {
+          gameScreenShown = true;
+          document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+          const gs = document.getElementById('gameScreen');
+          if (gs) { gs.classList.add('active'); currentScreen = 'gameScreen'; }
+          if (cardNumbers && cardNumbers.length > 0) renderCard();
+          updateGameDisplay();
+        }
       }
       
-      // Авторизация
       setConnStatus('connecting', 'Подключение...');
       sendAPI({ action: 'auth', userId, nickname: userProfile.nickname })
         .then(msg => {
@@ -1118,10 +1134,9 @@
           if (currentLobbyId) subscribeToLobby(currentLobbyId);
         });
 
-      // Поллинг как фолбек (раз в 2 сек)
       if (!pollInterval) {
         pollInterval = setInterval(async () => {
-          if (currentLobbyId && currentScreen === 'gameScreen') {
+          if (currentLobbyId && (currentScreen === 'gameScreen' || currentScreen === 'lobbyWaitScreen')) {
              try {
                const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`);
                if (res.ok) {

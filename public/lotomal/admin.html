@@ -444,12 +444,15 @@
         const lobbyId = query.get('lobbyId');
         const userId = query.get('userId');
 
+        let isUpdating = false;
+
         async function addNumberToDrawn(num) {
             if (!lobbyId || !userId) {
                 alert('Ошибка: Отсутствует ID лобби или пользователя в URL. Перезайдите в админку из игры.');
                 return;
             }
             
+            isUpdating = true;
             // Оптимистичное обновление
             const oldOrder = [...drawnOrder];
             const oldNumbers = new Set(drawnNumbers);
@@ -469,10 +472,10 @@
                 
                 if (data.type === 'error' || data.error) {
                     alert('Ошибка: ' + (data.message || data.error));
-                    // Откат
                     drawnOrder = oldOrder;
                     drawnNumbers = oldNumbers;
                     updateDisplay();
+                    isUpdating = false;
                     return;
                 }
 
@@ -483,11 +486,12 @@
                 }
             } catch(e) {
                 console.error('API Error:', e);
-                // Откат и перезагрузка
                 drawnOrder = oldOrder;
                 drawnNumbers = oldNumbers;
                 updateDisplay();
                 await loadFromServer();
+            } finally {
+                setTimeout(() => { isUpdating = false; }, 1000);
             }
         }
 
@@ -495,7 +499,7 @@
             if (!lobbyId || !userId) return;
             if (!confirm(`Удалить бочонок ${num}?`)) return;
 
-            // Оптимистичное обновление
+            isUpdating = true;
             const oldOrder = [...drawnOrder];
             const oldNumbers = new Set(drawnNumbers);
 
@@ -517,13 +521,15 @@
                     updateDisplay();
                 }
             } catch(e) {
-                // Откат
                 drawnOrder = oldOrder;
                 drawnNumbers = oldNumbers;
                 updateDisplay();
                 await loadFromServer();
+            } finally {
+                setTimeout(() => { isUpdating = false; }, 1000);
             }
         }
+
 
         function showLastNumber(num) {
             const el = document.getElementById('lastNumber');
@@ -581,7 +587,7 @@
         }
 
         async function loadFromServer() {
-            if (!lobbyId) return;
+            if (!lobbyId || isUpdating) return;
             try {
                 const res = await fetch(`/api/loto?action=get_state&lobbyId=${lobbyId}`, { cache: 'no-store' });
                 const data = await res.json();
