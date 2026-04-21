@@ -219,12 +219,14 @@ export default function KinoQuizClient() {
           <div className="flex items-center gap-4">
             {session ? (
               <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
+            {session ? (
+              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-white/5 border border-white/10">
                  <img src={session.user?.image || ''} className="w-8 h-8 rounded-full border border-white/10" alt="" />
                  <span className="text-xs font-bold">{session.user?.name}</span>
               </div>
             ) : (
               <Button 
-                onClick={() => signIn('twitch', { callbackUrl: window.location.href })} 
+                onClick={() => signIn('kinoquiz')} 
                 className="bg-[#9146FF] hover:bg-[#7c3aed] rounded-xl h-10 font-bold"
               >
                 Вход Twitch
@@ -276,33 +278,32 @@ export default function KinoQuizClient() {
               </div>
 
               <div className="max-w-md mx-auto space-y-4">
-                {!session && (
-                  <div className="relative">
-                    <span className="absolute left-6 top-1/2 -translate-y-1/2 text-cyan-500 font-bold">@</span>
-                    <input 
-                      className="w-full h-14 pl-12 pr-6 bg-white/[0.05] border border-white/10 rounded-2xl focus:outline-none focus:border-cyan-500/50 transition-all font-bold text-center"
-                      placeholder="Ваш Twitch никнейм..."
-                      value={streamerName}
-                      onChange={(e) => setStreamerName(e.target.value)}
-                    />
-                  </div>
-                )}
-                
-                {session && (
-                  <div className="flex flex-col items-center gap-2 mb-6">
-                    <div className="px-6 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-black uppercase italic tracking-widest text-xs">
-                      Активный стример: {session.user?.name}
+                {session ? (
+                  <div className="space-y-6">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="px-6 py-3 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-black uppercase italic tracking-widest text-xs">
+                        Активный стример: {session.user?.name}
+                      </div>
                     </div>
+                    <Button 
+                      onClick={startQuiz}
+                      disabled={isLoading}
+                      className="w-full h-24 rounded-[2.5rem] bg-white text-black text-4xl font-black uppercase italic hover:bg-neutral-200 transition-all shadow-[0_0_50px_rgba(255,255,255,0.1)] disabled:opacity-50"
+                    >
+                      {isLoading ? <Loader2 className="animate-spin w-8 h-8" /> : 'Начать игру'}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <p className="text-white/40 font-bold uppercase tracking-widest text-sm">Для начала игры необходимо авторизоваться</p>
+                    <Button 
+                      onClick={() => signIn('kinoquiz')}
+                      className="w-full h-20 rounded-[2rem] bg-[#9146FF] text-white text-2xl font-black uppercase italic hover:bg-[#7c3aed] transition-all shadow-2xl shadow-purple-500/20"
+                    >
+                      Войти через Twitch
+                    </Button>
                   </div>
                 )}
-
-                <Button 
-                  onClick={startQuiz}
-                  disabled={isLoading || (!streamerName && !session?.user?.name)}
-                  className="w-full h-20 rounded-[2rem] bg-white text-black text-3xl font-black uppercase italic hover:bg-neutral-200 transition-all shadow-2xl shadow-white/5 disabled:opacity-50"
-                >
-                  {isLoading ? <Loader2 className="animate-spin w-8 h-8" /> : 'Начать игру'}
-                </Button>
               </div>
             </motion.div>
           )}

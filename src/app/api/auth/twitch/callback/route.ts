@@ -116,7 +116,9 @@ export async function GET(request: NextRequest) {
           ? `${baseUrl}/emojino`
           : source === 'poker'
             ? `${baseUrl}/poker`
-            : `${baseUrl}/overlays/dashboard`;
+            : source === 'kinoquiz'
+              ? `${baseUrl}/kinoquiz`
+              : `${baseUrl}/overlays/dashboard`;
     const res = NextResponse.redirect(target);
     res.cookies.set('twitch_token', data.access_token, {
       httpOnly: true,
