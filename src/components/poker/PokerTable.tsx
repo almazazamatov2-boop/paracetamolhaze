@@ -701,9 +701,10 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       </div>
 
       {/* GAME AREA */}
-      <div className="absolute inset-0 flex items-center justify-center">
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-12">
         
-        {/* Table Graphic (Removed) */}
+        {/* Table Graphic (Vintage Poker style) */}
+        <img src="/poker/vintage/table.svg" alt="Poker Table" className="w-[85%] max-w-5xl h-auto object-contain pointer-events-none" />
 
         <div className="absolute inset-0 pointer-events-none">
           
@@ -723,15 +724,25 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                       <PokerCard suit={card.suit} value={card.value} />
                     </motion.div>
                   ))}
-                  >
-                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-dashed border-black bg-gradient-to-br from-amber-300 to-amber-600 flex items-center justify-center">
-                       <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full border border-black/30" />
-                    </div>
-                    <span className="text-amber-400 font-black text-sm md:text-xl italic tracking-widest uppercase">
-                      БАНК: {pot}
-                    </span>
-                  </motion.div>
-                </div>
+                </AnimatePresence>
+                {communityCards.length < 5 && Array.from({ length: 5 - communityCards.length }).map((_, i) => (
+                  <div key={i} className="w-16 h-24 rounded border-2 border-white/10 bg-black/10" />
+                ))}
+              </div>
+
+              {/* Pot Display */}
+              <div className="flex flex-col items-center">
+                <motion.div 
+                  key={pot}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="bg-black/40 px-6 py-2 rounded flex items-center gap-2"
+                >
+                  <span className="text-white font-bold text-xl uppercase tracking-widest">
+                    БАНК: ${pot}
+                  </span>
+                </motion.div>
+              </div>
 
                 {/* Showdown Winner */}
                 <AnimatePresence>
