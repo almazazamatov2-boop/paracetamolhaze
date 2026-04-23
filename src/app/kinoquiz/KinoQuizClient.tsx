@@ -27,6 +27,8 @@ interface Movie {
   year?: number;
 }
 
+type SelectedMode = Movie['type'] | 'combo';
+
 interface ParticipantScore {
   username: string;
   score: number;
@@ -53,11 +55,14 @@ type PickerKey = 'mode' | 'time' | 'rounds' | null;
 
 const ROUND_TIME_OPTIONS = [30, 60, 90, 120] as const;
 const ROUND_COUNT_OPTIONS = [5, 10, 15, 20, 30] as const;
+// Combo round counts must be divisible by 3
+const COMBO_ROUND_OPTIONS = [9, 15, 21, 30] as const;
 
-const modeOptions: Array<{ id: Movie['type']; label: string }> = [
-  { id: 'movie', label: 'ФИЛЬМЫ' },
-  { id: 'series', label: 'СЕРИАЛЫ' },
-  { id: 'anime', label: 'АНИМЕ' }
+const modeOptions: Array<{ id: SelectedMode; label: string; emoji: string }> = [
+  { id: 'movie',  label: 'ФИЛЬМЫ',  emoji: '🎬' },
+  { id: 'series', label: 'СЕРИАЛЫ', emoji: '📺' },
+  { id: 'anime',  label: 'АНИМЕ',   emoji: '⛩️' },
+  { id: 'combo',  label: 'КОМБО',   emoji: '🎲' },
 ];
 
 function shuffleMovies<T>(items: T[]) {
@@ -84,7 +89,7 @@ function KinoQuizContent() {
   const isAuthLoading = status === 'loading';
 
   const [screen, setScreen] = useState<Screen>('lobby');
-  const [selectedType, setSelectedType] = useState<Movie['type']>('movie');
+  const [selectedType, setSelectedType] = useState<SelectedMode>('movie');
   const [roundDuration, setRoundDuration] = useState<number>(90);
   const [roundsCount, setRoundsCount] = useState<number>(15);
   const [activeRoundDuration, setActiveRoundDuration] = useState<number>(90);
@@ -495,8 +500,7 @@ function KinoQuizContent() {
     setOpenPicker(null);
   };
 
-  const panelClass =
-    'rounded-[28px] border-[2px] border-[#6f542d] bg-[linear-gradient(180deg,#2b2a2f_0%,#17171b_100%)] shadow-[inset_0_0_0_1px_rgba(255,213,124,0.08),0_16px_28px_rgba(0,0,0,0.45)]';
+  const cardClass = 'rounded-2xl bg-[#1c1a1f] border border-[#3a3028]';
 
   return (
     <div
@@ -508,84 +512,86 @@ function KinoQuizContent() {
     >
       <div className="mx-auto h-full max-w-[1740px] grid grid-cols-1 xl:grid-cols-[430px_1fr] gap-3">
         <aside className="min-h-0 flex flex-col gap-3">
-          <div className={`${panelClass} h-[210px] p-3`}>
+          {/* Logo / Leaderboard */}
+          <div className={`${cardClass} ${screen === 'lobby' ? 'h-[180px]' : 'flex-1 min-h-0'} overflow-hidden`}>
             {screen === 'lobby' ? (
-              <div className="h-full rounded-2xl border border-[#70562f] bg-black/25 flex flex-col items-center justify-center leading-none">
-                <span className="text-[32px] uppercase tracking-[0.16em] text-[#d8bb74]">KINO</span>
-                <span className="text-[56px] uppercase text-[#ffd56e] drop-shadow-[0_3px_0_#a15f1f]">SHOW</span>
+              <div className="h-full flex flex-col items-center justify-center leading-none">
+                <div className="text-[22px] uppercase tracking-[0.18em] text-[#c9a85c]">KINO</div>
+                <div className="text-[58px] uppercase text-[#ffd56e] drop-shadow-[0_4px_0_#8a4e10] leading-none">SHOW</div>
+                <div className="mt-1 text-[13px] uppercase tracking-widest text-[#7a6040]">угадай кадр из фильма</div>
               </div>
             ) : (
-              <div className="h-full rounded-2xl border border-[#70562f] bg-black/25 p-2 overflow-y-auto space-y-1.5">
-                {scores.slice(0, 9).map((score, index) => (
+              <div className="h-full p-2 overflow-y-auto space-y-1">
+                {scores.slice(0, 10).map((score, index) => (
                   <div
                     key={`${score.username}-${index}`}
-                    className="h-9 rounded-md border border-[#71572f] bg-[#1f1a14] px-2 flex items-center justify-between text-[20px]"
+                    className="h-8 rounded-lg bg-[#251e17] border border-[#3d3020] px-2 flex items-center justify-between text-[18px]"
                   >
-                    <span className="truncate pr-2">{score.username}</span>
-                    <span>{score.score}</span>
+                    <span className="text-[#c9a070] text-[13px] mr-2">#{index + 1}</span>
+                    <span className="truncate flex-1">{score.username}</span>
+                    <span className="text-[#f0c65b] ml-2">{score.score}</span>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          <div className={`${panelClass} min-h-0 flex-1 p-2.5`}>
-            <div className="h-full rounded-[20px] border border-[#70562f] bg-black/30 overflow-y-auto p-2 space-y-1.5">
-              {chatMessages
-                .slice()
-                .reverse()
-                .map((message, index) => (
-                  <div
-                    key={`${message.user}-${index}`}
-                    className={`rounded-md border px-2 py-1 text-[18px] leading-[1.15] ${
-                      message.isCorrect
-                        ? 'bg-[#1f4a2b] border-[#58b174] text-[#b6f5c8]'
-                        : message.source === 'streamer'
-                          ? 'bg-[#243857] border-[#5c83ca] text-[#d0ddff]'
-                          : 'bg-[#1b1b1f] border-[#3b3327] text-[#dbc99f]'
-                    }`}
-                  >
-                    <span className="text-[#f3dfa9]">{message.user}:</span> {message.text}
-                  </div>
-                ))}
-            </div>
+          {/* Chat feed */}
+          <div className={`${cardClass} min-h-0 flex-1 overflow-y-auto p-2 space-y-1`}>
+            {chatMessages
+              .slice()
+              .reverse()
+              .map((message, index) => (
+                <div
+                  key={`${message.user}-${index}`}
+                  className={`rounded-lg px-2 py-1 text-[17px] leading-[1.2] ${
+                    message.isCorrect
+                      ? 'bg-[#1a3d25] border border-[#3d7a55] text-[#9fe8b8]'
+                      : message.source === 'streamer'
+                        ? 'bg-[#1e2e45] border border-[#3d5c8a] text-[#b8ccee]'
+                        : 'bg-[#1c1a1f] border border-[#322c26] text-[#d4b98a]'
+                  }`}
+                >
+                  <span className="text-[#f0d898] font-medium">{message.user}:</span> {message.text}
+                </div>
+              ))}
           </div>
 
-          <div className={`${panelClass} h-[200px] p-3`}>
-            <div className="relative h-full rounded-[22px] border border-[#70562f] overflow-hidden bg-[radial-gradient(circle_at_50%_20%,#3a2d23_0%,#251d19_57%,#171412_100%)]">
-              <div className="absolute top-5 inset-x-0 flex justify-center">
-                <HugeiconsIcon icon={Camera01Icon} size={40} color="#f1c86c" strokeWidth={1.8} />
-              </div>
-              {screen === 'game' ? (
-                <div className="absolute left-3 right-3 bottom-3 flex gap-2 items-center">
-                  <input
-                    value={guessInput}
-                    onChange={event => setGuessInput(event.target.value)}
-                    onKeyDown={event => event.key === 'Enter' && handleManualGuess()}
-                    placeholder="Ответ стримера..."
-                    className="flex-1 min-w-0 h-10 rounded-lg border border-[#785f34] bg-[#161311] px-2 text-[17px] text-[#f0e2bf] placeholder:text-[#997f57] outline-none"
-                  />
-                  <Button
-                    onClick={handleManualGuess}
-                    className="h-10 shrink-0 rounded-lg border border-[#856128] bg-[#efbe48] hover:bg-[#ffd15f] text-[#2f1d09] text-[18px] uppercase px-4"
-                  >
-                    OK
-                  </Button>
-                </div>
-              ) : (
-                <div className="absolute bottom-4 inset-x-3 text-center text-[14px] uppercase text-[#6b5a3a] tracking-wide">
-                  Вебкамера стримера
-                </div>
-              )}
+          {/* Webcam block */}
+          <div className={`${cardClass} h-[180px] relative overflow-hidden`}>
+            <div className="absolute top-4 inset-x-0 flex justify-center">
+              <HugeiconsIcon icon={Camera01Icon} size={36} color="#c9a860" strokeWidth={1.8} />
             </div>
+            {screen === 'game' ? (
+              <div className="absolute left-3 right-3 bottom-3 flex gap-2 items-center">
+                <input
+                  value={guessInput}
+                  onChange={event => setGuessInput(event.target.value)}
+                  onKeyDown={event => event.key === 'Enter' && handleManualGuess()}
+                  placeholder="Ответ стримера..."
+                  className="flex-1 min-w-0 h-10 rounded-lg bg-[#0f0d0b] border border-[#3d3020] px-2 text-[17px] text-[#f0e2bf] placeholder:text-[#6b5a3a] outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleManualGuess}
+                  className="h-10 shrink-0 rounded-lg bg-[#efbe48] hover:bg-[#ffd15f] text-[#2f1d09] text-[16px] uppercase px-4 font-bold"
+                >
+                  OK
+                </button>
+              </div>
+            ) : (
+              <div className="absolute bottom-3 inset-x-3 text-center text-[13px] uppercase text-[#5a4a30] tracking-wider">
+                вебкамера стримера
+              </div>
+            )}
           </div>
         </aside>
 
-        <section className="relative min-h-0 rounded-[34px] border-[3px] border-[#71562d] bg-[linear-gradient(180deg,#27262c_0%,#17171c_100%)] shadow-[inset_0_0_0_1px_rgba(255,214,128,0.16),0_20px_40px_rgba(0,0,0,0.55)] overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none opacity-24 bg-[repeating-linear-gradient(90deg,transparent_0px,transparent_32px,rgba(255,255,255,0.03)_32px,rgba(255,255,255,0.03)_34px)]" />
-          <div className="absolute top-0 left-0 right-0 h-6 pointer-events-none bg-[repeating-radial-gradient(circle_at_18px_12px,#846534_0px,#846534_6px,transparent_7px,transparent_40px)] opacity-5" />
+        <section className="relative min-h-0 rounded-2xl bg-[#15141a] border border-[#2e2a24] overflow-hidden">
+          {/* Subtle grain texture */}
+          <div className="absolute inset-0 pointer-events-none opacity-30" style={{backgroundImage:'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.85\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\' opacity=\'0.07\'/%3E%3C/svg%3E")'}} />
 
-          <div className="relative z-10 h-full p-4 pt-7 flex flex-col min-h-0">
+          <div className="relative z-10 h-full p-4 flex flex-col min-h-0">
             <div className="relative flex items-center justify-between" data-sound-panel="true">
               <Button
                 variant="ghost"
@@ -700,13 +706,18 @@ function KinoQuizContent() {
                               type="button"
                               onClick={() => {
                                 setSelectedType(option.id);
+                                // Ensure rounds are divisible by 3 for combo
+                                if (option.id === 'combo') {
+                                  const valid = COMBO_ROUND_OPTIONS.find(v => v >= roundsCount) ?? 15;
+                                  setRoundsCount(valid);
+                                }
                                 setOpenPicker(null);
                               }}
                               className={`w-full h-10 px-3 text-left text-[19px] uppercase hover:bg-[#2a2018] ${
                                 selectedType === option.id ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
-                              {option.label}
+                              {option.emoji} {option.label}
                             </button>
                           ))}
                         </div>
@@ -754,7 +765,7 @@ function KinoQuizContent() {
                       </button>
                       {openPicker === 'rounds' && (
                         <div className="absolute z-30 left-0 right-0 top-[52px] rounded-xl border border-[#7a5f32] bg-[#151211] overflow-hidden">
-                          {ROUND_COUNT_OPTIONS.map(value => (
+                          {(selectedType === 'combo' ? COMBO_ROUND_OPTIONS : ROUND_COUNT_OPTIONS).map(value => (
                             <button
                               key={value}
                               type="button"
@@ -766,7 +777,7 @@ function KinoQuizContent() {
                                 roundsCount === value ? 'bg-[#3a2a18] text-[#ffd888]' : 'text-[#e8d1a5]'
                               }`}
                             >
-                              {value} раундов
+                              {value} раундов{selectedType === 'combo' ? ` (×3)` : ''}
                             </button>
                           ))}
                         </div>
@@ -774,13 +785,19 @@ function KinoQuizContent() {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex-1 min-h-0 rounded-[26px] border-[3px] border-[#6f542d] bg-[linear-gradient(180deg,#201f24_0%,#101219_100%)] p-3 shadow-[inset_0_0_0_1px_rgba(255,213,125,0.1)]">
-                    <div className="relative h-full rounded-[20px] border-[7px] border-[#3d4049] bg-[#07080d] overflow-hidden">
-                      <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141d] border border-[#4a4f5f]" />
-                      <div className="absolute left-4 right-4 top-9 bottom-6 rounded-[16px] border border-[#222832] bg-[radial-gradient(circle_at_50%_50%,#141924_0%,#080a11_76%)] flex flex-col items-center justify-center gap-3">
-                        <HugeiconsIcon icon={Projector01Icon} size={56} color="#434d63" strokeWidth={1.7} />
-                        <HugeiconsIcon icon={PopcornIcon} size={40} color="#3a4052" strokeWidth={1.7} />
-                      </div>
+                  {/* Cinema screen placeholder */}
+                  <div className="mt-3 flex-1 min-h-0 rounded-xl bg-black overflow-hidden relative">
+                    {/* Curtains */}
+                    <div className="absolute inset-0 flex">
+                      <div className="w-[12%] h-full bg-[linear-gradient(to_right,#2d0a0a,transparent)]" />
+                      <div className="flex-1" />
+                      <div className="w-[12%] h-full bg-[linear-gradient(to_left,#2d0a0a,transparent)]" />
+                    </div>
+                    {/* Screen glow */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+                      <HugeiconsIcon icon={Projector01Icon} size={64} color="#3a3550" strokeWidth={1.4} />
+                      <HugeiconsIcon icon={PopcornIcon} size={40} color="#2e2b3f" strokeWidth={1.4} />
+                      <p className="text-[14px] uppercase tracking-[0.2em] text-[#3a3550]">ugadai kadr</p>
                     </div>
                   </div>
 
@@ -828,36 +845,45 @@ function KinoQuizContent() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
-                  className="flex-1 min-h-0 mt-2"
+                  className="flex-1 min-h-0 mt-2 relative"
                 >
-                  <div className="h-full rounded-[26px] border-[3px] border-[#73572f] bg-[linear-gradient(180deg,#1f2026_0%,#0f1119_100%)] p-3 shadow-[inset_0_0_0_1px_rgba(255,214,129,0.1)]">
-                    <div className="relative h-full rounded-[20px] border-[8px] border-[#3d4049] bg-[#07080d] overflow-hidden">
-                      <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141d] border border-[#4a4f5f]" />
-                      <div className="absolute left-4 right-4 top-9 bottom-7 rounded-[16px] border border-[#222832] bg-black overflow-hidden">
-                        <div className="absolute inset-0 p-2 flex items-center justify-center">
-                          <img
-                            src={currentMovie.imageUrl}
-                            alt="Кадр"
-                            className="max-w-full max-h-full rounded-[12px] border-[3px] border-[#3b3f49] object-contain"
-                          />
-                        </div>
-
-                        <div className="absolute top-3 right-3 px-3 py-2 rounded-full border-[2px] border-[#4e5667] bg-[#0f1219]/90 text-center">
-                          <div className={`text-[34px] leading-none ${timeLeft <= 5 ? 'text-[#f16d83]' : 'text-[#f4db9f]'}`}>{timeLeft}</div>
-                          <div className="text-[11px] uppercase text-[#b3a88f]">сек</div>
-                        </div>
-
-                        {isRevealed && (
-                          <div className="absolute left-3 right-3 bottom-3 rounded-lg border border-[#7c5a2b] bg-[#f0c65b] px-3 py-2 text-center text-[#34210b]">
-                            <div className="text-[16px] uppercase">Верный ответ</div>
-                            <div className="text-[24px] leading-none uppercase break-words [overflow-wrap:anywhere]">{currentMovie.title_ru}</div>
-                          </div>
-                        )}
+                  {/* Film strip top */}
+                  <div className="absolute top-0 left-0 right-0 h-8 z-10 flex items-center gap-1 px-2 overflow-hidden pointer-events-none">
+                    {Array.from({length: 32}).map((_, i) => (
+                      <div key={i} className="shrink-0 w-5 h-5 rounded-sm bg-[#1a1a20] border border-[#2e2e3a]" />
+                    ))}
+                  </div>
+                  {/* Main image area */}
+                  <div className="h-full rounded-2xl bg-black overflow-hidden">
+                    <img
+                      src={currentMovie.imageUrl}
+                      alt="Кадр"
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Overlay: timer */}
+                    <div className="absolute top-10 right-4 z-20 px-4 py-2 rounded-xl bg-black/70 backdrop-blur-sm text-center border border-white/10">
+                      <div className={`text-[42px] leading-none font-bold ${timeLeft <= 10 ? 'text-[#f16d83]' : 'text-[#f4db9f]'}`}>{timeLeft}</div>
+                      <div className="text-[11px] uppercase text-[#b3a88f]">сек</div>
+                    </div>
+                    {/* Progress bar */}
+                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/40 z-20">
+                      <div
+                        className={`h-full transition-all duration-1000 ${timerPercent <= 20 ? 'bg-[#f16d83]' : 'bg-[#d3a142]'}`}
+                        style={{ width: `${timerPercent}%` }}
+                      />
+                    </div>
+                    {/* Answer reveal */}
+                    {isRevealed && (
+                      <div className="absolute bottom-3 left-4 right-4 z-20 rounded-xl bg-[#f0c65b]/95 backdrop-blur-sm px-4 py-3 text-center text-[#34210b]">
+                        <div className="text-[14px] uppercase tracking-widest">Верный ответ</div>
+                        <div className="text-[26px] leading-tight uppercase break-words">{currentMovie.title_ru}</div>
                       </div>
-
-                      <div className="absolute left-4 right-4 bottom-3 h-4 rounded-full border border-[#545864] bg-[#0e1016] overflow-hidden">
-                        <div className={`h-full ${timerPercent <= 20 ? 'bg-[#cb4f6a]' : 'bg-[#d3a142]'}`} style={{ width: `${timerPercent}%` }} />
-                      </div>
+                    )}
+                    {/* Film strip bottom */}
+                    <div className="absolute bottom-2 left-0 right-0 h-6 flex items-center gap-1 px-2 overflow-hidden pointer-events-none z-10">
+                      {Array.from({length: 32}).map((_, i) => (
+                        <div key={i} className="shrink-0 w-5 h-4 rounded-sm bg-black/60 border border-white/5" />
+                      ))}
                     </div>
                   </div>
                 </motion.div>
