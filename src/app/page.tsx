@@ -51,7 +51,6 @@ const PROJECTS = [
     title: 'КИНОКВИЗ',
     desc: 'интерактив со зрителями',
     href: '/kinoquiz',
-    disabled: true,
   },
   {
     title: 'Покер',

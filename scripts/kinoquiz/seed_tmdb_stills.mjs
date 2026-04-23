@@ -17,6 +17,9 @@ const TMDB_TOKEN =
   process.env.TMDB_API_READ_ACCESS_TOKEN ||
   process.env.TMDB_API_TOKEN ||
   process.env.TMDB_BEARER_TOKEN;
+const TMDB_API_KEY = process.env.TMDB_API_KEY_V3 || process.env.TMDB_API_KEY;
+// Use v3 key or Bearer token
+const USE_API_KEY = !TMDB_TOKEN && !!TMDB_API_KEY;
 
 const TARGET_PER_TYPE = Number(process.env.KINOQUIZ_TARGET_PER_TYPE || 360);
 const MAX_PAGES = Number(process.env.KINOQUIZ_MAX_PAGES || 40);
@@ -24,8 +27,8 @@ const MAX_PAGES = Number(process.env.KINOQUIZ_MAX_PAGES || 40);
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error('Missing Supabase env vars.');
 }
-if (!TMDB_TOKEN) {
-  throw new Error('Missing TMDB token env var. Set TMDB_API_READ_ACCESS_TOKEN.');
+if (!TMDB_TOKEN && !TMDB_API_KEY) {
+  throw new Error('Missing TMDB token. Set TMDB_API_READ_ACCESS_TOKEN or TMDB_API_KEY_V3.');
 }
 
 const KINOQUIZ_TABLE = 'questions';
@@ -45,12 +48,14 @@ const parseYear = value => {
 
 async function tmdbRequest(path, params) {
   const url = new URL(`https://api.themoviedb.org/3${path}`);
+  // Support both Bearer token (v4 read access) and v3 api_key
+  if (USE_API_KEY) url.searchParams.set('api_key', TMDB_API_KEY);
   Object.entries(params || {}).forEach(([k, v]) => {
     if (v !== undefined && v !== null && v !== '') url.searchParams.set(k, String(v));
   });
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${TMDB_TOKEN}`, Accept: 'application/json' }
-  });
+  const headers = { Accept: 'application/json' };
+  if (!USE_API_KEY) headers['Authorization'] = `Bearer ${TMDB_TOKEN}`;
+  const res = await fetch(url.toString(), { headers });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`TMDB ${res.status} for ${path}: ${body.slice(0, 180)}`);

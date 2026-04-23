@@ -517,8 +517,8 @@ function KinoQuizContent() {
             {screen === 'lobby' ? (
               <div className="h-full flex flex-col items-center justify-center leading-none">
                 <div className="text-[22px] uppercase tracking-[0.18em] text-[#c9a85c]">KINO</div>
-                <div className="text-[58px] uppercase text-[#ffd56e] drop-shadow-[0_4px_0_#8a4e10] leading-none">SHOW</div>
-                <div className="mt-1 text-[13px] uppercase tracking-widest text-[#7a6040]">угадай кадр из фильма</div>
+                <div className="text-[58px] uppercase text-[#ffd56e] drop-shadow-[0_4px_0_#8a4e10] leading-none">QUIZ</div>
+                <div className="mt-1 text-[13px] uppercase tracking-widest text-[#7a6040]">угадай кадр</div>
               </div>
             ) : (
               <div className="h-full p-2 overflow-y-auto space-y-1">
