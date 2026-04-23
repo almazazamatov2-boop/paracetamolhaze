@@ -7,7 +7,8 @@ import {
   ArrowDown01Icon,
   Camera01Icon,
   CrownIcon,
-  FilmRoll01Icon,
+  PopcornIcon,
+  Projector01Icon,
   Login01Icon,
   Logout01Icon,
   VolumeHighIcon
@@ -174,16 +175,16 @@ function KinoQuizContent() {
   }, [session?.user?.name]);
 
   useEffect(() => {
-    const music = new Audio('/overlays/defaults/sounds/roll.mp3');
+    const music = new Audio('/kinoquiz/bg-music.mp3');
     music.loop = true;
     music.volume = musicVolume;
     musicRef.current = music;
 
     effectsRef.current = {
-      start: new Audio('/overlays/defaults/sounds/in.mp3'),
-      success: new Audio('/overlays/defaults/sounds/win.mp3'),
-      timeout: new Audio('/overlays/defaults/sounds/lose.mp3'),
-      continue: new Audio('/overlays/defaults/sounds/out.mp3')
+      start: null,
+      success: new Audio('/kinoquiz/correct.mp3'),
+      timeout: null,
+      continue: null
     };
 
     return () => {
@@ -307,6 +308,8 @@ function KinoQuizContent() {
     setScreen('results');
   };
 
+  const countdownRef = useRef<HTMLAudioElement | null>(null);
+
   const startRound = () => {
     const duration = activeRoundDurationRef.current;
     clearRoundTimer();
@@ -318,11 +321,15 @@ function KinoQuizContent() {
     setTimeLeft(duration);
     timeLeftRef.current = duration;
 
+    // Preload countdown sound
+    if (!countdownRef.current) {
+      countdownRef.current = new Audio('/kinoquiz/countdown.mp3');
+    }
+
     timerRef.current = setInterval(() => {
       setTimeLeft(previous => {
         if (previous <= 1) {
           clearRoundTimer();
-          void playEffect('timeout');
           setIsRevealed(true);
           isRevealedRef.current = true;
           setTimeout(() => {
@@ -332,6 +339,13 @@ function KinoQuizContent() {
         }
         const next = previous - 1;
         timeLeftRef.current = next;
+        // Play countdown sound when 10 seconds remain
+        if (next === 10 && countdownRef.current && effectsVolume > 0) {
+          const cd = countdownRef.current;
+          cd.currentTime = 0;
+          cd.volume = effectsVolume;
+          cd.play().catch(() => {});
+        }
         return next;
       });
     }, 1000);
@@ -492,9 +506,9 @@ function KinoQuizContent() {
         background: 'radial-gradient(circle at 45% 12%, #531f2f 0%, #2b1520 30%, #141419 66%, #0b0d12 100%)'
       }}
     >
-      <div className="mx-auto h-full max-w-[1740px] grid grid-cols-1 xl:grid-cols-[350px_1fr] gap-3">
+      <div className="mx-auto h-full max-w-[1740px] grid grid-cols-1 xl:grid-cols-[430px_1fr] gap-3">
         <aside className="min-h-0 flex flex-col gap-3">
-          <div className={`${panelClass} h-[148px] p-3`}>
+          <div className={`${panelClass} h-[210px] p-3`}>
             {screen === 'lobby' ? (
               <div className="h-full rounded-2xl border border-[#70562f] bg-black/25 flex flex-col items-center justify-center leading-none">
                 <span className="text-[32px] uppercase tracking-[0.16em] text-[#d8bb74]">KINO</span>
@@ -537,27 +551,30 @@ function KinoQuizContent() {
             </div>
           </div>
 
-          <div className={`${panelClass} h-[280px] p-3`}>
+          <div className={`${panelClass} h-[200px] p-3`}>
             <div className="relative h-full rounded-[22px] border border-[#70562f] overflow-hidden bg-[radial-gradient(circle_at_50%_20%,#3a2d23_0%,#251d19_57%,#171412_100%)]">
-              <div className="absolute bottom-[-58px] left-3 right-3 h-[138px] rounded-[50%] border border-[#7c5730] bg-[linear-gradient(180deg,#67111a_0%,#36090e_100%)]" />
-              <div className="absolute top-7 inset-x-0 flex justify-center">
-                <HugeiconsIcon icon={Camera01Icon} size={46} color="#f1c86c" strokeWidth={1.8} />
+              <div className="absolute top-5 inset-x-0 flex justify-center">
+                <HugeiconsIcon icon={Camera01Icon} size={40} color="#f1c86c" strokeWidth={1.8} />
               </div>
-              {screen === 'game' && (
-                <div className="absolute left-3 right-3 bottom-4 flex gap-2">
+              {screen === 'game' ? (
+                <div className="absolute left-3 right-3 bottom-3 flex gap-2 items-center">
                   <input
                     value={guessInput}
                     onChange={event => setGuessInput(event.target.value)}
                     onKeyDown={event => event.key === 'Enter' && handleManualGuess()}
                     placeholder="Ответ стримера..."
-                    className="flex-1 h-10 rounded-lg border border-[#785f34] bg-[#161311] px-2 text-[17px] text-[#f0e2bf] placeholder:text-[#997f57] outline-none"
+                    className="flex-1 min-w-0 h-10 rounded-lg border border-[#785f34] bg-[#161311] px-2 text-[17px] text-[#f0e2bf] placeholder:text-[#997f57] outline-none"
                   />
                   <Button
                     onClick={handleManualGuess}
-                    className="h-10 rounded-lg border border-[#856128] bg-[#efbe48] hover:bg-[#ffd15f] text-[#2f1d09] text-[18px] uppercase px-3"
+                    className="h-10 shrink-0 rounded-lg border border-[#856128] bg-[#efbe48] hover:bg-[#ffd15f] text-[#2f1d09] text-[18px] uppercase px-4"
                   >
                     OK
                   </Button>
+                </div>
+              ) : (
+                <div className="absolute bottom-4 inset-x-3 text-center text-[14px] uppercase text-[#6b5a3a] tracking-wide">
+                  Вебкамера стримера
                 </div>
               )}
             </div>
@@ -662,7 +679,7 @@ function KinoQuizContent() {
                 >
                   <div className="text-center mt-1 mb-3">
                     <p className="text-[30px] uppercase text-[#d6b16f]">Кинотеатр Стримера</p>
-                    <h1 className="text-[52px] leading-none uppercase text-[#f1d48b]">{streamerName || 'TIKTOKEVELONE888'}</h1>
+                    <h1 className="text-[52px] leading-none uppercase text-[#f1d48b]">{streamerName || (isAuthLoading ? '...' : '')}</h1>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3" data-picker-root="true">
@@ -760,8 +777,9 @@ function KinoQuizContent() {
                   <div className="mt-3 flex-1 min-h-0 rounded-[26px] border-[3px] border-[#6f542d] bg-[linear-gradient(180deg,#201f24_0%,#101219_100%)] p-3 shadow-[inset_0_0_0_1px_rgba(255,213,125,0.1)]">
                     <div className="relative h-full rounded-[20px] border-[7px] border-[#3d4049] bg-[#07080d] overflow-hidden">
                       <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141d] border border-[#4a4f5f]" />
-                      <div className="absolute left-4 right-4 top-9 bottom-6 rounded-[16px] border border-[#222832] bg-[radial-gradient(circle_at_50%_50%,#141924_0%,#080a11_76%)] flex items-center justify-center">
-                        <HugeiconsIcon icon={FilmRoll01Icon} size={72} color="#434d63" strokeWidth={1.7} />
+                      <div className="absolute left-4 right-4 top-9 bottom-6 rounded-[16px] border border-[#222832] bg-[radial-gradient(circle_at_50%_50%,#141924_0%,#080a11_76%)] flex flex-col items-center justify-center gap-3">
+                        <HugeiconsIcon icon={Projector01Icon} size={56} color="#434d63" strokeWidth={1.7} />
+                        <HugeiconsIcon icon={PopcornIcon} size={40} color="#3a4052" strokeWidth={1.7} />
                       </div>
                     </div>
                   </div>
@@ -816,14 +834,11 @@ function KinoQuizContent() {
                     <div className="relative h-full rounded-[20px] border-[8px] border-[#3d4049] bg-[#07080d] overflow-hidden">
                       <div className="absolute left-3 right-3 top-3 h-3 rounded-full bg-[#12141d] border border-[#4a4f5f]" />
                       <div className="absolute left-4 right-4 top-9 bottom-7 rounded-[16px] border border-[#222832] bg-black overflow-hidden">
-                        <img src={currentMovie.imageUrl} alt="" className="absolute inset-0 w-full h-full object-cover blur-[36px] opacity-35 scale-110" />
-                        <div className="absolute inset-0 p-4 flex items-center justify-center">
+                        <div className="absolute inset-0 p-2 flex items-center justify-center">
                           <img
                             src={currentMovie.imageUrl}
                             alt="Кадр"
-                            className={`max-w-full max-h-full rounded-[14px] border-[3px] border-[#3b3f49] transition-all duration-700 ${
-                              isRevealed ? 'blur-0 brightness-100' : 'blur-md brightness-50'
-                            }`}
+                            className="max-w-full max-h-full rounded-[12px] border-[3px] border-[#3b3f49] object-contain"
                           />
                         </div>
 
