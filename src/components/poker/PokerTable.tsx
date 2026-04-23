@@ -621,291 +621,350 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     ? players.find(p => String(p.id) === String(winnerInfo[0]?.id))
     : null
 
+  // Вычисляем сдвиг, чтобы ВЫ (myId) всегда были на нулевой (нижней) позиции
+  const myIndex = playersWithState.findIndex(p => p && String(p.id) === myId)
+  const shiftAmount = myIndex >= 0 ? myIndex : 0
+
+  const rotatedSeats = Array.from({ length: settings.size }).map((_, renderIndex) => {
+      const originalIndex = (renderIndex + shiftAmount) % settings.size;
+      return playersWithState[originalIndex]
+  })
+
+  // Вектор сдвига для фишек (к центру стола)
+  const getBetOffset = (index: number, total: number) => {
+    const angle = (index / total) * 2 * Math.PI + Math.PI / 2
+    const angleTowardsCenter = angle + Math.PI 
+    const dist = window.innerWidth < 768 ? 65 : 90; // px
+    return {
+        x: Math.cos(angleTowardsCenter) * dist,
+        y: Math.sin(angleTowardsCenter) * dist,
+    }
+  }
+
   const isHost = joinedPlayers[0]?.id === (user?.id || user?.display_name)
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-start pt-16 md:pt-24 p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505] overflow-hidden">
+    <div className="relative w-full h-screen flex flex-col overflow-hidden bg-[#02050A]">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#0f2a1a_0%,_transparent_70%)] opacity-40 pointer-events-none" />
 
       {/* HUD: Top Bar */}
-      <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between z-[100]">
+      <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex items-center justify-between z-[100] bg-gradient-to-b from-black/80 to-transparent">
         <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <ArrowLeft className="w-6 h-6" />
+          <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
+            <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </button>
           <div>
-            <h1 className="text-xl font-bold italic text-primary">{settings.name}</h1>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <h1 className="text-lg md:text-xl font-bold italic text-white drop-shadow-md">{settings.name}</h1>
+            <div className="flex items-center gap-2 text-[10px] md:text-xs text-white/60 font-medium tracking-wide">
               <span className="flex items-center gap-1">
-                <Coins className="w-3 h-3 text-yellow-500" />
+                <Coins className="w-3 h-3 text-amber-500" />
                 Blinds: {settings.blind}/{settings.blind * 2}
-                {settings.ante ? <span className="ml-1 text-yellow-500/80">| Ante: {settings.ante}</span> : null}
-              </span>
-              <span className="bg-white/10 px-2 py-0.5 rounded uppercase tracking-tighter">
-                БАНК: {pot}
+                {settings.ante ? <span className="ml-1 text-amber-500/80">| Ante: {settings.ante}</span> : null}
               </span>
               {gameState !== 'waiting' && (
-                <span className="bg-primary/20 text-primary px-2 py-0.5 rounded uppercase tracking-tighter font-bold">
-                  {gameState.toUpperCase()}
+                <span className="bg-amber-500/20 text-amber-500 border border-amber-500/30 px-2 py-0.5 rounded text-[9px] md:text-[10px] uppercase font-bold tracking-widest">
+                  {gameState}
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Ссылка скопирована!') }}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+            className="px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[10px] md:text-xs font-bold transition-all uppercase tracking-widest"
           >
-            INVITE
+            Invite
           </button>
-          {/* START GAME — только хост может начать */}
           {gameState === 'waiting' && isHost && (
             <button
               onClick={startNewGame}
-              className="px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg shadow-primary/20"
+              className="px-4 md:px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black italic rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:scale-105 transition-all text-xs uppercase"
             >
-              START GAME
+              Start Game
             </button>
           )}
-          <button className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors">
-            <History className="w-5 h-5" />
-          </button>
         </div>
       </div>
 
       {/* RENDER TABLE */}
-      <div className="relative w-full max-w-7xl max-h-[55vh] md:max-h-[60vh] aspect-[16/10] flex items-center justify-center -mt-8 md:-mt-20">
+      <div className="flex-1 w-full flex items-center justify-center p-4 pt-20 pb-[220px] md:pb-[180px]">
+        <div className="relative w-full max-w-6xl aspect-[16/10] md:aspect-[21/10] flex items-center justify-center">
 
-        {/* The Felt Table */}
-        <div className="absolute w-[80%] h-[70%] bg-[#1a4a2e] rounded-[150px] border-[12px] border-[#2c1810] shadow-[0_0_100px_rgba(0,0,0,0.8),inset_0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.05)_0%,_transparent_70%)]" />
+          {/* Table Outer Rail */}
+          <div className="absolute w-[95%] h-[85%] md:w-[85%] md:h-[80%] rounded-[80px] md:rounded-[180px] bg-[#111] border-[4px] md:border-[8px] border-[#1a1a1a] shadow-[0_30px_60px_rgba(0,0,0,0.9),inset_0_5px_20px_rgba(255,255,255,0.05)] flex items-center justify-center p-3 md:p-6">
+            
+            {/* Inner Felt */}
+            <div className="relative w-full h-full rounded-[65px] md:rounded-[150px] bg-[radial-gradient(ellipse_at_center,_#0a522d_0%,_#042212_100%)] shadow-[inset_0_0_60px_rgba(0,0,0,0.8)] border-[2px] border-[#073b20] flex items-center justify-center">
+              
+              {/* Center Line Pattern */}
+              <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+                <div className="w-[70%] h-[70%] rounded-[100px] border border-white border-dashed opacity-30" />
+              </div>
 
-          {/* Community Cards */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
-            <div className="flex items-center gap-3">
-              <AnimatePresence>
-                {communityCards.map((card, i) => (
-                  <motion.div
-                    key={`${card.suit}-${card.value}-${i}`}
-                    initial={{ y: -50, opacity: 0, rotateY: 180 }}
-                    animate={{ y: 0, opacity: 1, rotateY: 0 }}
-                    transition={{ delay: 0.2 + i * 0.1 }}
-                  >
-                    <PokerCard suit={card.suit} value={card.value} />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {communityCards.length < 5 && Array.from({ length: 5 - communityCards.length }).map((_, i) => (
-                <div key={i} className="w-16 h-24 md:w-20 md:h-28 rounded-lg bg-black/20 border border-white/5 border-dashed" />
-              ))}
-            </div>
-            <div className="relative mb-4 flex flex-col items-center">
-              {/* Visual Chips in Pot */}
-              <AnimatePresence>
-                {pot > 0 && (
-                  <motion.div
-                    layoutId="pot-chips"
-                    initial={{ scale: 0.5, opacity: 0, y: 20 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ 
-                      x: winnerInfo.length > 0 ? (getPlayerPosition(players.findIndex(p => p.id === winnerInfo[0]?.id), settings.size).left - 50) - (window.innerWidth / 2 - 50) : 0,
-                      y: winnerInfo.length > 0 ? (getPlayerPosition(players.findIndex(p => p.id === winnerInfo[0]?.id), settings.size).top - 300) - (window.innerHeight / 2 - 400) : 0,
-                      opacity: 0,
-                      scale: 0.5
-                    }}
-                    transition={{ duration: 0.8, type: 'spring' }}
-                    className="flex flex-wrap justify-center gap-1 max-w-[120px] mb-2"
-                  >
-                    <ChipsStack amount={pot} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <motion.div 
-                key={pot}
-                initial={{ scale: 0.8 }}
-                animate={{ scale: 1 }}
-                className="text-4xl font-black italic text-white/50 tracking-widest uppercase flex flex-col items-center gap-1"
-              >
-                <div className="flex items-center gap-3">
-                    <Coins className="w-8 h-8 text-yellow-500" />
-                    БАНК: {pot}
-                </div>
-              </motion.div>
-
-              {/* Winner Info in Center (Subtle) */}
-              <AnimatePresence>
-                {gameState === 'showdown' && winnerInfo.length > 0 && (
-                  <motion.div
-                    initial={{ y: 20, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    className="mt-4 flex flex-col items-center"
-                  >
-                    {winnerInfo.map(w => (
-                       <div key={w.id} className="text-primary font-black italic text-lg uppercase tracking-tighter flex items-center gap-2">
-                         🏆 {players.find(p => p.id === w.id)?.name} ({w.handName})
-                       </div>
-                    ))}
-                    {isHost && (
-                      <button
-                        onClick={startNewGame}
-                        className="mt-4 px-6 py-2 bg-primary text-white font-black italic rounded-xl shadow-lg hover:scale-105 transition-transform uppercase text-sm"
+              {/* Center Game Area (Pot & Cards) */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 md:gap-6 pointer-events-none">
+                
+                {/* Community Cards */}
+                <div className="flex items-center gap-1.5 md:gap-3 translate-y-[-10px] md:translate-y-[-20px]">
+                  <AnimatePresence>
+                    {communityCards.map((card, i) => (
+                      <motion.div
+                        key={`${card.suit}-${card.value}-${i}`}
+                        initial={{ y: -30, opacity: 0, rotateY: 180, scale: 0.8 }}
+                        animate={{ y: 0, opacity: 1, rotateY: 0, scale: 1 }}
+                        transition={{ delay: 0.1 + i * 0.1, type: 'spring' }}
                       >
-                        СЛЕДУЮЩАЯ РАЗДАЧА
-                      </button>
-                    )}
+                        <PokerCard suit={card.suit} value={card.value} />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {communityCards.length < 5 && Array.from({ length: 5 - communityCards.length }).map((_, i) => (
+                    <div key={i} className="w-12 h-16 md:w-16 md:h-24 rounded-md md:rounded-lg bg-black/20 border border-white/10 border-dashed" />
+                  ))}
+                </div>
+
+                {/* Pot Display */}
+                <div className="flex flex-col items-center translate-y-[-10px]">
+                  <motion.div 
+                    key={pot}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="bg-black/60 backdrop-blur-md px-4 md:px-6 py-1.5 md:py-2 rounded-full border border-white/10 flex items-center gap-2 shadow-2xl"
+                  >
+                    <div className="w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-dashed border-black bg-gradient-to-br from-amber-300 to-amber-600 flex items-center justify-center">
+                       <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full border border-black/30" />
+                    </div>
+                    <span className="text-amber-400 font-black text-sm md:text-xl italic tracking-widest uppercase">
+                      БАНК: {pot}
+                    </span>
                   </motion.div>
-                )}
-              </AnimatePresence>
+                </div>
+
+                {/* Showdown Winner */}
+                <AnimatePresence>
+                  {gameState === 'showdown' && winnerInfo.length > 0 && (
+                    <motion.div
+                      initial={{ y: 20, opacity: 0, scale: 0.8 }}
+                      animate={{ y: 0, opacity: 1, scale: 1 }}
+                      className="absolute top-[70%] flex flex-col items-center pointer-events-auto z-50"
+                    >
+                      <div className="bg-gradient-to-r from-amber-500/20 via-amber-400/40 to-amber-500/20 backdrop-blur-xl border border-amber-400/50 px-6 py-3 rounded-2xl shadow-[0_0_30px_rgba(251,191,36,0.3)]">
+                        {winnerInfo.map(w => (
+                          <div key={w.id} className="text-amber-300 font-black italic text-sm md:text-lg uppercase tracking-widest flex items-center gap-2">
+                            🏆 {players.find(p => p.id === w.id)?.name} ({w.handName})
+                          </div>
+                        ))}
+                      </div>
+                      {isHost && (
+                        <button
+                          onClick={startNewGame}
+                          className="mt-4 px-6 py-2 bg-amber-500 text-black font-black italic rounded-xl shadow-lg hover:scale-105 transition-transform uppercase text-xs tracking-widest"
+                        >
+                          СЛЕДУЮЩАЯ РАЗДАЧА
+                        </button>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Players */}
-        {playersWithState.map((player, i) => {
-          if (!player) {
-            const pos = getPlayerPosition(i, settings.size)
+          {/* Players Render */}
+          {rotatedSeats.map((player, renderIndex) => {
+            const pos = getPlayerPosition(renderIndex, settings.size)
+            
+            // Render Empty Seat
+            if (!player) {
+              return (
+                <div
+                  key={`empty-${renderIndex}`}
+                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-40 scale-75 md:scale-100"
+                  style={{ left: pos.left, top: pos.top }}
+                >
+                  <div className="w-[80px] h-[80px] md:w-[100px] md:h-[100px] rounded-[24px] border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-1 bg-black/20 backdrop-blur-sm">
+                    <Plus className="w-6 h-6 text-white/30" />
+                    <span className="text-[8px] font-bold uppercase tracking-widest text-white/30">МЕСТО</span>
+                  </div>
+                </div>
+              )
+            }
+
+            const isMe = String(player.id) === myId
+
             return (
-              <div
-                key={`empty-${i}`}
-                className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 scale-75"
+              <motion.div
+                key={player.id}
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={`absolute z-20 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center ${isMe ? 'z-40' : ''}`}
                 style={{ left: pos.left, top: pos.top }}
               >
-                <div className="w-[140px] h-[140px] md:w-[180px] md:h-[180px] rounded-2xl border-2 border-dashed border-white/40 flex flex-col items-center justify-center gap-2">
-                  <span className="text-3xl">🪑</span>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">СВОБОДНО</span>
-                </div>
-              </div>
-            )
-          }
-
-          const pos = getPlayerPosition(i, settings.size)
-          const isMe = String(player.id) === myId
-
-          return (
-            <motion.div
-              key={player.id}
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="absolute z-20 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center"
-              style={{ left: pos.left, top: pos.top }}
-            >
-              {/* Dealer Button */}
-              {player.isDealer && (
-                <div className="absolute -top-4 -right-4 w-8 h-8 bg-white text-black font-bold rounded-full border-2 border-black flex items-center justify-center shadow-lg text-[10px] z-30">D</div>
-              )}
-
-              {/* Player Card (Webcam or Avatar) */}
-              <div 
-                className={`relative w-[140px] h-[140px] md:w-[180px] md:h-[180px] rounded-2xl overflow-hidden border-4 transition-all duration-300 ${player.isCurrent ? 'border-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}
-              >
-                {/* Timer Liquid Overlay (shinks from top) */}
-                {player.isCurrent && (
-                    <motion.div 
-                        initial={{ height: '100%' }}
-                        animate={{ height: `${(timeLeft / 20) * 100}%` }}
-                        transition={{ duration: 1, ease: 'linear' }}
-                        className={`absolute inset-0 ${timeLeft <= 5 ? 'bg-red-600/30' : 'bg-red-500/10'} pointer-events-none z-0`}
-                    />
-                )}
-                {settings.withWebcams ? (
-                  <div className="relative w-full h-full bg-black">
-                    {isMe ? (
-                      <LocalVideo stream={localStream} />
-                    ) : (
-                      <RemoteVideo stream={remoteStreams[player.id]} name={player.name} />
-                    )}
-                  </div>
-                ) : (
-                  <div className="w-full h-full bg-[#151515] flex items-center justify-center">
-                    {isMe && user?.profile_image_url ? (
-                      <img src={user.profile_image_url} alt={player.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-4xl">👤</span>
-                    )}
+                
+                {/* Dealer Button */}
+                {player.isDealer && (
+                  <div className="absolute -top-3 -right-3 w-6 h-6 md:w-8 md:h-8 bg-white text-black font-black rounded-full border-2 border-black flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.5)] text-[10px] md:text-xs z-40">
+                    D
                   </div>
                 )}
 
-                {/* Status Overlay */}
-                <div className="absolute top-[105%] left-0 w-full bg-black/40 backdrop-blur-md p-1 px-2 rounded-lg border border-white/5">
-                  <div className="text-[10px] font-bold uppercase truncate text-white/90">
-                    {player.isDealer && <span className="text-white bg-white/20 px-1 rounded mr-1">D</span>}
-                    {player.isSB && <span className="text-white bg-blue-500/40 px-1 rounded mr-1">SB</span>}
-                    {player.isBB && <span className="text-white bg-red-500/40 px-1 rounded mr-1">BB</span>}
-                    {player.allIn && <span className="text-yellow-400 bg-yellow-400/20 px-1 rounded mr-1">ALL-IN</span>}
-                    {player.name} {isMe ? '(ВЫ)' : ''}
-                  </div>
-                  <div className="text-[12px] text-yellow-500 font-black italic flex items-center gap-1">
-                    <Coins className="w-3 h-3" /> {player.chips}
-                  </div>
-                </div>
-
-                  <motion.div
-                    initial={{ scale: 0, scaleZ: 0 }}
-                    animate={{ scale: 1, scaleZ: 1 }}
-                    className="absolute -top-24 left-1/2 -translate-x-1/2 flex flex-col items-center z-50 pointer-events-none"
+                {/* Webcam / Avatar Container */}
+                <div className="relative">
+                  <div 
+                    className={`relative w-[90px] h-[90px] md:w-[130px] md:h-[130px] rounded-[24px] md:rounded-[32px] overflow-hidden border-4 transition-all duration-300 shadow-2xl bg-[#0a0a0c] ${player.isCurrent ? 'border-amber-500 scale-105 shadow-[0_0_40px_rgba(245,158,11,0.4)]' : 'border-[#1a1c23]'} ${player.folded ? 'grayscale opacity-40' : ''}`}
                   >
-                    <ChipsStack amount={player.bet} />
-                    <div className="bg-black/80 px-3 py-0.5 rounded-full border border-yellow-500/50 shadow-lg mt-1">
-                        <span className="text-[11px] font-black text-yellow-500 italic tracking-tighter">{player.bet}</span>
-                    </div>
-                  </motion.div>
-
-              </div>
-
-              {/* FIX 6: Карты игрока — рубашкой для чужих, лицом для своих */}
-              {player.cards.length > 0 && !player.folded && (
-                <div className="absolute left-[110%] top-1/2 -translate-y-1/2 flex gap-2 scale-50 md:scale-75 origin-left z-30">
-                  {player.cards.map((card, ci) => {
-                    const isHidden = card.suit === 'X'
-                    return (
-                      <motion.div
-                        key={ci}
-                        initial={{ x: -20, opacity: 0, rotate: -5 + ci * 10 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        transition={{ delay: 0.5 + ci * 0.1 }}
-                      >
-                        {/* Если рубашка — показываем перевёрнутую карту */}
-                        {isHidden ? (
-                          <PokerCard suit="H" value="A" isFlipped={true} />
+                    {/* Time Bank Liquid Overlay */}
+                    {player.isCurrent && (
+                        <motion.div 
+                            initial={{ height: '100%' }}
+                            animate={{ height: `${(timeLeft / 20) * 100}%` }}
+                            transition={{ duration: 1, ease: 'linear' }}
+                            className={`absolute inset-0 ${timeLeft <= 5 ? 'bg-red-500/20' : 'bg-amber-500/10'} pointer-events-none z-10`}
+                        />
+                    )}
+                    
+                    {settings.withWebcams ? (
+                      <div className="w-full h-full">
+                        {isMe ? (
+                          <LocalVideo stream={localStream} />
                         ) : (
-                          <PokerCard suit={card.suit as any} value={card.value as any} />
+                          <RemoteVideo stream={remoteStreams[player.id]} name={player.name} />
                         )}
-                      </motion.div>
-                    )
-                  })}
+                      </div>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        {isMe && user?.profile_image_url ? (
+                          <img src={user.profile_image_url} alt={player.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-3xl md:text-5xl opacity-50">👤</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Player Info Badge (Name & Chips) */}
+                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[110%] md:w-auto md:min-w-[90%] bg-[#0a0a0c]/90 backdrop-blur-md px-2 md:px-4 py-1.5 rounded-xl border border-white/10 flex flex-col items-center shadow-xl z-20">
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase text-white/80 truncate w-full text-center">
+                      {player.isSB && <span className="text-blue-400 mr-1">SB</span>}
+                      {player.isBB && <span className="text-red-400 mr-1">BB</span>}
+                      {player.name} {isMe ? '(ВЫ)' : ''}
+                    </span>
+                    <span className="text-[10px] md:text-xs text-amber-400 font-black italic flex items-center gap-1">
+                      <Coins className="w-3 h-3 opacity-80" /> {player.chips}
+                    </span>
+                  </div>
                 </div>
-              )}
-            </motion.div>
-          )
-        })}
+
+                {/* Bet Badge (Points towards table center) */}
+                <AnimatePresence>
+                  {player.bet > 0 && (
+                    <motion.div
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      className="absolute z-50 pointer-events-none"
+                      style={{
+                        left: '50%', top: '50%',
+                        transform: `translate(calc(-50% + ${getBetOffset(renderIndex, settings.size).x}px), calc(-50% + ${getBetOffset(renderIndex, settings.size).y}px))`
+                      }}
+                    >
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-xl backdrop-blur-md transition-all ${player.isCurrent ? 'bg-amber-500/20 border-amber-500/50 scale-110' : 'bg-black/60 border-white/10'}`}>
+                        <div className="w-3.5 h-3.5 rounded-full border border-dashed border-black/40 bg-gradient-to-b from-amber-400 to-amber-600 flex items-center justify-center shadow-inner">
+                          <div className="w-1.5 h-1.5 rounded-full border border-black/20" />
+                        </div>
+                        <span className="text-amber-400 font-bold text-[10px] md:text-xs tracking-tight">{player.bet}</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Cards */}
+                {player.cards.length > 0 && !player.folded && (
+                  <div className="absolute -right-4 md:-right-8 top-[20%] flex gap-0.5 md:gap-1 scale-[0.5] md:scale-[0.6] origin-left z-30 pointer-events-none drop-shadow-xl">
+                    {player.cards.map((card, ci) => {
+                      const isHidden = card.suit === 'X'
+                      return (
+                        <motion.div
+                          key={ci}
+                          initial={{ x: -20, opacity: 0, rotate: -5 + ci * 10 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ delay: 0.2 + ci * 0.1 }}
+                        >
+                          {isHidden ? (
+                            <PokerCard suit="H" value="A" isFlipped={true} />
+                          ) : (
+                            <PokerCard suit={card.suit as any} value={card.value as any} />
+                          )}
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                )}
+                
+                {player.allIn && (
+                   <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white text-[10px] md:text-xs font-black px-2 py-0.5 rounded rotate-[-15deg] shadow-lg border border-white/20 z-50">
+                     ALL-IN
+                   </div>
+                )}
+              </motion.div>
+            )
+          })}
+        </div>
       </div>
 
-      {/* CONTROLS: Bottom HUD */}
-      <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 flex items-end justify-center z-[100] pointer-events-none">
-        <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 bg-black/90 backdrop-blur-3xl border border-white/20 p-4 md:p-6 rounded-3xl shadow-2xl pointer-events-auto max-w-[95vw]">
+      {/* CONTROLS: Modern Bottom HUD */}
+      <div className="absolute bottom-0 left-0 w-full p-4 pb-6 md:p-8 flex items-end justify-center z-[100] pointer-events-none">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full max-w-5xl bg-[#0a0a0c]/95 backdrop-blur-3xl border border-white/10 p-4 md:p-6 rounded-[32px] shadow-[0_0_50px_rgba(0,0,0,0.8)] pointer-events-auto">
 
-          <div className="flex items-center justify-center gap-2 md:gap-3 w-full md:w-auto">
+          {/* User Status / Hint */}
+          <div className="flex items-center justify-between w-full md:w-auto gap-4">
+            <div className="flex flex-col">
+              <span className="text-[9px] md:text-[10px] text-white/40 uppercase tracking-widest font-bold">Баланс</span>
+              <span className="text-lg md:text-xl font-black italic text-amber-500 flex items-center gap-2 tracking-tight">
+                <Coins className="w-5 h-5 opacity-80" />
+                {players.find(p => String(p.id) === myId)?.chips?.toLocaleString() || '0'}
+              </span>
+            </div>
+            
+            {handHint && (
+              <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
+                 <span className="text-xs md:text-sm font-black italic text-white/80 tracking-widest uppercase">{handHint}</span>
+              </div>
+            )}
+            
+            {/* AV Controls for Mobile */}
+            <div className="flex md:hidden gap-2">
+              <button onClick={toggleMic} className={`p-3 rounded-xl transition-all ${isMicOn ? 'bg-white/10' : 'bg-red-500/20 text-red-500'}`}>
+                {isMicOn ? <Mic className="w-4 h-4 text-white" /> : <MicOff className="w-4 h-4" />}
+              </button>
+              <button onClick={toggleVideo} className={`p-3 rounded-xl transition-all ${isVideoOn ? 'bg-white/10' : 'bg-red-500/20 text-red-500'}`}>
+                {isVideoOn ? <Video className="w-4 h-4 text-white" /> : <VideoOff className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-center gap-2 md:gap-3 w-full md:w-auto flex-1 max-w-2xl">
             <button
               onClick={() => handleAction('fold')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="flex-1 md:min-w-[120px] px-4 md:px-8 py-3 md:py-4 bg-[#2a2a2a] hover:bg-[#353535] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase text-xs md:text-base"
+              className="flex-1 px-2 md:px-6 py-3 md:py-4 bg-[#1a1c23] hover:bg-[#252830] disabled:opacity-30 disabled:cursor-not-allowed rounded-2xl font-black italic transition-all active:scale-95 border border-white/5 uppercase text-[10px] md:text-sm text-white/70 hover:text-white"
             >
-              FOLD
+              Fold
             </button>
 
-            {/* FIX 7: CHECK или CALL в зависимости от ставки */}
             <button
               onClick={() => handleAction(canCheck ? 'check' : 'call')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="flex-1 md:min-w-[120px] px-4 md:px-8 py-3 md:py-4 bg-[#2a2a2a] hover:bg-[#353535] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase text-xs md:text-base"
+              className="flex-1 px-2 md:px-6 py-3 md:py-4 bg-[#1a1c23] hover:bg-[#252830] disabled:opacity-30 disabled:cursor-not-allowed rounded-2xl font-black italic transition-all active:scale-95 border border-blue-500/30 uppercase text-[10px] md:text-sm text-blue-400 hover:text-blue-300 hover:border-blue-400/50"
             >
-              {canCheck ? 'CHECK' : (myBalance <= (currentBet - myCurrentBet) ? 'ALL IN' : `CALL ${currentBet - myCurrentBet}`)}
+              {canCheck ? 'Check' : (myBalance <= (currentBet - myCurrentBet) ? 'All In' : `Call ${currentBet - myCurrentBet}`)}
             </button>
 
-            <div className="flex flex-col gap-1 w-full md:min-w-[240px] mt-2 md:mt-0">
-              <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5 gap-4">
+            <div className="flex flex-col flex-2 min-w-[140px] md:min-w-[200px]">
+              <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-2xl border-x border-t border-amber-500/20 gap-2 md:gap-4 mb-1">
                 <input 
                   type="range"
                   min={minRaise}
@@ -913,86 +972,52 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                   step={settings.blind}
                   value={raiseAmount}
                   onChange={(e) => setRaiseAmount(Number(e.target.value))}
-                  className="flex-1 accent-primary h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
+                  className="flex-1 accent-amber-500 h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
                 />
                 <button
                   onClick={() => setRaiseAmount(maxPossibleRaise)}
-                  className="text-[8px] font-black bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white"
+                  className="text-[9px] md:text-[10px] font-black bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-white/80"
                 >MAX</button>
               </div>
               <button
                 onClick={() => handleAction('raise', raiseAmount)}
                 disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || (raiseAmount < minRaise && raiseAmount < maxPossibleRaise)}
-                className="w-full py-3 md:py-4 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase text-xs md:text-base"
+                className="w-full py-3 md:py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-2xl font-black italic shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all active:scale-95 uppercase text-[10px] md:text-sm"
               >
-                {raiseAmount >= maxPossibleRaise ? 'ALL IN' : `RAISE ${raiseAmount}`}
+                {raiseAmount >= maxPossibleRaise ? 'All In' : `Raise ${raiseAmount}`}
               </button>
             </div>
           </div>
 
-          <div className="h-12 w-px bg-white/10 mx-4 hidden md:block" />
-
-          <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6 mt-2 md:mt-0">
-            <div className="flex flex-col hidden md:flex">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-widest">ВАШ СТЕК</span>
-              <span className="text-xl font-black italic text-yellow-500 flex items-center gap-2 tracking-tight">
-                <Coins className="w-5 h-5" />
-                {players.find(p => String(p.id) === myId)?.chips?.toLocaleString() || '0'}
-              </span>
-            </div>
-
-            <div className="flex gap-2 md:gap-4 items-center flex-1 justify-end md:flex-none">
-              <div className="flex flex-col md:hidden mr-auto">
-                <span className="text-[8px] text-muted-foreground uppercase tracking-widest">СТЕК</span>
-                <span className="text-sm font-black italic text-yellow-500 flex items-center gap-1 tracking-tight">
-                  <Coins className="w-3 h-3" />
-                  {players.find(p => String(p.id) === myId)?.chips?.toLocaleString() || '0'}
-                </span>
-              </div>
-              {handHint && (
-                <div className="px-5 py-3 bg-primary/10 border border-primary/20 rounded-2xl backdrop-blur-md">
-                   <span className="text-sm font-black italic text-white tracking-widest uppercase">{handHint}</span>
-                </div>
-              )}
-
-              <div className="flex gap-2">
-                <button
-                  onClick={toggleMic}
-                  className={`p-4 rounded-xl transition-all ${isMicOn ? 'bg-white/10 hover:bg-white/20' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
-                >
-                  {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
-                </button>
-                <button
-                  onClick={toggleVideo}
-                  className={`p-4 rounded-xl transition-all ${isVideoOn ? 'bg-white/10 hover:bg-white/20' : 'bg-red-500/20 text-red-500 hover:bg-red-500/30'}`}
-                >
-                  {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
+          {/* AV Controls for Desktop */}
+          <div className="hidden md:flex gap-3">
+            <button onClick={toggleMic} className={`p-4 rounded-2xl transition-all border ${isMicOn ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
+              {isMicOn ? <Mic className="w-5 h-5 text-white/80" /> : <MicOff className="w-5 h-5" />}
+            </button>
+            <button onClick={toggleVideo} className={`p-4 rounded-2xl transition-all border ${isVideoOn ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
+              {isVideoOn ? <Video className="w-5 h-5 text-white/80" /> : <VideoOff className="w-5 h-5" />}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* SHOWDOWN OVERLAY REMOVED — Winner info moved to center pot area */}
-
-      {/* ВАШ ХОД индикатор */}
+      {/* Turn Indicator */}
       {isMyTurn && gameState !== 'showdown' && gameState !== 'waiting' && (
-        <div className="absolute bottom-40 md:bottom-32 left-1/2 -translate-x-1/2 pointer-events-none z-[90]">
+        <div className="absolute bottom-[160px] md:bottom-[140px] left-1/2 -translate-x-1/2 pointer-events-none z-[90]">
           <motion.div
             initial={{ scale: 0.8, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="bg-primary border border-white/20 text-white shadow-[0_0_30px_rgba(255,69,0,0.5)] px-8 py-3 rounded-full font-black italic backdrop-blur-sm tracking-widest text-sm md:text-base uppercase"
+            className="bg-amber-500 text-black px-6 py-2 rounded-full font-black italic shadow-[0_0_40px_rgba(245,158,11,0.6)] text-xs md:text-sm uppercase tracking-widest"
           >
-            ВАШ ХОД!
+            Твой ход
           </motion.div>
         </div>
       )}
 
-      {/* Ожидание игроков */}
+      {/* Waiting State */}
       {gameState === 'waiting' && !isHost && (
-        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 pointer-events-none">
-          <div className="bg-white/5 border border-white/10 text-white/60 px-8 py-2 rounded-full font-bold text-sm">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50">
+          <div className="bg-black/80 border border-white/10 text-white/60 px-8 py-4 rounded-2xl font-bold text-sm backdrop-blur-xl">
             Ожидание начала игры...
           </div>
         </div>
