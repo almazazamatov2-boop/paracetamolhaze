@@ -12,6 +12,7 @@ import {
   Trophy, 
   Coins,
   History,
+  Plus
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import PokerCard from './PokerCard'
@@ -147,7 +148,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
   // Таймер хода
   useEffect(() => {
-    if (gameState !== 'playing' || !currentTurn) {
+    if (gameState === 'waiting' || !currentTurn) {
         setTimeLeft(20)
         return
     }
@@ -567,7 +568,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
       return {
         id: presencePlayer.id,
-        name: presencePlayer.display_name,
+        name: presencePlayer.display_name || 'Player',
         profile: presencePlayer.profile_image_url,
         chips: gp?.chips ?? settings.buyIn,
         isCurrent: presenceId === String(currentTurn),
