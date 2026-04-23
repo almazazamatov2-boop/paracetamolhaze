@@ -771,7 +771,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                   )}
                 </AnimatePresence>
               </div>
-            </div>
 
             {/* Players Render */}
           {rotatedSeats.map((player, renderIndex) => {
