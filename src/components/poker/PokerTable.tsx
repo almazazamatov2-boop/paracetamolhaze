@@ -523,6 +523,41 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   }, [settings.withWebcams])
 
   // Автоподключение новых игроков к списку
+  const getPlayerPosition = (index: number, total: number) => {
+    if (index === 0) {
+      return { bottom: '20%', left: '50%', transform: 'translate(-50%, 50%)' }
+    }
+    
+    const others = total - 1
+    if (others <= 0) return { top: 0, left: 0 }
+    
+    const t = (index - 1) / Math.max(1, others - 1);
+    
+    let x = 0, y = 0;
+    if (t < 0.33) {
+       x = 8;
+       y = 70 - (t / 0.33) * 50; 
+    } else if (t < 0.66) {
+       const pt = (t - 0.33) / 0.33;
+       x = 25 + pt * 50;
+       y = 10;
+    } else {
+       const pt = (t - 0.66) / 0.34;
+       x = 92;
+       y = 20 + pt * 50;
+    }
+    
+    return {
+      left: `${x}%`,
+      top: `${y}%`,
+      transform: 'translate(-50%, -50%)'
+    }
+  }
+
+  const getBetOffset = (index: number, total: number) => {
+    return { x: 0, y: -80 }
+  }
+
   useEffect(() => {
     setPlayers(prev => {
       const newPlayers = [...prev]
@@ -551,15 +586,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   }, [joinedPlayers, settings.buyIn])
 
   // Позиции вокруг стола
-  const getPlayerPosition = (index: number, total: number) => {
-    const angle = (index / total) * 2 * Math.PI + Math.PI / 2
-    const radiusX = 46 // %
-    const radiusY = 46 // %
-    return {
-      left: `${50 + radiusX * Math.cos(angle)}%`,
-      top: `${50 + radiusY * Math.sin(angle)}%`
-    }
-  }
+  // ...
 
   // Данные игроков для рендера
   const playersWithState = useMemo(() => {
@@ -635,58 +662,37 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       return playersWithState[originalIndex]
   })
 
-  // Вектор сдвига для фишек (к центру стола)
-  const getBetOffset = (index: number, total: number) => {
-    const angle = (index / total) * 2 * Math.PI + Math.PI / 2
-    const angleTowardsCenter = angle + Math.PI 
-    const dist = (typeof window !== 'undefined' && window.innerWidth < 768) ? 55 : 85; // px
-    return {
-        x: Math.cos(angleTowardsCenter) * dist,
-        y: Math.sin(angleTowardsCenter) * dist,
-    }
-  }
-
-
   const isHost = joinedPlayers[0]?.id === (user?.id || user?.display_name)
 
   return (
-    <div className="relative w-full h-screen flex flex-col overflow-hidden bg-[#02050A]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#0f2a1a_0%,_transparent_70%)] opacity-40 pointer-events-none" />
-
-      {/* HUD: Top Bar */}
-      <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex items-center justify-between z-[100] bg-gradient-to-b from-black/80 to-transparent">
+    <div className="fixed inset-0 bg-[#0c311c] text-white overflow-hidden font-sans select-none">
+      
+      {/* HEADER */}
+      <div className="absolute top-0 left-0 w-full p-4 flex items-center justify-between z-50 pointer-events-auto">
         <div className="flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
             <ArrowLeft className="w-5 h-5 md:w-6 md:h-6" />
           </button>
           <div>
-            <h1 className="text-lg md:text-xl font-bold italic text-white drop-shadow-md">{settings.name}</h1>
-            <div className="flex items-center gap-2 text-[10px] md:text-xs text-white/60 font-medium tracking-wide">
-              <span className="flex items-center gap-1">
-                <Coins className="w-3 h-3 text-amber-500" />
-                Blinds: {settings.blind}/{settings.blind * 2}
-                {settings.ante ? <span className="ml-1 text-amber-500/80">| Ante: {settings.ante}</span> : null}
-              </span>
-              {gameState !== 'waiting' && (
-                <span className="bg-amber-500/20 text-amber-500 border border-amber-500/30 px-2 py-0.5 rounded text-[9px] md:text-[10px] uppercase font-bold tracking-widest">
-                  {gameState}
-                </span>
-              )}
+            <h1 className="text-lg md:text-xl font-bold uppercase tracking-widest">{settings.name}</h1>
+            <div className="flex items-center gap-2 text-[10px] opacity-70">
+              <Coins className="w-3 h-3" />
+              Blinds: {settings.blind}/{settings.blind * 2}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Ссылка скопирована!') }}
-            className="px-3 md:px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl text-[10px] md:text-xs font-bold transition-all uppercase tracking-widest"
+            className="px-4 py-2 bg-white/10 rounded hover:bg-white/20 transition-all text-xs font-bold uppercase tracking-widest"
           >
             Invite
           </button>
           {gameState === 'waiting' && isHost && (
             <button
               onClick={startNewGame}
-              className="px-4 md:px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black italic rounded-xl shadow-[0_0_20px_rgba(245,158,11,0.4)] hover:scale-105 transition-all text-xs uppercase"
+              className="px-6 py-2 bg-white text-[#0c311c] font-black rounded hover:bg-white/90 transition-all text-xs uppercase"
             >
               Start Game
             </button>
@@ -694,45 +700,29 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         </div>
       </div>
 
-      {/* RENDER TABLE */}
-      <div className="flex-1 w-full flex items-center justify-center p-2 pt-20 pb-[220px] md:pb-[180px]">
-        <div className="relative w-full max-w-[1000px] flex items-center justify-center">
+      {/* GAME AREA */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        
+        {/* Table Graphic (Removed) */}
 
-          {/* Table Graphic (MiceXx style) */}
-          <img src="/table.png" alt="Poker Table" className="w-full h-auto object-contain drop-shadow-2xl" />
-
-          {/* Absolute overlay exactly matching the image bounds */}
-          <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none">
+          
+          {/* Center Game Area (Pot & Cards) */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-6">
             
-            {/* Center Game Area (Pot & Cards) */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
-              
-              {/* Community Cards */}
-              <div className="flex items-center gap-1.5 md:gap-2 translate-y-[-10px] md:translate-y-[-20px]">
-                  <AnimatePresence>
-                    {communityCards.map((card, i) => (
-                      <motion.div
-                        key={`${card.suit}-${card.value}-${i}`}
-                        initial={{ y: -30, opacity: 0, rotateY: 180, scale: 0.8 }}
-                        animate={{ y: 0, opacity: 1, rotateY: 0, scale: 1 }}
-                        transition={{ delay: 0.1 + i * 0.1, type: 'spring' }}
-                      >
-                        <PokerCard suit={card.suit} value={card.value} />
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
-                  {communityCards.length < 5 && Array.from({ length: 5 - communityCards.length }).map((_, i) => (
-                    <div key={i} className="w-12 h-16 md:w-16 md:h-24 rounded-md md:rounded-lg bg-black/20 border border-white/10 border-dashed" />
+            {/* Community Cards */}
+            <div className="flex items-center gap-2">
+                <AnimatePresence>
+                  {communityCards.map((card, i) => (
+                    <motion.div
+                      key={`${card.suit}-${card.value}-${i}`}
+                      initial={{ y: -30, opacity: 0, rotateY: 180, scale: 0.8 }}
+                      animate={{ y: 0, opacity: 1, rotateY: 0, scale: 1 }}
+                      transition={{ delay: 0.1 + i * 0.1, type: 'spring' }}
+                    >
+                      <PokerCard suit={card.suit} value={card.value} />
+                    </motion.div>
                   ))}
-                </div>
-
-                {/* Pot Display */}
-                <div className="flex flex-col items-center translate-y-[-10px]">
-                  <motion.div 
-                    key={pot}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="bg-black/60 backdrop-blur-md px-4 md:px-6 py-1.5 md:py-2 rounded-full border border-white/10 flex items-center gap-2 shadow-2xl"
                   >
                     <div className="w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-dashed border-black bg-gradient-to-br from-amber-300 to-amber-600 flex items-center justify-center">
                        <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full border border-black/30" />
@@ -781,12 +771,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               return (
                 <div
                   key={`empty-${renderIndex}`}
-                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 scale-75 md:scale-90"
-                  style={{ left: pos.left, top: pos.top }}
+                  className="absolute z-10 flex flex-col items-center opacity-30"
+                  style={{ ...pos, transform: pos.transform || 'translate(-50%, -50%)' }}
                 >
-                  <div className="w-[70px] h-[70px] md:w-[90px] md:h-[90px] rounded-[20px] border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-1 bg-black/20 backdrop-blur-sm">
+                  <div className="w-[120px] h-[120px] rounded-lg border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-1 bg-black/20">
                     <Plus className="w-5 h-5 text-white/30" />
-                    <span className="text-[7px] font-bold uppercase tracking-widest text-white/30">СВОБОДНО</span>
+                    <span className="text-[10px] font-bold uppercase text-white/30">СВОБОДНО</span>
                   </div>
                 </div>
               )
@@ -799,13 +789,13 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 key={player.id}
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className={`absolute z-20 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center ${isMe ? 'z-40' : ''}`}
-                style={{ left: pos.left, top: pos.top }}
+                className={`absolute z-20 flex flex-col items-center ${isMe ? 'z-40' : ''}`}
+                style={{ ...pos, transform: pos.transform || 'translate(-50%, -50%)' }}
               >
                 
                 {/* Dealer Button */}
                 {player.isDealer && (
-                  <div className="absolute -top-2 -right-2 w-5 h-5 md:w-6 md:h-6 bg-white text-black font-black rounded-full border-2 border-black flex items-center justify-center shadow-[0_0_10px_rgba(255,255,255,0.5)] text-[9px] md:text-[10px] z-40">
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-white text-black font-bold rounded-full flex items-center justify-center text-xs z-40 shadow-sm">
                     D
                   </div>
                 )}
@@ -813,15 +803,15 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 {/* Webcam / Avatar Container */}
                 <div className="relative">
                   <div 
-                    className={`relative w-[80px] h-[80px] md:w-[110px] md:h-[110px] rounded-[18px] md:rounded-[24px] overflow-hidden border-[3px] transition-all duration-300 shadow-xl bg-[#0a0a0c] ${player.isCurrent ? 'border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.5)]' : 'border-[#222]'} ${player.folded ? 'grayscale opacity-50' : ''}`}
+                    className={`relative w-[120px] h-[120px] rounded-lg overflow-hidden border-4 transition-all duration-300 bg-black ${player.isCurrent ? 'border-white' : 'border-transparent'} ${player.folded ? 'grayscale opacity-40' : ''}`}
                   >
-                    {/* Time Bank Liquid Overlay */}
+                    {/* Time Bank */}
                     {player.isCurrent && (
                         <motion.div 
-                            initial={{ height: '100%' }}
-                            animate={{ height: `${(timeLeft / 20) * 100}%` }}
+                            initial={{ width: '100%' }}
+                            animate={{ width: `${(timeLeft / 20) * 100}%` }}
                             transition={{ duration: 1, ease: 'linear' }}
-                            className={`absolute inset-0 ${timeLeft <= 5 ? 'bg-red-500/20' : 'bg-amber-500/10'} pointer-events-none z-10`}
+                            className={`absolute bottom-0 left-0 h-1 ${timeLeft <= 5 ? 'bg-red-500' : 'bg-white'} pointer-events-none z-10`}
                         />
                     )}
                     
@@ -838,26 +828,26 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                         {isMe && user?.profile_image_url ? (
                           <img src={user.profile_image_url} alt={player.name} className="w-full h-full object-cover" />
                         ) : (
-                          <span className="text-3xl md:text-5xl opacity-50">👤</span>
+                          <span className="text-5xl opacity-50">👤</span>
                         )}
                       </div>
                     )}
                   </div>
 
                   {/* Player Info Badge (Name & Chips) */}
-                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-[110%] md:w-auto md:min-w-[90%] bg-[#0a0a0c]/90 backdrop-blur-md px-2 md:px-4 py-1.5 rounded-xl border border-white/10 flex flex-col items-center shadow-xl z-20">
-                    <span className="text-[9px] md:text-[10px] font-bold uppercase text-white/80 truncate w-full text-center">
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-black px-3 py-1 rounded text-center whitespace-nowrap min-w-[80%] z-20">
+                    <div className="text-xs font-bold text-white mb-0.5">
                       {player.isSB && <span className="text-blue-400 mr-1">SB</span>}
                       {player.isBB && <span className="text-red-400 mr-1">BB</span>}
                       {player.name} {isMe ? '(ВЫ)' : ''}
-                    </span>
-                    <span className="text-[10px] md:text-xs text-amber-400 font-black italic flex items-center gap-1">
-                      <Coins className="w-3 h-3 opacity-80" /> {player.chips}
-                    </span>
+                    </div>
+                    <div className="text-xs text-green-400 font-bold">
+                      ${player.chips}
+                    </div>
                   </div>
                 </div>
 
-                {/* Bet Badge (Points towards table center) */}
+                {/* Bet Badge */}
                 <AnimatePresence>
                   {player.bet > 0 && (
                     <motion.div
@@ -870,11 +860,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                         transform: `translate(calc(-50% + ${getBetOffset(renderIndex, settings.size).x}px), calc(-50% + ${getBetOffset(renderIndex, settings.size).y}px))`
                       }}
                     >
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-xl backdrop-blur-md transition-all ${player.isCurrent ? 'bg-amber-500/20 border-amber-500/50 scale-110' : 'bg-black/60 border-white/10'}`}>
-                        <div className="w-3.5 h-3.5 rounded-full border border-dashed border-black/40 bg-gradient-to-b from-amber-400 to-amber-600 flex items-center justify-center shadow-inner">
-                          <div className="w-1.5 h-1.5 rounded-full border border-black/20" />
-                        </div>
-                        <span className="text-amber-400 font-bold text-[10px] md:text-xs tracking-tight">{player.bet}</span>
+                      <div className="bg-black/60 text-white font-bold px-3 py-1 rounded text-sm">
+                        Bet: ${player.bet}
                       </div>
                     </motion.div>
                   )}
@@ -915,42 +902,31 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       </div>
 
       {/* CONTROLS: Modern Bottom HUD */}
-      <div className="absolute bottom-0 left-0 w-full p-4 pb-6 md:p-8 flex items-end justify-center z-[100] pointer-events-none">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 w-full max-w-5xl bg-[#0a0a0c]/95 backdrop-blur-3xl border border-white/10 p-4 md:p-6 rounded-[32px] shadow-[0_0_50px_rgba(0,0,0,0.8)] pointer-events-auto">
+      <div className="absolute bottom-0 left-0 w-full p-4 flex items-end justify-center z-[100] pointer-events-none">
+        <div className="flex items-center justify-between gap-4 w-full max-w-4xl bg-black/80 p-4 rounded-xl pointer-events-auto">
 
           {/* User Status / Hint */}
-          <div className="flex items-center justify-between w-full md:w-auto gap-4">
+          <div className="flex items-center gap-4">
             <div className="flex flex-col">
-              <span className="text-[9px] md:text-[10px] text-white/40 uppercase tracking-widest font-bold">Баланс</span>
-              <span className="text-lg md:text-xl font-black italic text-amber-500 flex items-center gap-2 tracking-tight">
-                <Coins className="w-5 h-5 opacity-80" />
-                {players.find(p => String(p.id) === myId)?.chips?.toLocaleString() || '0'}
+              <span className="text-xs text-white/50 uppercase font-bold">Баланс</span>
+              <span className="text-xl font-bold text-green-400">
+                ${players.find(p => String(p.id) === myId)?.chips?.toLocaleString() || '0'}
               </span>
             </div>
             
             {handHint && (
-              <div className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl">
-                 <span className="text-xs md:text-sm font-black italic text-white/80 tracking-widest uppercase">{handHint}</span>
+              <div className="px-3 py-1.5 bg-white/10 rounded">
+                 <span className="text-sm font-bold text-white uppercase">{handHint}</span>
               </div>
             )}
-            
-            {/* AV Controls for Mobile */}
-            <div className="flex md:hidden gap-2">
-              <button onClick={toggleMic} className={`p-3 rounded-xl transition-all ${isMicOn ? 'bg-white/10' : 'bg-red-500/20 text-red-500'}`}>
-                {isMicOn ? <Mic className="w-4 h-4 text-white" /> : <MicOff className="w-4 h-4" />}
-              </button>
-              <button onClick={toggleVideo} className={`p-3 rounded-xl transition-all ${isVideoOn ? 'bg-white/10' : 'bg-red-500/20 text-red-500'}`}>
-                {isVideoOn ? <Video className="w-4 h-4 text-white" /> : <VideoOff className="w-4 h-4" />}
-              </button>
-            </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center justify-center gap-2 md:gap-3 w-full md:w-auto flex-1 max-w-2xl">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => handleAction('fold')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="flex-1 px-2 md:px-6 py-3 md:py-4 bg-[#1a1c23] hover:bg-[#252830] disabled:opacity-30 disabled:cursor-not-allowed rounded-2xl font-black italic transition-all active:scale-95 border border-white/5 uppercase text-[10px] md:text-sm text-white/70 hover:text-white"
+              className="px-6 py-3 bg-[#2d2d2d] hover:bg-[#3d3d3d] disabled:opacity-50 rounded font-bold transition-colors uppercase text-sm text-white"
             >
               Fold
             </button>
@@ -958,13 +934,13 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
             <button
               onClick={() => handleAction(canCheck ? 'check' : 'call')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="flex-1 px-2 md:px-6 py-3 md:py-4 bg-[#1a1c23] hover:bg-[#252830] disabled:opacity-30 disabled:cursor-not-allowed rounded-2xl font-black italic transition-all active:scale-95 border border-blue-500/30 uppercase text-[10px] md:text-sm text-blue-400 hover:text-blue-300 hover:border-blue-400/50"
+              className="px-6 py-3 bg-[#2d2d2d] hover:bg-[#3d3d3d] disabled:opacity-50 rounded font-bold transition-colors uppercase text-sm text-blue-400"
             >
               {canCheck ? 'Check' : (myBalance <= (currentBet - myCurrentBet) ? 'All In' : `Call ${currentBet - myCurrentBet}`)}
             </button>
 
-            <div className="flex flex-col flex-2 min-w-[140px] md:min-w-[200px]">
-              <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-2xl border-x border-t border-amber-500/20 gap-2 md:gap-4 mb-1">
+            <div className="flex flex-col min-w-[200px]">
+              <div className="flex items-center px-2 pb-1 gap-2">
                 <input 
                   type="range"
                   min={minRaise}
@@ -972,30 +948,26 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                   step={settings.blind}
                   value={raiseAmount}
                   onChange={(e) => setRaiseAmount(Number(e.target.value))}
-                  className="flex-1 accent-amber-500 h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
+                  className="flex-1 accent-white"
                 />
-                <button
-                  onClick={() => setRaiseAmount(maxPossibleRaise)}
-                  className="text-[9px] md:text-[10px] font-black bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded text-white/80"
-                >MAX</button>
               </div>
               <button
                 onClick={() => handleAction('raise', raiseAmount)}
                 disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || (raiseAmount < minRaise && raiseAmount < maxPossibleRaise)}
-                className="w-full py-3 md:py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-2xl font-black italic shadow-[0_0_20px_rgba(245,158,11,0.3)] transition-all active:scale-95 uppercase text-[10px] md:text-sm"
+                className="w-full py-3 bg-white text-black hover:bg-gray-200 disabled:opacity-50 rounded font-bold transition-colors uppercase text-sm"
               >
                 {raiseAmount >= maxPossibleRaise ? 'All In' : `Raise ${raiseAmount}`}
               </button>
             </div>
           </div>
 
-          {/* AV Controls for Desktop */}
-          <div className="hidden md:flex gap-3">
-            <button onClick={toggleMic} className={`p-4 rounded-2xl transition-all border ${isMicOn ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
-              {isMicOn ? <Mic className="w-5 h-5 text-white/80" /> : <MicOff className="w-5 h-5" />}
+          {/* AV Controls */}
+          <div className="flex gap-3">
+            <button onClick={toggleMic} className={`p-4 rounded transition-all ${isMicOn ? 'bg-white/10 text-white' : 'bg-red-500/20 text-red-500'}`}>
+              {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
             </button>
-            <button onClick={toggleVideo} className={`p-4 rounded-2xl transition-all border ${isVideoOn ? 'bg-white/5 border-white/10 hover:bg-white/10' : 'bg-red-500/10 border-red-500/30 text-red-500'}`}>
-              {isVideoOn ? <Video className="w-5 h-5 text-white/80" /> : <VideoOff className="w-5 h-5" />}
+            <button onClick={toggleVideo} className={`p-4 rounded transition-all ${isVideoOn ? 'bg-white/10 text-white' : 'bg-red-500/20 text-red-500'}`}>
+              {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -1003,11 +975,11 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
       {/* Turn Indicator */}
       {isMyTurn && gameState !== 'showdown' && gameState !== 'waiting' && (
-        <div className="absolute bottom-[160px] md:bottom-[140px] left-1/2 -translate-x-1/2 pointer-events-none z-[90]">
+        <div className="absolute bottom-[140px] left-1/2 -translate-x-1/2 pointer-events-none z-[90]">
           <motion.div
             initial={{ scale: 0.8, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="bg-amber-500 text-black px-6 py-2 rounded-full font-black italic shadow-[0_0_40px_rgba(245,158,11,0.6)] text-xs md:text-sm uppercase tracking-widest"
+            className="bg-white text-black px-6 py-2 rounded font-bold text-sm uppercase"
           >
             Твой ход
           </motion.div>
