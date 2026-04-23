@@ -79,6 +79,8 @@ interface TableProps {
     buyIn: number
     blind: number
     withWebcams: boolean
+    password?: string
+    ante?: number
   }
   onBack: () => void
 }
@@ -304,7 +306,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         playersWithChips,
         dealerIndexRef.current,
         settings.blind,
-        settings.buyIn
+        settings.buyIn,
+        settings.ante || 0
       )
 
       // Очищаем showdown данные
@@ -635,6 +638,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               <span className="flex items-center gap-1">
                 <Coins className="w-3 h-3 text-yellow-500" />
                 Blinds: {settings.blind}/{settings.blind * 2}
+                {settings.ante ? <span className="ml-1 text-yellow-500/80">| Ante: {settings.ante}</span> : null}
               </span>
               <span className="bg-white/10 px-2 py-0.5 rounded uppercase tracking-tighter">
                 POT: {pot}
@@ -655,12 +659,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
           >
             INVITE
           </button>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-white rounded-xl text-[10px] font-bold transition-all shadow-lg shadow-primary/20"
-          >
-            HARD FIX CAM
-          </button>
           {/* START GAME — только хост может начать */}
           {gameState === 'waiting' && isHost && (
             <button
@@ -677,7 +675,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       </div>
 
       {/* RENDER TABLE */}
-      <div className="relative w-full max-w-5xl aspect-[16/10] flex items-center justify-center">
+      <div className="relative w-full max-w-7xl aspect-[16/10] flex items-center justify-center">
 
         {/* The Felt Table */}
         <div className="absolute w-[80%] h-[70%] bg-[#1a4a2e] rounded-[150px] border-[12px] border-[#2c1810] shadow-[0_0_100px_rgba(0,0,0,0.8),inset_0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
@@ -774,8 +772,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 scale-75"
                 style={{ left: pos.left, top: pos.top }}
               >
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl border-2 border-dashed border-white/40 flex flex-col items-center justify-center gap-2">
-                  <span className="text-2xl">🪑</span>
+                <div className="w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-2xl border-2 border-dashed border-white/40 flex flex-col items-center justify-center gap-2">
+                  <span className="text-3xl">🪑</span>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">СВОБОДНО</span>
                 </div>
               </div>
@@ -800,7 +798,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
               {/* Player Card (Webcam or Avatar) */}
               <div 
-                className={`relative w-24 h-24 md:w-32 md:h-32 rounded-2xl overflow-hidden border-4 transition-all duration-300 ${player.isCurrent ? 'border-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}
+                className={`relative w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-2xl overflow-hidden border-4 transition-all duration-300 ${player.isCurrent ? 'border-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}
               >
                 {/* Timer Liquid Overlay (shinks from top) */}
                 {player.isCurrent && (

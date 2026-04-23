@@ -76,7 +76,7 @@ export const PokerLogic = {
     },
 
     /** Подготовка новой раздачи */
-    prepareNewHand(players: any[], dealerIndex: number, blindValue: number, buyIn: number): PokerGameState {
+    prepareNewHand(players: any[], dealerIndex: number, blindValue: number, buyIn: number, anteValue: number = 0): PokerGameState {
         if (players.length < 2) {
             throw new Error('Нужно минимум 2 игрока');
         }
@@ -93,18 +93,28 @@ export const PokerLogic = {
         const sbAmount = blindValue;
         const bbAmount = blindValue * 2;
 
+        let initialPot = 0;
+
         const pokerPlayers: PokerPlayer[] = players.map((p, i) => {
             // Берём фишки из предыдущей раздачи или из buyIn
             let chips = (typeof p.chips === 'number' && p.chips > 0) ? p.chips : buyIn;
             let bet = 0;
             let isAllIn = false;
 
-            if (i === sbIdx) {
+            // Анте собирается со всех игроков
+            if (anteValue > 0 && chips > 0) {
+                const actualAnte = Math.min(chips, anteValue);
+                chips -= actualAnte;
+                initialPot += actualAnte;
+                if (chips === 0) isAllIn = true;
+            }
+
+            if (i === sbIdx && chips > 0) {
                 const actual = Math.min(chips, sbAmount);
                 chips -= actual;
                 bet = actual;
                 if (chips === 0) isAllIn = true;
-            } else if (i === bbIdx) {
+            } else if (i === bbIdx && chips > 0) {
                 const actual = Math.min(chips, bbAmount);
                 chips -= actual;
                 bet = actual;
@@ -143,7 +153,7 @@ export const PokerLogic = {
 
         return {
             players: pokerPlayers,
-            pot: pokerPlayers.reduce((sum, p) => sum + p.bet, 0),
+            pot: pokerPlayers.reduce((sum, p) => sum + p.bet, 0) + initialPot,
             sidePots: [],
             currentBet: bbAmount,
             dealerIndex: dIdx,
