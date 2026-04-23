@@ -558,30 +558,27 @@ function KinoQuizContent() {
           </div>
 
           {/* Webcam block */}
-          <div className={`${cardClass} h-[180px] relative overflow-hidden`}>
-            <div className="absolute top-4 inset-x-0 flex justify-center">
-              <HugeiconsIcon icon={Camera01Icon} size={36} color="#c9a860" strokeWidth={1.8} />
+          <div className={`${cardClass} h-[260px] relative overflow-hidden flex flex-col`}>
+            <div className="flex-1 flex flex-col items-center justify-center gap-2">
+              <HugeiconsIcon icon={Camera01Icon} size={40} color="#c9a860" strokeWidth={1.8} />
+              <div className="text-[13px] uppercase tracking-widest text-[#5a4a30]">вебкамера стримера</div>
             </div>
-            {screen === 'game' ? (
-              <div className="absolute left-3 right-3 bottom-3 flex gap-2 items-center">
+            {screen === 'game' && (
+              <div className="p-3 pt-0 flex gap-2 items-center">
                 <input
                   value={guessInput}
                   onChange={event => setGuessInput(event.target.value)}
                   onKeyDown={event => event.key === 'Enter' && handleManualGuess()}
                   placeholder="Ответ стримера..."
-                  className="flex-1 min-w-0 h-10 rounded-lg bg-[#0f0d0b] border border-[#3d3020] px-2 text-[17px] text-[#f0e2bf] placeholder:text-[#6b5a3a] outline-none"
+                  className="flex-1 min-w-0 h-11 rounded-xl bg-[#0f0d0b] border border-[#3d3020] px-3 text-[17px] text-[#f0e2bf] placeholder:text-[#6b5a3a] outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleManualGuess}
-                  className="h-10 shrink-0 rounded-lg bg-[#efbe48] hover:bg-[#ffd15f] text-[#2f1d09] text-[16px] uppercase px-4 font-bold"
+                  className="h-11 shrink-0 rounded-xl bg-[#efbe48] hover:bg-[#ffd15f] active:scale-95 text-[#2f1d09] text-[16px] uppercase px-5 font-bold transition-all"
                 >
                   OK
                 </button>
-              </div>
-            ) : (
-              <div className="absolute bottom-3 inset-x-3 text-center text-[13px] uppercase text-[#5a4a30] tracking-wider">
-                вебкамера стримера
               </div>
             )}
           </div>
@@ -839,55 +836,69 @@ function KinoQuizContent() {
                 </motion.div>
               )}
 
-              {screen === 'game' && currentMovie && (
-                <motion.div
-                  key="game"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  className="flex-1 min-h-0 mt-2 relative"
-                >
-                  {/* Film strip top */}
-                  <div className="absolute top-0 left-0 right-0 h-8 z-10 flex items-center gap-1 px-2 overflow-hidden pointer-events-none">
-                    {Array.from({length: 32}).map((_, i) => (
-                      <div key={i} className="shrink-0 w-5 h-5 rounded-sm bg-[#1a1a20] border border-[#2e2e3a]" />
-                    ))}
-                  </div>
-                  {/* Main image area */}
-                  <div className="h-full rounded-2xl bg-black overflow-hidden">
-                    <img
-                      src={currentMovie.imageUrl}
-                      alt="Кадр"
-                      className="w-full h-full object-cover"
-                    />
-                    {/* Overlay: timer */}
-                    <div className="absolute top-10 right-4 z-20 px-4 py-2 rounded-xl bg-black/70 backdrop-blur-sm text-center border border-white/10">
-                      <div className={`text-[42px] leading-none font-bold ${timeLeft <= 10 ? 'text-[#f16d83]' : 'text-[#f4db9f]'}`}>{timeLeft}</div>
-                      <div className="text-[11px] uppercase text-[#b3a88f]">сек</div>
-                    </div>
-                    {/* Progress bar */}
-                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/40 z-20">
-                      <div
-                        className={`h-full transition-all duration-1000 ${timerPercent <= 20 ? 'bg-[#f16d83]' : 'bg-[#d3a142]'}`}
-                        style={{ width: `${timerPercent}%` }}
+              {screen === 'game' && currentMovie && (() => {
+                const typeLabel = currentMovie.type === 'movie'
+                  ? 'фильма'
+                  : currentMovie.type === 'series'
+                  ? 'сериала'
+                  : 'аниме';
+                return (
+                  <motion.div
+                    key="game"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="flex-1 min-h-0 mt-2 relative"
+                  >
+                    {/* Main image area */}
+                    <div className="h-full rounded-2xl bg-black overflow-hidden border-2 border-[#3a3028]">
+                      <img
+                        src={currentMovie.imageUrl}
+                        alt="Кадр"
+                        className="w-full h-full object-cover"
                       />
-                    </div>
-                    {/* Answer reveal */}
-                    {isRevealed && (
-                      <div className="absolute bottom-3 left-4 right-4 z-20 rounded-xl bg-[#f0c65b]/95 backdrop-blur-sm px-4 py-3 text-center text-[#34210b]">
-                        <div className="text-[14px] uppercase tracking-widest">Верный ответ</div>
-                        <div className="text-[26px] leading-tight uppercase break-words">{currentMovie.title_ru}</div>
+
+                      {/* Round counter — top-left */}
+                      <div className="absolute top-3 left-3 z-20 px-3 py-1 rounded-lg bg-black/75 backdrop-blur-sm border border-white/10 text-[#f4db9f] text-[18px] font-bold">
+                        {currentRound + 1}<span className="text-[#6b5a3a] font-normal">/{activeRoundsCount}</span>
                       </div>
-                    )}
-                    {/* Film strip bottom */}
-                    <div className="absolute bottom-2 left-0 right-0 h-6 flex items-center gap-1 px-2 overflow-hidden pointer-events-none z-10">
-                      {Array.from({length: 32}).map((_, i) => (
-                        <div key={i} className="shrink-0 w-5 h-4 rounded-sm bg-black/60 border border-white/5" />
-                      ))}
+
+                      {/* Timer — top-right */}
+                      <div className="absolute top-3 right-3 z-20 w-16 h-16 rounded-xl bg-black/75 backdrop-blur-sm border border-white/10 flex flex-col items-center justify-center">
+                        <div className={`text-[36px] leading-none font-bold ${timeLeft <= 10 ? 'text-[#f16d83]' : 'text-[#f4db9f]'}`}>{timeLeft}</div>
+                        <div className="text-[10px] uppercase text-[#6b5a3a] tracking-widest">сек</div>
+                      </div>
+
+                      {/* Question banner — bottom, always visible */}
+                      {!isRevealed && (
+                        <div className="absolute bottom-8 left-0 right-0 z-20 flex justify-center pointer-events-none">
+                          <div className="px-6 py-2 rounded-full border-2 border-[#c9a050]/60 bg-black/70 backdrop-blur-sm shadow-[0_0_24px_rgba(201,160,80,0.2)]">
+                            <span className="text-[18px] uppercase tracking-widest text-[#f0d898]">Из какого </span>
+                            <span className="text-[18px] uppercase tracking-widest text-[#ffd56e] font-bold">{typeLabel}</span>
+                            <span className="text-[18px] uppercase tracking-widest text-[#f0d898]"> этот кадр?</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Answer reveal */}
+                      {isRevealed && (
+                        <div className="absolute bottom-3 left-4 right-4 z-20 rounded-2xl border-2 border-[#c9a050] bg-black/80 backdrop-blur-sm px-5 py-3 text-center">
+                          <div className="text-[13px] uppercase tracking-[0.2em] text-[#c9a050]">Верный ответ</div>
+                          <div className="text-[28px] leading-tight uppercase text-[#ffd56e] break-words font-bold drop-shadow-[0_2px_0_#7a4e10]">{currentMovie.title_ru}</div>
+                        </div>
+                      )}
+
+                      {/* Progress bar */}
+                      <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/50 z-20">
+                        <div
+                          className={`h-full transition-all duration-1000 ${timerPercent <= 20 ? 'bg-[#f16d83]' : 'bg-[#d3a142]'}`}
+                          style={{ width: `${timerPercent}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
+                  </motion.div>
+                );
+              })()}
 
               {screen === 'results' && (
                 <motion.div
