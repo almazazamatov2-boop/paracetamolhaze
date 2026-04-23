@@ -548,8 +548,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   // Позиции вокруг стола
   const getPlayerPosition = (index: number, total: number) => {
     const angle = (index / total) * 2 * Math.PI + Math.PI / 2
-    const radiusX = 42
-    const radiusY = 38
+    const radiusX = 46 // %
+    const radiusY = 46 // %
     return {
       left: `${50 + radiusX * Math.cos(angle)}%`,
       top: `${50 + radiusY * Math.sin(angle)}%`
@@ -641,16 +641,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     }
   }
 
-  // Позиции вокруг стола
-  const getPlayerPosition = (index: number, total: number) => {
-    const angle = (index / total) * 2 * Math.PI + Math.PI / 2
-    const radiusX = 46 // %
-    const radiusY = 46 // %
-    return {
-      left: `${50 + radiusX * Math.cos(angle)}%`,
-      top: `${50 + radiusY * Math.sin(angle)}%`
-    }
-  }
 
   const isHost = joinedPlayers[0]?.id === (user?.id || user?.display_name)
 
