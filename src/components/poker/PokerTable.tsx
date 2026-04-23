@@ -624,7 +624,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const isHost = joinedPlayers[0]?.id === (user?.id || user?.display_name)
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-start pt-16 md:pt-24 p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505]">
+    <div className="relative w-full h-full flex flex-col items-center justify-start pt-16 md:pt-24 p-4 bg-radial-gradient from-[#0f2a1a] to-[#050505] overflow-hidden">
 
       {/* HUD: Top Bar */}
       <div className="absolute top-0 left-0 w-full p-6 flex items-center justify-between z-[100]">
@@ -641,7 +641,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 {settings.ante ? <span className="ml-1 text-yellow-500/80">| Ante: {settings.ante}</span> : null}
               </span>
               <span className="bg-white/10 px-2 py-0.5 rounded uppercase tracking-tighter">
-                POT: {pot}
+                БАНК: {pot}
               </span>
               {gameState !== 'waiting' && (
                 <span className="bg-primary/20 text-primary px-2 py-0.5 rounded uppercase tracking-tighter font-bold">
@@ -675,7 +675,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       </div>
 
       {/* RENDER TABLE */}
-      <div className="relative w-full max-w-7xl aspect-[16/10] flex items-center justify-center">
+      <div className="relative w-full max-w-7xl max-h-[55vh] md:max-h-[60vh] aspect-[16/10] flex items-center justify-center -mt-8 md:-mt-20">
 
         {/* The Felt Table */}
         <div className="absolute w-[80%] h-[70%] bg-[#1a4a2e] rounded-[150px] border-[12px] border-[#2c1810] shadow-[0_0_100px_rgba(0,0,0,0.8),inset_0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
@@ -730,7 +730,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               >
                 <div className="flex items-center gap-3">
                     <Coins className="w-8 h-8 text-yellow-500" />
-                    POT: {pot}
+                    БАНК: {pot}
                 </div>
               </motion.div>
 
@@ -772,7 +772,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 scale-75"
                 style={{ left: pos.left, top: pos.top }}
               >
-                <div className="w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-2xl border-2 border-dashed border-white/40 flex flex-col items-center justify-center gap-2">
+                <div className="w-[140px] h-[140px] md:w-[180px] md:h-[180px] rounded-2xl border-2 border-dashed border-white/40 flex flex-col items-center justify-center gap-2">
                   <span className="text-3xl">🪑</span>
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">СВОБОДНО</span>
                 </div>
@@ -798,7 +798,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
               {/* Player Card (Webcam or Avatar) */}
               <div 
-                className={`relative w-[120px] h-[120px] md:w-[150px] md:h-[150px] rounded-2xl overflow-hidden border-4 transition-all duration-300 ${player.isCurrent ? 'border-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}
+                className={`relative w-[140px] h-[140px] md:w-[180px] md:h-[180px] rounded-2xl overflow-hidden border-4 transition-all duration-300 ${player.isCurrent ? 'border-red-500 scale-110 shadow-[0_0_20px_rgba(239,68,68,0.5)]' : 'border-white/10'} ${player.folded ? 'grayscale opacity-50' : ''}`}
               >
                 {/* Timer Liquid Overlay (shinks from top) */}
                 {player.isCurrent && (
@@ -883,14 +883,14 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       </div>
 
       {/* CONTROLS: Bottom HUD */}
-      <div className="absolute bottom-0 left-0 w-full p-8 flex items-end justify-center z-[100] pointer-events-auto">
-        <div className="flex flex-wrap items-center gap-4 bg-black/90 backdrop-blur-3xl border border-white/20 p-4 md:p-6 rounded-3xl shadow-2xl">
+      <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 flex items-end justify-center z-[100] pointer-events-none">
+        <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 bg-black/90 backdrop-blur-3xl border border-white/20 p-4 md:p-6 rounded-3xl shadow-2xl pointer-events-auto max-w-[95vw]">
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center gap-2 md:gap-3 w-full md:w-auto">
             <button
               onClick={() => handleAction('fold')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
+              className="flex-1 md:min-w-[120px] px-4 md:px-8 py-3 md:py-4 bg-[#2a2a2a] hover:bg-[#353535] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase text-xs md:text-base"
             >
               FOLD
             </button>
@@ -899,12 +899,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
             <button
               onClick={() => handleAction(canCheck ? 'check' : 'call')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="min-w-[120px] px-8 py-4 bg-[#2a2a2a] hover:bg-[#353535] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase"
+              className="flex-1 md:min-w-[120px] px-4 md:px-8 py-3 md:py-4 bg-[#2a2a2a] hover:bg-[#353535] disabled:opacity-40 disabled:cursor-not-allowed rounded-xl font-black italic transition-all active:scale-95 border border-white/5 uppercase text-xs md:text-base"
             >
               {canCheck ? 'CHECK' : (myBalance <= (currentBet - myCurrentBet) ? 'ALL IN' : `CALL ${currentBet - myCurrentBet}`)}
             </button>
 
-            <div className="flex flex-col gap-1 min-w-[240px]">
+            <div className="flex flex-col gap-1 w-full md:min-w-[240px] mt-2 md:mt-0">
               <div className="flex items-center justify-between px-3 py-1 bg-black/40 rounded-t-xl border-x border-t border-white/5 gap-4">
                 <input 
                   type="range"
@@ -923,7 +923,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               <button
                 onClick={() => handleAction('raise', raiseAmount)}
                 disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || (raiseAmount < minRaise && raiseAmount < maxPossibleRaise)}
-                className="w-full py-4 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase"
+                className="w-full py-3 md:py-4 bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:grayscale disabled:cursor-not-allowed text-white rounded-b-xl font-black italic shadow-lg shadow-primary/20 transition-all active:scale-95 uppercase text-xs md:text-base"
               >
                 {raiseAmount >= maxPossibleRaise ? 'ALL IN' : `RAISE ${raiseAmount}`}
               </button>
@@ -932,8 +932,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
           <div className="h-12 w-px bg-white/10 mx-4 hidden md:block" />
 
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col">
+          <div className="flex items-center justify-between w-full md:w-auto gap-4 md:gap-6 mt-2 md:mt-0">
+            <div className="flex flex-col hidden md:flex">
               <span className="text-[10px] text-muted-foreground uppercase tracking-widest">ВАШ СТЕК</span>
               <span className="text-xl font-black italic text-yellow-500 flex items-center gap-2 tracking-tight">
                 <Coins className="w-5 h-5" />
@@ -941,7 +941,14 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               </span>
             </div>
 
-            <div className="flex gap-4 items-center">
+            <div className="flex gap-2 md:gap-4 items-center flex-1 justify-end md:flex-none">
+              <div className="flex flex-col md:hidden mr-auto">
+                <span className="text-[8px] text-muted-foreground uppercase tracking-widest">СТЕК</span>
+                <span className="text-sm font-black italic text-yellow-500 flex items-center gap-1 tracking-tight">
+                  <Coins className="w-3 h-3" />
+                  {players.find(p => String(p.id) === myId)?.chips?.toLocaleString() || '0'}
+                </span>
+              </div>
               {handHint && (
                 <div className="px-5 py-3 bg-primary/10 border border-primary/20 rounded-2xl backdrop-blur-md">
                    <span className="text-sm font-black italic text-white tracking-widest uppercase">{handHint}</span>
@@ -971,11 +978,11 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
       {/* ВАШ ХОД индикатор */}
       {isMyTurn && gameState !== 'showdown' && gameState !== 'waiting' && (
-        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 pointer-events-none">
+        <div className="absolute bottom-40 md:bottom-32 left-1/2 -translate-x-1/2 pointer-events-none z-[90]">
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="bg-primary/20 border border-primary text-primary px-8 py-2 rounded-full font-black italic backdrop-blur-sm"
+            initial={{ scale: 0.8, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="bg-primary border border-white/20 text-white shadow-[0_0_30px_rgba(255,69,0,0.5)] px-8 py-3 rounded-full font-black italic backdrop-blur-sm tracking-widest text-sm md:text-base uppercase"
           >
             ВАШ ХОД!
           </motion.div>
