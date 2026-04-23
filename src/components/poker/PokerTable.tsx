@@ -634,10 +634,21 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const getBetOffset = (index: number, total: number) => {
     const angle = (index / total) * 2 * Math.PI + Math.PI / 2
     const angleTowardsCenter = angle + Math.PI 
-    const dist = window.innerWidth < 768 ? 65 : 90; // px
+    const dist = (typeof window !== 'undefined' && window.innerWidth < 768) ? 55 : 85; // px
     return {
         x: Math.cos(angleTowardsCenter) * dist,
         y: Math.sin(angleTowardsCenter) * dist,
+    }
+  }
+
+  // Позиции вокруг стола
+  const getPlayerPosition = (index: number, total: number) => {
+    const angle = (index / total) * 2 * Math.PI + Math.PI / 2
+    const radiusX = 46 // %
+    const radiusY = 46 // %
+    return {
+      left: `${50 + radiusX * Math.cos(angle)}%`,
+      top: `${50 + radiusY * Math.sin(angle)}%`
     }
   }
 
@@ -689,25 +700,20 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       </div>
 
       {/* RENDER TABLE */}
-      <div className="flex-1 w-full flex items-center justify-center p-4 pt-20 pb-[220px] md:pb-[180px]">
-        <div className="relative w-full max-w-6xl aspect-[16/10] md:aspect-[21/10] flex items-center justify-center">
+      <div className="flex-1 w-full flex items-center justify-center p-2 pt-20 pb-[220px] md:pb-[180px]">
+        <div className="relative w-full max-w-[1000px] flex items-center justify-center">
 
-          {/* Table Outer Rail */}
-          <div className="absolute w-[95%] h-[85%] md:w-[85%] md:h-[80%] rounded-[80px] md:rounded-[180px] bg-[#111] border-[4px] md:border-[8px] border-[#1a1a1a] shadow-[0_30px_60px_rgba(0,0,0,0.9),inset_0_5px_20px_rgba(255,255,255,0.05)] flex items-center justify-center p-3 md:p-6">
+          {/* Table Graphic (MiceXx style) */}
+          <img src="/table.png" alt="Poker Table" className="w-full h-auto object-contain drop-shadow-2xl" />
+
+          {/* Absolute overlay exactly matching the image bounds */}
+          <div className="absolute inset-0 pointer-events-none">
             
-            {/* Inner Felt */}
-            <div className="relative w-full h-full rounded-[65px] md:rounded-[150px] bg-[radial-gradient(ellipse_at_center,_#0a522d_0%,_#042212_100%)] shadow-[inset_0_0_60px_rgba(0,0,0,0.8)] border-[2px] border-[#073b20] flex items-center justify-center">
+            {/* Center Game Area (Pot & Cards) */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
               
-              {/* Center Line Pattern */}
-              <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-                <div className="w-[70%] h-[70%] rounded-[100px] border border-white border-dashed opacity-30" />
-              </div>
-
-              {/* Center Game Area (Pot & Cards) */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 md:gap-6 pointer-events-none">
-                
-                {/* Community Cards */}
-                <div className="flex items-center gap-1.5 md:gap-3 translate-y-[-10px] md:translate-y-[-20px]">
+              {/* Community Cards */}
+              <div className="flex items-center gap-1.5 md:gap-2 translate-y-[-10px] md:translate-y-[-20px]">
                   <AnimatePresence>
                     {communityCards.map((card, i) => (
                       <motion.div
@@ -770,9 +776,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 </AnimatePresence>
               </div>
             </div>
-          </div>
 
-          {/* Players Render */}
+            {/* Players Render */}
           {rotatedSeats.map((player, renderIndex) => {
             const pos = getPlayerPosition(renderIndex, settings.size)
             
@@ -781,12 +786,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
               return (
                 <div
                   key={`empty-${renderIndex}`}
-                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-40 scale-75 md:scale-100"
+                  className="absolute z-10 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center opacity-30 scale-75 md:scale-90"
                   style={{ left: pos.left, top: pos.top }}
                 >
-                  <div className="w-[80px] h-[80px] md:w-[100px] md:h-[100px] rounded-[24px] border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-1 bg-black/20 backdrop-blur-sm">
-                    <Plus className="w-6 h-6 text-white/30" />
-                    <span className="text-[8px] font-bold uppercase tracking-widest text-white/30">МЕСТО</span>
+                  <div className="w-[70px] h-[70px] md:w-[90px] md:h-[90px] rounded-[20px] border-2 border-dashed border-white/20 flex flex-col items-center justify-center gap-1 bg-black/20 backdrop-blur-sm">
+                    <Plus className="w-5 h-5 text-white/30" />
+                    <span className="text-[7px] font-bold uppercase tracking-widest text-white/30">СВОБОДНО</span>
                   </div>
                 </div>
               )
@@ -805,7 +810,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 
                 {/* Dealer Button */}
                 {player.isDealer && (
-                  <div className="absolute -top-3 -right-3 w-6 h-6 md:w-8 md:h-8 bg-white text-black font-black rounded-full border-2 border-black flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.5)] text-[10px] md:text-xs z-40">
+                  <div className="absolute -top-2 -right-2 w-5 h-5 md:w-6 md:h-6 bg-white text-black font-black rounded-full border-2 border-black flex items-center justify-center shadow-[0_0_10px_rgba(255,255,255,0.5)] text-[9px] md:text-[10px] z-40">
                     D
                   </div>
                 )}
@@ -813,7 +818,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 {/* Webcam / Avatar Container */}
                 <div className="relative">
                   <div 
-                    className={`relative w-[90px] h-[90px] md:w-[130px] md:h-[130px] rounded-[24px] md:rounded-[32px] overflow-hidden border-4 transition-all duration-300 shadow-2xl bg-[#0a0a0c] ${player.isCurrent ? 'border-amber-500 scale-105 shadow-[0_0_40px_rgba(245,158,11,0.4)]' : 'border-[#1a1c23]'} ${player.folded ? 'grayscale opacity-40' : ''}`}
+                    className={`relative w-[80px] h-[80px] md:w-[110px] md:h-[110px] rounded-[18px] md:rounded-[24px] overflow-hidden border-[3px] transition-all duration-300 shadow-xl bg-[#0a0a0c] ${player.isCurrent ? 'border-amber-500 shadow-[0_0_30px_rgba(245,158,11,0.5)]' : 'border-[#222]'} ${player.folded ? 'grayscale opacity-50' : ''}`}
                   >
                     {/* Time Bank Liquid Overlay */}
                     {player.isCurrent && (
@@ -882,7 +887,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
                 {/* Cards */}
                 {player.cards.length > 0 && !player.folded && (
-                  <div className="absolute -right-4 md:-right-8 top-[20%] flex gap-0.5 md:gap-1 scale-[0.5] md:scale-[0.6] origin-left z-30 pointer-events-none drop-shadow-xl">
+                  <div className="absolute -right-4 -top-2 flex gap-0.5 md:gap-1 scale-[0.5] md:scale-[0.55] origin-bottom-left z-30 pointer-events-none drop-shadow-xl">
                     {player.cards.map((card, ci) => {
                       const isHidden = card.suit === 'X'
                       return (
