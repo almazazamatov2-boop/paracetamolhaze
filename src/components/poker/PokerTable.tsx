@@ -130,19 +130,23 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const myCardsRef = useRef<{ suit: string, value: string }[]>([])
   const [timeLeft, setTimeLeft] = useState(20)
 
-  // Качественные звуковые ассеты
+  // Звуки из OddSlingers
   const SOUNDS = {
-    deal: 'https://assets.mixkit.co/active_storage/sfx/2012/2012-preview.mp3',
-    chip: 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3',
-    check: 'https://assets.mixkit.co/active_storage/sfx/2014/2014-preview.mp3',
-    fold: 'https://assets.mixkit.co/active_storage/sfx/2015/2015-preview.mp3',
-    win: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3',
-    tick: 'https://assets.mixkit.co/active_storage/sfx/2016/2016-preview.mp3',
+    deal: '/audio/deal_player.mp3',
+    deal_board: '/audio/deal_board.mp3',
+    chip: '/audio/bet.mp3',
+    check: '/audio/check.mp3',
+    fold: '/audio/fold.mp3',
+    win: '/audio/win.mp3',
+    tick: '/audio/your_turn.mp3',
+    all_in: '/audio/all_in.mp3',
+    raise: '/audio/raise.mp3',
+    reveal: '/audio/reveal_hand.mp3',
   }
 
   const playSound = (type: keyof typeof SOUNDS) => {
     const audio = new Audio(SOUNDS[type])
-    audio.volume = 0.3
+    audio.volume = 0.4
     audio.play().catch(() => {})
   }
 
