@@ -46,10 +46,15 @@ const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: Card
     >
       {/* Front Side (Face) */}
       <div 
-        className="absolute inset-0 bg-white rounded-lg border border-black/10 shadow-lg overflow-hidden flex items-center justify-center"
-        style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
+        className="absolute inset-0 rounded-lg border-2 border-black/10 shadow-lg overflow-hidden flex items-center justify-center"
+        style={{ 
+            backfaceVisibility: 'hidden', 
+            WebkitBackfaceVisibility: 'hidden',
+            backgroundColor: 'hsl(49, 63%, 92%)',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+        }}
       >
-        {/* SVG Card Face — Scaling up because the SVGs have huge internal whitespace */}
+        {/* SVG Card Face */}
         <img 
             src={cardSrc} 
             alt={`${value}${suit}`} 
@@ -59,22 +64,27 @@ const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: Card
                 e.currentTarget.style.display = 'none';
             }}
         />
+        {/* Subtle texture/gradient overlay */}
+        <div className="absolute inset-0 pointer-events-none" style={{background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%)'}} />
       </div>
 
       {/* Back Side (The shirt / Rubashka) */}
       <div 
-        className="absolute inset-0 bg-[#0f172a] rounded-lg border-2 border-white/20 shadow-xl overflow-hidden"
+        className="absolute inset-0 rounded-lg border-2 border-white/20 shadow-xl overflow-hidden"
         style={{ 
             backfaceVisibility: 'hidden', 
             WebkitBackfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
+            backgroundColor: 'hsl(202, 49%, 28%)',
         }}
       >
         <img 
             src={shirtSrc} 
             alt="Shirt" 
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover opacity-60"
         />
+        {/* Vintage Pattern Overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-20" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '10px 10px'}} />
       </div>
     </motion.div>
   )

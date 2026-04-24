@@ -4,10 +4,8 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
-import { Play, Plus, ArrowLeft, Video, VideoOff } from 'lucide-react'
-import PokerTable from './PokerTable'
 
-type TableSize = 2 | 4 | 6 | 9
+type TableSize = 2 | 4 | 5 | 6 | 9
 type View = 'lobby' | 'create' | 'game' | 'lobbies'
 
 interface TableSettings {
@@ -18,6 +16,30 @@ interface TableSettings {
   withWebcams: boolean
   password?: string
   ante?: number
+}
+
+// Vintage Poker Theme
+const theme = {
+  colors: {
+    primaryCta: 'hsl(202, 49%, 28%)',
+    primaryCtaDarker: 'hsl(202, 49%, 18%)',
+    secondaryCta: 'hsl(202, 36%, 55%)',
+    darkBg: 'hsl(43, 40%, 60%)',
+    lightBg: 'hsl(43, 40%, 81%)',
+    lightestBg: 'hsl(43, 40%, 86%)',
+    fontColorLight: 'hsl(40, 100%, 99%)',
+    fontColorDark: 'hsl(36, 71%, 3%)',
+    fontColorDarkLighter: 'hsl(36, 71%, 13%)',
+    playingCardBg: 'hsl(49, 63%, 92%)',
+  },
+  fonts: {
+    fontFamilySerif: "'Playfair Display', serif",
+    fontFamilySansSerif: "'Roboto', sans-serif",
+  },
+  other: {
+    stdBorderRadius: '2rem',
+    cardDropShadow: '10px 10px 30px rgba(0, 0, 0, 0.1)',
+  }
 }
 
 export default function PokerConsole() {
@@ -31,8 +53,8 @@ export default function PokerConsole() {
   const [selectedLobby, setSelectedLobby] = useState<any>(null)
   const [passwordInput, setPasswordInput] = useState('')
   const [settings, setSettings] = useState<TableSettings>({
-    name: 'Стол POKERLIVE',
-    size: 6,
+    name: 'POKERLIVE Table',
+    size: 5,
     buyIn: 1000,
     blind: 10,
     withWebcams: true,
@@ -41,6 +63,12 @@ export default function PokerConsole() {
   })
 
   useEffect(() => {
+    // Add Google Fonts
+    const link = document.createElement('link')
+    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Roboto:wght@400;700&display=swap'
+    link.rel = 'stylesheet'
+    document.head.appendChild(link)
+
     const fetchUser = async () => {
       try {
         const res = await fetch('/api/auth_me')
@@ -117,7 +145,7 @@ export default function PokerConsole() {
   if (loadingAuth) {
     return (
       <div style={styles.root}>
-        <div style={styles.loadingText}>AUTHENTICATING...</div>
+        <div style={{fontFamily: theme.fonts.fontFamilySerif, fontSize: '2rem'}}>Loading...</div>
       </div>
     )
   }
@@ -126,17 +154,16 @@ export default function PokerConsole() {
     return (
       <div style={styles.root}>
         <div style={styles.authBox}>
-          <div style={styles.logo}>POKERLIVE</div>
-          <p style={styles.authSubtitle}>♠ TEXAS HOLD&apos;EM С ВЕБКАМЕРАМИ ♠</p>
+          <h1 style={styles.logo}>POKERLIVE</h1>
           <div style={styles.authCard}>
-            <p style={styles.authDesc}>Для игры в покер необходимо авторизоваться через Twitch</p>
+            <p style={{marginBottom: '2rem', fontFamily: theme.fonts.fontFamilySansSerif, color: theme.colors.fontColorDarkLighter}}>Please authorize with Twitch to play</p>
             <button
-              style={styles.twitchBtn}
+              style={styles.primaryBtn}
               onClick={() => window.location.href = '/auth/twitch?source=poker'}
-              onMouseEnter={e => (e.currentTarget.style.background = '#9147ff')}
-              onMouseLeave={e => (e.currentTarget.style.background = '#7c3aed')}
+              onMouseEnter={e => (e.currentTarget.style.background = theme.colors.primaryCtaDarker)}
+              onMouseLeave={e => (e.currentTarget.style.background = theme.colors.primaryCta)}
             >
-              <span>ВОЙТИ ЧЕРЕЗ TWITCH</span>
+              LOGIN WITH TWITCH
             </button>
           </div>
         </div>
@@ -144,11 +171,11 @@ export default function PokerConsole() {
     )
   }
 
+  // Use dynamic import for the table to avoid SSR issues with canvas/rtc
+  const DynamicTable = view === 'game' ? require('./PokerTable').default : null
+
   return (
     <div style={styles.root}>
-      {/* Felt texture overlay */}
-      <div style={styles.feltOverlay} />
-
       <AnimatePresence mode="wait">
         {view === 'lobby' && (
           <motion.div
@@ -158,40 +185,29 @@ export default function PokerConsole() {
             exit={{ opacity: 0, y: -20 }}
             style={styles.centeredView}
           >
-            <div style={{ textAlign: 'center', marginBottom: 48 }}>
-              <div style={styles.logo}>POKERLIVE</div>
-              <p style={styles.logoSub}>♠ TEXAS HOLD&apos;EM С ВЕБКАМЕРАМИ ♣</p>
+            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
+              <h1 style={styles.logo}>POKERLIVE</h1>
             </div>
 
             <div style={styles.lobbyGrid}>
-              <button
-                style={styles.lobbyCard}
-                onClick={() => setView('create')}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#d4af37'; e.currentTarget.style.background = 'rgba(212,175,55,0.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.3)' }}
-              >
-                <div style={styles.lobbyCardIcon}>♠</div>
-                <h2 style={styles.lobbyCardTitle}>Создать стол</h2>
-                <p style={styles.lobbyCardDesc}>Настройте правила и пригласите друзей</p>
-              </button>
+              <div style={styles.card} onClick={() => setView('create')}>
+                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, marginBottom: '1rem', color: theme.colors.fontColorDark}}>Create Table</h2>
+                <p style={{fontFamily: theme.fonts.fontFamilySansSerif, color: theme.colors.fontColorDarkLighter}}>Host a new game and invite friends.</p>
+                <button style={{...styles.primaryBtn, marginTop: '2rem'}}>CREATE</button>
+              </div>
 
-              <button
-                style={styles.lobbyCard}
-                onClick={() => { fetchLobbies(); setView('lobbies') }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#d4af37'; e.currentTarget.style.background = 'rgba(212,175,55,0.08)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(212,175,55,0.3)'; e.currentTarget.style.background = 'rgba(0,0,0,0.3)' }}
-              >
-                <div style={styles.lobbyCardIcon}>♣</div>
-                <h2 style={styles.lobbyCardTitle}>Войти в игру</h2>
-                <p style={styles.lobbyCardDesc}>Присоединиться к открытому столу</p>
-              </button>
+              <div style={styles.card} onClick={() => { fetchLobbies(); setView('lobbies') }}>
+                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, marginBottom: '1rem', color: theme.colors.fontColorDark}}>Join Table</h2>
+                <p style={{fontFamily: theme.fonts.fontFamilySansSerif, color: theme.colors.fontColorDarkLighter}}>Join an existing public table.</p>
+                <button style={{...styles.secondaryBtn, marginTop: '2rem'}}>BROWSE</button>
+              </div>
             </div>
 
             <button
-              style={styles.backBtn}
+              style={{...styles.textBtn, marginTop: '2rem'}}
               onClick={() => window.location.href = '/'}
             >
-              ← На главную
+              ← Back to Main
             </button>
           </motion.div>
         )}
@@ -204,76 +220,63 @@ export default function PokerConsole() {
             exit={{ opacity: 0, x: -50 }}
             style={styles.centeredView}
           >
-            <div style={styles.formCard}>
-              <div style={styles.formGoldBar} />
-              <div style={styles.formHeader}>
-                <h2 style={styles.formTitle}>НАСТРОЙКИ СТОЛА</h2>
-                <button style={styles.backBtn} onClick={() => setView('lobby')}>← Назад</button>
+            <div style={{...styles.card, maxWidth: '600px', width: '100%'}}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
+                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, margin: 0}}>Create Table</h2>
+                <button style={styles.textBtn} onClick={() => setView('lobby')}>Cancel</button>
               </div>
 
-              <div style={styles.formBody}>
-                <label style={styles.label}>Название стола</label>
-                <input
-                  style={styles.input}
-                  value={settings.name}
-                  onChange={e => setSettings({ ...settings, name: e.target.value })}
-                />
+              <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
+                <div>
+                  <label style={styles.label}>Table Name</label>
+                  <input style={styles.input} value={settings.name} onChange={e => setSettings({...settings, name: e.target.value})} />
+                </div>
 
-                <div style={styles.formRow}>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Размер стола</label>
-                    <div style={styles.sizeGrid}>
-                      {[2, 4, 6, 9].map(s => (
+                <div style={{display: 'flex', gap: '1rem'}}>
+                  <div style={{flex: 1}}>
+                    <label style={styles.label}>Seats (Default 5 for vintage)</label>
+                    <div style={{display: 'flex', gap: '0.5rem'}}>
+                      {[2, 5, 6, 9].map(s => (
                         <button
                           key={s}
-                          style={{ ...styles.sizeBtn, ...(settings.size === s ? styles.sizeBtnActive : {}) }}
-                          onClick={() => setSettings({ ...settings, size: s as TableSize })}
+                          style={{
+                            ...styles.input, 
+                            cursor: 'pointer', 
+                            textAlign: 'center', 
+                            background: settings.size === s ? theme.colors.primaryCta : '#fff',
+                            color: settings.size === s ? '#fff' : theme.colors.fontColorDark
+                          }}
+                          onClick={() => setSettings({...settings, size: s as TableSize})}
                         >
                           {s}
                         </button>
                       ))}
                     </div>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Вебкамеры</label>
+                  <div style={{flex: 1}}>
+                    <label style={styles.label}>Webcams</label>
                     <button
-                      style={{ ...styles.camBtn, ...(settings.withWebcams ? styles.camBtnOn : styles.camBtnOff) }}
-                      onClick={() => setSettings({ ...settings, withWebcams: !settings.withWebcams })}
+                      style={{...styles.input, cursor: 'pointer', textAlign: 'center', background: settings.withWebcams ? theme.colors.secondaryCta : '#fff'}}
+                      onClick={() => setSettings({...settings, withWebcams: !settings.withWebcams})}
                     >
-                      {settings.withWebcams ? '📹 Включены' : '🚫 Выключены'}
+                      {settings.withWebcams ? 'Enabled' : 'Disabled'}
                     </button>
                   </div>
                 </div>
 
-                <div style={styles.formRow}>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Buy-in (фишки)</label>
-                    <input style={styles.input} type="number" value={settings.buyIn} onChange={e => setSettings({ ...settings, buyIn: parseInt(e.target.value) })} />
+                <div style={{display: 'flex', gap: '1rem'}}>
+                  <div style={{flex: 1}}>
+                    <label style={styles.label}>Buy-in</label>
+                    <input style={styles.input} type="number" value={settings.buyIn} onChange={e => setSettings({...settings, buyIn: parseInt(e.target.value)})} />
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Малый блайнд</label>
-                    <input style={styles.input} type="number" value={settings.blind} onChange={e => setSettings({ ...settings, blind: parseInt(e.target.value) })} />
-                  </div>
-                </div>
-
-                <div style={styles.formRow}>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Пароль <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>(необязательно)</span></label>
-                    <input style={styles.input} type="text" value={settings.password || ''} onChange={e => setSettings({ ...settings, password: e.target.value })} placeholder="Без пароля" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={styles.label}>Анте <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10 }}>(необязательно)</span></label>
-                    <input style={styles.input} type="number" value={settings.ante || 0} onChange={e => setSettings({ ...settings, ante: parseInt(e.target.value) || 0 })} />
+                  <div style={{flex: 1}}>
+                    <label style={styles.label}>Small Blind</label>
+                    <input style={styles.input} type="number" value={settings.blind} onChange={e => setSettings({...settings, blind: parseInt(e.target.value)})} />
                   </div>
                 </div>
 
-                <button
-                  style={styles.goldBtn}
-                  onClick={createRoom}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.9')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-                >
-                  СОЗДАТЬ И НАЧАТЬ →
+                <button style={{...styles.primaryBtn, marginTop: '1rem'}} onClick={createRoom}>
+                  START GAME
                 </button>
               </div>
             </div>
@@ -286,55 +289,47 @@ export default function PokerConsole() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            style={{ ...styles.centeredView, justifyContent: 'flex-start', paddingTop: 80 }}
+            style={{ ...styles.centeredView, justifyContent: 'flex-start', paddingTop: '4rem' }}
           >
-            <div style={{ width: '100%', maxWidth: 900 }}>
-              <div style={styles.lobbiesHeader}>
-                <h2 style={styles.formTitle}>ОТКРЫТЫЕ СТОЛЫ</h2>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button style={styles.smallBtn} onClick={fetchLobbies}>ОБНОВИТЬ</button>
-                  <button style={styles.backBtn} onClick={() => setView('lobby')}>← Назад</button>
+            <div style={{ width: '100%', maxWidth: '800px' }}>
+              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
+                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, margin: 0}}>Open Tables</h2>
+                <div style={{display: 'flex', gap: '1rem'}}>
+                  <button style={styles.secondaryBtn} onClick={fetchLobbies}>Refresh</button>
+                  <button style={styles.textBtn} onClick={() => setView('lobby')}>Back</button>
                 </div>
               </div>
 
               {openLobbies.length === 0 ? (
-                <div style={styles.emptyState}>
-                  <p style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 16 }}>Пока нет открытых столов</p>
-                  <button style={styles.goldBtn} onClick={() => setView('create')}>СОЗДАТЬ СТОЛ</button>
+                <div style={styles.card}>
+                  <p style={{fontFamily: theme.fonts.fontFamilySansSerif, textAlign: 'center'}}>No open tables found.</p>
                 </div>
               ) : (
-                <div style={styles.lobbiesGrid}>
+                <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
                   {openLobbies.map(lobby => (
-                    <div key={lobby.id} style={styles.lobbyRow}>
-                      <div style={{ flex: 1 }}>
-                        <div style={styles.lobbyRowTitle}>{lobby.name}</div>
-                        <div style={styles.lobbyRowMeta}>
-                          Blinds: {lobby.blind}/{lobby.blind * 2} &nbsp;·&nbsp; Buy-in: {lobby.buy_in}
-                          {lobby.ante > 0 && <span style={{ color: '#d4af37' }}> &nbsp;·&nbsp; Ante: {lobby.ante}</span>}
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                          {lobby.with_webcams && <span style={styles.tagCam}>📹 Камеры</span>}
-                          {lobby.has_password && <span style={styles.tagPwd}>🔒 Пароль</span>}
-                        </div>
+                    <div key={lobby.id} style={{...styles.card, padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                      <div>
+                        <h3 style={{fontFamily: theme.fonts.fontFamilySerif, margin: '0 0 0.5rem 0'}}>{lobby.name}</h3>
+                        <p style={{fontFamily: theme.fonts.fontFamilySansSerif, margin: 0, color: theme.colors.fontColorDarkLighter, fontSize: '0.9rem'}}>
+                          Blinds: {lobby.blind}/{lobby.blind * 2} | Buy-in: {lobby.buy_in} | Players: {lobby.players_count}/{lobby.size}
+                        </p>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={styles.playerCount}>{lobby.players_count}/{lobby.size}</div>
-                        {selectedLobby?.id === lobby.id ? (
-                          <>
-                            {lobby.has_password && (
-                              <input
-                                type="password"
-                                placeholder="Пароль"
-                                value={passwordInput}
-                                onChange={e => setPasswordInput(e.target.value)}
-                                style={{ ...styles.input, width: 100, margin: 0 }}
-                              />
-                            )}
-                            <button style={styles.goldBtn} onClick={() => joinLobby(lobby)}>ВОЙТИ</button>
-                          </>
-                        ) : (
-                          <button style={styles.smallBtn} onClick={() => { setSelectedLobby(lobby); setPasswordInput('') }}>ВЫБРАТЬ</button>
+                      <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+                        {selectedLobby?.id === lobby.id && lobby.has_password && (
+                          <input 
+                            style={{...styles.input, width: '120px', padding: '0.5rem'}} 
+                            type="password" 
+                            placeholder="Password" 
+                            value={passwordInput} 
+                            onChange={e => setPasswordInput(e.target.value)} 
+                          />
                         )}
+                        <button 
+                          style={selectedLobby?.id === lobby.id ? styles.primaryBtn : styles.secondaryBtn}
+                          onClick={() => selectedLobby?.id === lobby.id ? joinLobby(lobby) : setSelectedLobby(lobby)}
+                        >
+                          {selectedLobby?.id === lobby.id ? 'JOIN' : 'SELECT'}
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -344,15 +339,15 @@ export default function PokerConsole() {
           </motion.div>
         )}
 
-        {view === 'game' && (
+        {view === 'game' && DynamicTable && (
           <motion.div
             key="game"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ width: '100%', height: '100vh' }}
+            style={{ width: '100%', height: '100vh', position: 'relative' }}
           >
-            <PokerTable
+            <DynamicTable
               roomId={roomId}
               user={user}
               settings={settings}
@@ -365,29 +360,14 @@ export default function PokerConsole() {
   )
 }
 
-// ── Inline styles (vintage poker palette) ──────────────────────────────────
 const styles: Record<string, React.CSSProperties> = {
   root: {
     minHeight: '100vh',
-    background: 'linear-gradient(160deg, #0d2b1a 0%, #0a1f13 50%, #061209 100%)',
-    color: '#fff',
-    fontFamily: "'Georgia', 'Times New Roman', serif",
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    backgroundColor: theme.colors.lightestBg,
+    color: theme.colors.fontColorDark,
+    fontFamily: theme.fonts.fontFamilySansSerif,
+    lineHeight: theme.fonts.fontLineHeight,
     overflow: 'hidden',
-  },
-  feltOverlay: {
-    position: 'absolute',
-    inset: 0,
-    backgroundImage: `
-      radial-gradient(ellipse at 50% 50%, rgba(30,100,50,0.15) 0%, transparent 70%),
-      repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px),
-      repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)
-    `,
-    pointerEvents: 'none',
   },
   centeredView: {
     position: 'relative',
@@ -397,304 +377,97 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    padding: '24px',
+    padding: '2rem',
     width: '100%',
   },
   logo: {
-    fontSize: 72,
+    fontFamily: theme.fonts.fontFamilySerif,
+    fontSize: '4rem',
+    color: theme.colors.fontColorDark,
+    margin: 0,
     fontWeight: 900,
-    fontStyle: 'italic',
-    letterSpacing: '-2px',
-    color: '#d4af37',
-    textShadow: '0 0 40px rgba(212,175,55,0.5), 0 4px 0 rgba(0,0,0,0.5)',
-    fontFamily: "'Georgia', serif",
-  },
-  logoSub: {
-    color: 'rgba(212,175,55,0.6)',
-    letterSpacing: '0.3em',
-    fontSize: 13,
-    marginTop: 8,
-    textTransform: 'uppercase',
-  },
-  loadingText: {
-    fontSize: 24,
-    color: '#d4af37',
-    letterSpacing: '0.3em',
-    animation: 'pulse 1.5s infinite',
-    fontStyle: 'italic',
   },
   authBox: {
     textAlign: 'center',
     zIndex: 10,
-    position: 'relative',
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: '100%',
+    maxWidth: '500px',
   },
-  authSubtitle: {
-    color: 'rgba(212,175,55,0.6)',
-    letterSpacing: '0.3em',
-    fontSize: 13,
-    marginTop: 8,
-    marginBottom: 32,
+  card: {
+    backgroundColor: theme.colors.playingCardBg,
+    borderRadius: theme.other.stdBorderRadius,
+    padding: '2.5rem',
+    boxShadow: theme.other.cardDropShadow,
   },
   authCard: {
-    background: 'rgba(0,0,0,0.5)',
-    border: '1px solid rgba(212,175,55,0.3)',
-    borderRadius: 16,
-    padding: '32px 40px',
-    maxWidth: 400,
+    backgroundColor: theme.colors.playingCardBg,
+    borderRadius: theme.other.stdBorderRadius,
+    padding: '3rem',
+    boxShadow: theme.other.cardDropShadow,
+    marginTop: '2rem',
   },
-  authDesc: {
-    color: 'rgba(255,255,255,0.6)',
-    marginBottom: 24,
-    lineHeight: 1.6,
-  },
-  twitchBtn: {
-    width: '100%',
-    background: '#7c3aed',
-    color: '#fff',
+  primaryBtn: {
+    backgroundColor: theme.colors.primaryCta,
+    color: theme.colors.fontColorLight,
     border: 'none',
-    borderRadius: 8,
-    padding: '14px 24px',
-    fontWeight: 700,
-    letterSpacing: '0.1em',
+    borderRadius: '2rem',
+    padding: '0.8rem 2rem',
+    fontWeight: 'bold',
+    fontFamily: theme.fonts.fontFamilySansSerif,
     cursor: 'pointer',
-    fontSize: 14,
     transition: 'background 0.2s',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+    textTransform: 'uppercase',
+    width: '100%',
+  },
+  secondaryBtn: {
+    backgroundColor: theme.colors.secondaryCta,
+    color: theme.colors.fontColorLight,
+    border: 'none',
+    borderRadius: '2rem',
+    padding: '0.8rem 2rem',
+    fontWeight: 'bold',
+    fontFamily: theme.fonts.fontFamilySansSerif,
+    cursor: 'pointer',
+    transition: 'background 0.2s',
+    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+    textTransform: 'uppercase',
+    width: '100%',
+  },
+  textBtn: {
+    backgroundColor: 'transparent',
+    color: theme.colors.primaryCta,
+    border: 'none',
+    fontWeight: 'bold',
+    fontFamily: theme.fonts.fontFamilySansSerif,
+    cursor: 'pointer',
   },
   lobbyGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: 24,
+    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+    gap: '2rem',
     width: '100%',
-    maxWidth: 640,
-  },
-  lobbyCard: {
-    background: 'rgba(0,0,0,0.3)',
-    border: '1px solid rgba(212,175,55,0.3)',
-    borderRadius: 16,
-    padding: '40px 32px',
-    cursor: 'pointer',
-    textAlign: 'center',
-    transition: 'all 0.2s',
-    color: '#fff',
-    fontFamily: "'Georgia', serif",
-  },
-  lobbyCardIcon: {
-    fontSize: 48,
-    color: '#d4af37',
-    marginBottom: 16,
-    display: 'block',
-  },
-  lobbyCardTitle: {
-    fontSize: 22,
-    fontWeight: 700,
-    marginBottom: 8,
-    color: '#fff',
-    fontStyle: 'italic',
-  },
-  lobbyCardDesc: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
-    lineHeight: 1.5,
-    margin: 0,
-  },
-  formCard: {
-    width: '100%',
-    maxWidth: 560,
-    background: 'rgba(0,0,0,0.5)',
-    border: '1px solid rgba(212,175,55,0.3)',
-    borderRadius: 20,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  formGoldBar: {
-    height: 3,
-    background: 'linear-gradient(90deg, #d4af37, #f5d060, #d4af37)',
-  },
-  formHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '24px 32px 0',
-  },
-  formTitle: {
-    fontSize: 28,
-    fontWeight: 900,
-    fontStyle: 'italic',
-    color: '#d4af37',
-    letterSpacing: '-0.5px',
-    margin: 0,
-  },
-  formBody: {
-    padding: '24px 32px 32px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
-  },
-  formRow: {
-    display: 'flex',
-    gap: 16,
+    maxWidth: '800px',
   },
   label: {
     display: 'block',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.15em',
-    color: 'rgba(255,255,255,0.5)',
-    marginBottom: 8,
-    fontFamily: 'sans-serif',
+    fontFamily: theme.fonts.fontFamilySansSerif,
+    fontWeight: 'bold',
+    marginBottom: '0.5rem',
+    color: theme.colors.fontColorDark,
   },
   input: {
     width: '100%',
-    background: 'rgba(0,0,0,0.4)',
-    border: '1px solid rgba(212,175,55,0.2)',
-    borderRadius: 8,
-    padding: '10px 14px',
-    color: '#fff',
-    fontSize: 14,
+    padding: '0.8rem 1rem',
+    borderRadius: '1rem',
+    border: `1px solid ${theme.colors.darkBg}`,
+    fontFamily: theme.fonts.fontFamilySansSerif,
+    fontSize: '1rem',
     outline: 'none',
-    fontFamily: 'sans-serif',
-    boxSizing: 'border-box',
-  },
-  sizeGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: 6,
-  },
-  sizeBtn: {
-    padding: '8px 4px',
-    borderRadius: 6,
-    border: '1px solid rgba(255,255,255,0.1)',
-    background: 'rgba(0,0,0,0.3)',
-    color: 'rgba(255,255,255,0.5)',
-    cursor: 'pointer',
-    fontWeight: 700,
-    fontSize: 14,
-    fontFamily: 'sans-serif',
-  },
-  sizeBtnActive: {
-    background: '#d4af37',
-    border: '1px solid #d4af37',
-    color: '#000',
-  },
-  camBtn: {
-    width: '100%',
-    padding: '10px 14px',
-    borderRadius: 8,
-    border: '1px solid',
-    cursor: 'pointer',
-    fontWeight: 700,
-    fontSize: 13,
-    fontFamily: 'sans-serif',
-    transition: 'all 0.2s',
-  },
-  camBtnOn: {
-    background: 'rgba(212,175,55,0.15)',
-    borderColor: 'rgba(212,175,55,0.5)',
-    color: '#d4af37',
-  },
-  camBtnOff: {
-    background: 'rgba(0,0,0,0.3)',
-    borderColor: 'rgba(255,255,255,0.1)',
-    color: 'rgba(255,255,255,0.4)',
-  },
-  goldBtn: {
-    background: 'linear-gradient(135deg, #b8860b, #d4af37, #b8860b)',
-    color: '#000',
-    border: 'none',
-    borderRadius: 8,
-    padding: '12px 24px',
-    fontWeight: 900,
-    fontStyle: 'italic',
-    letterSpacing: '0.1em',
-    cursor: 'pointer',
-    fontSize: 14,
-    fontFamily: "'Georgia', serif",
-    transition: 'opacity 0.2s',
-    whiteSpace: 'nowrap',
-  },
-  smallBtn: {
-    background: 'rgba(255,255,255,0.08)',
-    color: '#fff',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: 8,
-    padding: '8px 16px',
-    cursor: 'pointer',
-    fontWeight: 700,
-    fontSize: 12,
-    letterSpacing: '0.1em',
-    fontFamily: 'sans-serif',
-    whiteSpace: 'nowrap',
-  },
-  backBtn: {
-    background: 'transparent',
-    border: 'none',
-    color: 'rgba(255,255,255,0.4)',
-    cursor: 'pointer',
-    fontSize: 13,
-    fontFamily: 'sans-serif',
-    padding: 0,
-  },
-  lobbiesHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  lobbiesGrid: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  lobbyRow: {
-    background: 'rgba(0,0,0,0.4)',
-    border: '1px solid rgba(212,175,55,0.2)',
-    borderRadius: 12,
-    padding: '16px 20px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-  },
-  lobbyRowTitle: {
-    fontSize: 16,
-    fontWeight: 700,
-    color: '#fff',
-    marginBottom: 4,
-    fontStyle: 'italic',
-  },
-  lobbyRowMeta: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
-    fontFamily: 'sans-serif',
-  },
-  tagCam: {
-    background: 'rgba(212,175,55,0.15)',
-    color: '#d4af37',
-    padding: '2px 8px',
-    borderRadius: 4,
-    fontSize: 11,
-    fontFamily: 'sans-serif',
-  },
-  tagPwd: {
-    background: 'rgba(239,68,68,0.15)',
-    color: '#f87171',
-    padding: '2px 8px',
-    borderRadius: 4,
-    fontSize: 11,
-    fontFamily: 'sans-serif',
-  },
-  playerCount: {
-    background: 'rgba(255,255,255,0.08)',
-    padding: '4px 12px',
-    borderRadius: 20,
-    fontSize: 12,
-    fontFamily: 'sans-serif',
-    whiteSpace: 'nowrap',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '60px 0',
-    background: 'rgba(0,0,0,0.3)',
-    border: '1px solid rgba(212,175,55,0.2)',
-    borderRadius: 16,
-  },
+    backgroundColor: '#fff',
+  }
 }

@@ -614,6 +614,15 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     })
   }, [joinedPlayers, players, settings, currentTurn])
 
+  // Game phase indicator
+  const gamePhase = useMemo(() => {
+    if (communityCards.length === 0) return 'Pre-Flop'
+    if (communityCards.length === 3) return 'Flop'
+    if (communityCards.length === 4) return 'Turn'
+    if (communityCards.length === 5) return 'River'
+    return ''
+  }, [communityCards])
+
   // Подсказка по руке
   const handHint = useMemo(() => {
     const myCards = myCardsRef.current
@@ -626,7 +635,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       return PokerLogic.getHandName(score)
     }
     if (myCards[0].value === myCards[1].value) {
-      return `Пара ${myCards[0].value}`
+      return `Pair ${myCards[0].value}`
     }
     return null
   }, [players, communityCards])
@@ -653,11 +662,36 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     ? players.find(p => String(p.id) === String(winnerInfo[0]?.id))
     : null
 
+  // If the game size is exactly 5, we use the specific layout from vintage-poker.
+  // Otherwise we fall back to a dynamic circular layout.
+  const getVintagePosition = (index: number, size: number) => {
+    if (size === 5) {
+      switch (index) {
+        case 0: return { top: '-5%', left: '0', transformOrigin: 'top left', scale: '0.55' }
+        case 1: return { top: '-5%', left: '50%', transform: 'translateX(-50%)', transformOrigin: 'top center', scale: '0.55' }
+        case 2: return { top: '-5%', right: '2%', transformOrigin: 'top right', scale: '0.55' }
+        case 3: return { bottom: '15%', right: '2%', transformOrigin: 'bottom right', scale: '0.55' }
+        case 4: return { bottom: '15%', left: '0', transformOrigin: 'bottom left', scale: '0.55' }
+        default: return { top: '50%', left: '50%' }
+      }
+    } else {
+      // Dynamic circular fallback
+      const angle = (index / size) * Math.PI * 2 - Math.PI / 2
+      const rx = 40
+      const ry = 30
+      const x = 50 + rx * Math.cos(angle)
+      const y = 50 + ry * Math.sin(angle)
+      return { top: `${y}%`, left: `${x}%`, transform: 'translate(-50%, -50%)', scale: '0.55' }
+    }
+  }
+
   // Вычисляем сдвиг, чтобы ВЫ (myId) всегда были на нулевой (нижней) позиции
   const myIndex = playersWithState.findIndex(p => p && String(p.id) === myId)
   const shiftAmount = myIndex >= 0 ? myIndex : 0
 
   const rotatedSeats = Array.from({ length: settings.size }).map((_, renderIndex) => {
+      // To mimic the original where seats are just fixed, we won't rotate if we use vintage exact layout
+      // But we still want "me" to be at the bottom if possible. Actually, vintage-poker just renders seat 1 to 5 statically.
       const originalIndex = (renderIndex + shiftAmount) % settings.size;
       return playersWithState[originalIndex]
   })
@@ -665,19 +699,17 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const isHost = joinedPlayers[0]?.id === (user?.id || user?.display_name)
 
   return (
-    <div className="fixed inset-0 text-white overflow-hidden select-none" style={{background:'linear-gradient(160deg,#0d2b1a 0%,#0a1f13 50%,#061209 100%)',fontFamily:"'Georgia',serif"}}>
-      {/* Felt texture */}
-      <div className="absolute inset-0 pointer-events-none" style={{backgroundImage:'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px),repeating-linear-gradient(90deg,transparent,transparent 2px,rgba(0,0,0,0.04) 2px,rgba(0,0,0,0.04) 4px)',opacity:0.6}} />
+    <div className="fixed inset-0 overflow-hidden select-none" style={{backgroundColor: 'hsl(43, 40%, 86%)', color: 'hsl(36, 71%, 3%)', fontFamily: "'Roboto', sans-serif"}}>
       
       {/* HEADER */}
-      <div className="absolute top-0 left-0 w-full px-4 py-3 flex items-center justify-between z-50 pointer-events-auto" style={{background:'rgba(0,0,0,0.6)',borderBottom:'1px solid rgba(212,175,55,0.3)'}}>
+      <div className="absolute top-0 left-0 w-full px-4 py-3 flex items-center justify-between z-50 pointer-events-auto">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-2 rounded-full transition-colors" style={{color:'rgba(212,175,55,0.8)'}}>
+          <button onClick={onBack} className="p-2 rounded-full transition-colors" style={{color: 'hsl(202, 49%, 28%)'}}>
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-base font-black uppercase tracking-widest" style={{color:'#d4af37',fontStyle:'italic'}}>POKERLIVE</h1>
-            <div className="flex items-center gap-2 text-[10px]" style={{color:'rgba(212,175,55,0.5)'}}>
+            <h1 className="text-base font-black uppercase tracking-widest m-0" style={{fontFamily: "'Playfair Display', serif"}}>POKERLIVE</h1>
+            <div className="flex items-center gap-2 text-[10px] font-bold" style={{color: 'hsl(202, 36%, 55%)'}}>
               <Coins className="w-3 h-3" />
               {settings.name} &nbsp;·&nbsp; Blinds: {settings.blind}/{settings.blind * 2}
             </div>
@@ -687,18 +719,18 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         <div className="flex items-center gap-2">
           <button
             onClick={() => { navigator.clipboard.writeText(window.location.href); alert('Ссылка скопирована!') }}
-            className="px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-all"
-            style={{background:'rgba(212,175,55,0.15)',border:'1px solid rgba(212,175,55,0.3)',color:'#d4af37'}}
+            className="px-4 py-2 rounded text-xs font-bold uppercase transition-all"
+            style={{backgroundColor: 'transparent', color: 'hsl(202, 49%, 28%)', border: '1px solid hsl(202, 49%, 28%)'}}
           >
-            ♠ Invite
+            Invite
           </button>
           {gameState === 'waiting' && isHost && (
             <button
               onClick={startNewGame}
-              className="px-6 py-2 rounded font-black uppercase text-xs transition-all"
-              style={{background:'linear-gradient(135deg,#b8860b,#d4af37,#b8860b)',color:'#000',fontStyle:'italic'}}
+              className="px-6 py-2 rounded font-bold uppercase text-xs transition-all"
+              style={{backgroundColor: 'hsl(202, 49%, 28%)', color: 'hsl(40, 100%, 99%)', border: 'none'}}
             >
-              Начать игру
+              Start Game
             </button>
           )}
         </div>
@@ -707,16 +739,16 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       {/* GAME AREA */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-12">
         
-        {/* Table Graphic (Vintage Poker style) */}
-        <img src="/poker/vintage/table.svg" alt="Poker Table" className="w-[85%] max-w-5xl h-auto object-contain pointer-events-none" />
-
-        <div className="absolute inset-0 pointer-events-none">
+        {/* Table Wrapper (vintage PokerTableWrapper) */}
+        <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', width: '100%', height: '100%', margin: '0 auto'}}>
           
-          {/* Center Game Area (Pot & Cards) */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-6">
-            
+          {/* Table Graphic */}
+          <img src="/poker/vintage/table.svg" alt="Poker Table" style={{display: 'block', pointerEvents: 'none', width: '95%', margin: '0 auto', opacity: 1}} />
+
+          {/* Center Game Area */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-4 z-40">
             {/* Community Cards */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center" style={{transform: 'scale(0.8)'}}>
                 <AnimatePresence>
                   {communityCards.map((card, i) => (
                     <motion.div
@@ -729,23 +761,48 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {communityCards.length < 5 && Array.from({ length: 5 - communityCards.length }).map((_, i) => (
-                  <div key={i} className="w-16 h-24 rounded border-2 border-white/10 bg-black/10" />
-                ))}
-              </div>
+            </div>
 
-              {/* Pot Display */}
-              <div className="flex flex-col items-center">
+            {/* Pot Display */}
+            {pot > 0 && (
                 <motion.div 
-                  key={pot}
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="px-6 py-2 rounded flex items-center gap-2"
-                  style={{background:'rgba(0,0,0,0.65)',border:'1px solid rgba(212,175,55,0.4)',boxShadow:'0 0 20px rgba(212,175,55,0.15)'}}
+                  key={pot}
+                  style={{
+                    background: 'linear-gradient(135deg, hsl(49, 63%, 92%), hsl(49, 63%, 85%))',
+                    borderRadius: '2.5rem',
+                    padding: '0.6rem 1.5rem',
+                    border: '2px solid hsl(202, 49%, 28%)',
+                    fontWeight: '900',
+                    fontSize: '1rem',
+                    color: 'hsl(202, 49%, 28%)',
+                    boxShadow: '0 8px 16px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem'
+                  }}
                 >
-                  <span className="font-bold text-xl uppercase tracking-widest" style={{color:'#d4af37',fontStyle:'italic'}}>♦ {pot} ♦</span>
+                  <Coins className="w-4 h-4" />
+                  <span>POT: {pot.toLocaleString()}</span>
                 </motion.div>
+            )}
+
+            {/* Phase Indicator */}
+            {gamePhase && gameState !== 'waiting' && gameState !== 'showdown' && (
+              <div style={{
+                background: 'rgba(202, 49, 28, 0.05)',
+                color: 'hsl(202, 49%, 28%)',
+                fontSize: '0.7rem',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                letterSpacing: '0.2em',
+                marginTop: '-0.5rem'
+              }}>
+                {gamePhase}
               </div>
+            )}
+          </div>
 
                 {/* Showdown Winner */}
                 <AnimatePresence>
@@ -757,7 +814,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                     >
                       <div className="px-8 py-4 rounded-2xl" style={{background:'linear-gradient(135deg,rgba(212,175,55,0.15),rgba(212,175,55,0.3),rgba(212,175,55,0.15))',border:'2px solid rgba(212,175,55,0.6)',boxShadow:'0 0 40px rgba(212,175,55,0.3)'}}>
                         {winnerInfo.map(w => (
-                          <div key={w.id} className="font-black italic text-base md:text-xl uppercase tracking-widest flex items-center gap-3" style={{color:'#d4af37',fontFamily:"'Georgia',serif"}}>
+                          <div key={w.id} className="font-black italic text-base md:text-xl uppercase tracking-widest flex items-center gap-3" style={{color: 'hsl(202, 49%, 28%)', fontFamily: "'Playfair Display', serif"}}>
                             ♛ {players.find(p => p.id === w.id)?.name} — {w.handName}
                           </div>
                         ))}
@@ -765,33 +822,39 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                       {isHost && (
                         <button
                           onClick={startNewGame}
-                          className="mt-4 px-8 py-3 rounded-xl font-black italic uppercase text-sm tracking-widest transition-transform hover:scale-105"
-                          style={{background:'linear-gradient(135deg,#b8860b,#d4af37,#b8860b)',color:'#000',fontFamily:"'Georgia',serif"}}
+                          className="mt-6 px-10 py-4 rounded-full font-black uppercase text-sm tracking-[0.2em] transition-all hover:scale-105 active:scale-95 shadow-xl"
+                          style={{
+                            background: 'hsl(202, 49%, 28%)', 
+                            color: 'hsl(40, 100%, 99%)', 
+                            fontFamily: "'Roboto', sans-serif",
+                            border: 'none'
+                          }}
                         >
-                          СЛЕДУЮЩАЯ РАЗДАЧА →
+                          NEXT ROUND →
                         </button>
                       )}
                     </motion.div>
                   )}
                 </AnimatePresence>
-              </div>
 
             {/* Players Render */}
           {rotatedSeats.map((player, renderIndex) => {
-            const pos = getPlayerPosition(renderIndex, settings.size)
+            const posParams = getVintagePosition(renderIndex, settings.size)
             
             // Render Empty Seat
             if (!player) {
               return (
                 <div
                   key={`empty-${renderIndex}`}
-                  className="absolute z-10 flex flex-col items-center"
-                  style={{ ...pos, transform: pos.transform || 'translate(-50%, -50%)', opacity: 0.35 }}
+                  className="absolute z-10 flex flex-col items-center justify-center"
+                  style={{ 
+                    ...posParams,
+                    width: '120px', height: '120px', borderRadius: '100%',
+                    background: 'rgba(247, 242, 220, 0.8)', border: '5px solid #6297b5',
+                    pointerEvents: 'auto'
+                  }}
                 >
-                  <div className="w-[120px] h-[120px] rounded-full border-2 border-dashed flex flex-col items-center justify-center gap-1" style={{borderColor:'rgba(212,175,55,0.3)',background:'rgba(0,0,0,0.2)'}}>
-                    <Plus className="w-5 h-5" style={{color:'rgba(212,175,55,0.4)'}} />
-                    <span className="text-[10px] font-bold uppercase" style={{color:'rgba(212,175,55,0.4)',fontFamily:'sans-serif'}}>МЕСТО</span>
-                  </div>
+                  <span className="font-bold uppercase text-[10px] text-center" style={{color: 'hsl(36, 71%, 13%)'}}>Empty<br/>Seat</span>
                 </div>
               )
             }
@@ -804,64 +867,55 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className={`absolute z-20 flex flex-col items-center ${isMe ? 'z-40' : ''}`}
-                style={{ ...pos, transform: pos.transform || 'translate(-50%, -50%)' }}
+                style={{ ...posParams }}
               >
-                
+                {/* NameTag Under Seat (vintage style) */}
+                <div className="absolute -top-[70px] bg-white px-3 py-1 rounded" style={{background: 'hsl(49, 63%, 92%)', borderRadius: '2rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', textAlign: 'center', whiteSpace: 'nowrap'}}>
+                  <strong style={{color: 'hsl(202, 49%, 28%)'}}>{player.name} {isMe ? '(You)' : ''}</strong><br/>
+                  <span style={{color: 'hsl(43, 40%, 60%)', fontSize: '0.85rem', fontWeight: 'bold'}}>{player.chips}</span>
+                </div>
+
+                {/* Webcam / Avatar Container (Occupied Seat) */}
+                <div 
+                  className={`relative w-[130px] h-[130px] rounded-full overflow-hidden transition-all duration-300 ${player.folded ? 'grayscale opacity-60' : ''}`}
+                  style={{border: player.isCurrent ? '5px solid #219653' : '5px solid #6297b5', background: '#000'}}
+                >
+                  {/* Time Bank - Make border change to red when time is low */}
+                  {player.isCurrent && (
+                      <motion.div 
+                          initial={{ opacity: 1 }}
+                          animate={{ opacity: timeLeft <= 5 ? [1, 0.5, 1] : 1 }}
+                          transition={{ repeat: Infinity, duration: 0.5 }}
+                          className="absolute inset-0 rounded-full pointer-events-none z-10"
+                          style={{border: `5px solid ${timeLeft <= 5 ? '#ef4444' : 'transparent'}`}}
+                      />
+                  )}
+                  
+                  {settings.withWebcams ? (
+                    <div className="w-full h-full">
+                      {isMe ? (
+                        <LocalVideo stream={localStream} />
+                      ) : (
+                        <RemoteVideo stream={remoteStreams[player.id]} name={player.name} />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-[#fff]">
+                      {isMe && user?.profile_image_url ? (
+                        <img src={user.profile_image_url} alt={player.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-5xl opacity-50">👤</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Dealer Button */}
                 {player.isDealer && (
-                  <div className="absolute -top-2 -right-2 w-7 h-7 font-bold rounded-full flex items-center justify-center text-xs z-40" style={{background:'linear-gradient(135deg,#b8860b,#d4af37)',color:'#000',fontWeight:900,boxShadow:'0 2px 8px rgba(212,175,55,0.5)'}}>
+                  <div className="absolute right-[-20px] top-[50%] -translate-y-1/2 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center shadow-lg border border-gray-300 font-bold z-50">
                     D
                   </div>
                 )}
-
-                {/* Webcam / Avatar Container */}
-                <div className="relative">
-                  <div 
-                    className={`relative w-[120px] h-[120px] rounded-full overflow-hidden transition-all duration-300 ${player.folded ? 'grayscale opacity-40' : ''}`}
-                    style={{border: player.isCurrent ? '4px solid #d4af37' : '4px solid rgba(212,175,55,0.25)', boxShadow: player.isCurrent ? '0 0 20px rgba(212,175,55,0.6)' : 'none', background:'#000'}}
-                  >
-                    {/* Time Bank */}
-                    {player.isCurrent && (
-                        <motion.div 
-                            initial={{ width: '100%' }}
-                            animate={{ width: `${(timeLeft / 20) * 100}%` }}
-                            transition={{ duration: 1, ease: 'linear' }}
-                            className="absolute bottom-0 left-0 h-1 pointer-events-none z-10"
-                            style={{background: timeLeft <= 5 ? '#ef4444' : '#d4af37'}}
-                        />
-                    )}
-                    
-                    {settings.withWebcams ? (
-                      <div className="w-full h-full">
-                        {isMe ? (
-                          <LocalVideo stream={localStream} />
-                        ) : (
-                          <RemoteVideo stream={remoteStreams[player.id]} name={player.name} />
-                        )}
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        {isMe && user?.profile_image_url ? (
-                          <img src={user.profile_image_url} alt={player.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-5xl opacity-50">👤</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Player Info Badge */}
-                  <div className="absolute -bottom-7 left-1/2 -translate-x-1/2 px-3 py-1 rounded text-center whitespace-nowrap min-w-[80%] z-20" style={{background:'rgba(0,0,0,0.8)',border:'1px solid rgba(212,175,55,0.2)'}}>
-                    <div className="text-xs font-bold mb-0.5" style={{color:'#fff',fontFamily:'sans-serif'}}>
-                      {player.isSB && <span style={{color:'#60a5fa'}} className="mr-1">SB</span>}
-                      {player.isBB && <span style={{color:'#f87171'}} className="mr-1">BB</span>}
-                      {player.name} {isMe ? '(ВЫ)' : ''}
-                    </div>
-                    <div className="text-xs font-bold" style={{color:'#d4af37',fontFamily:'sans-serif'}}>
-                      ♣ {player.chips}
-                    </div>
-                  </div>
-                </div>
 
                 {/* Bet Badge */}
                 <AnimatePresence>
@@ -917,32 +971,36 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         </div>
       </div>
 
-      {/* CONTROLS: Vintage Bottom HUD */}
+      {/* CONTROLS: Vintage Bottom HUD (Recreated exactly from GameUI.js) */}
       <div className="absolute bottom-0 left-0 w-full p-4 flex items-end justify-center z-[100] pointer-events-none">
-        <div className="flex items-center justify-between gap-4 w-full max-w-4xl p-4 rounded-xl pointer-events-auto" style={{background:'rgba(0,0,0,0.85)',border:'1px solid rgba(212,175,55,0.3)',boxShadow:'0 -4px 30px rgba(0,0,0,0.5)'}}>
-
-          {/* Balance / Hint */}
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col">
-              <span className="text-xs uppercase font-bold" style={{color:'rgba(212,175,55,0.5)',letterSpacing:'0.1em',fontFamily:'sans-serif'}}>Баланс</span>
-              <span className="text-xl font-bold" style={{color:'#d4af37',fontFamily:'sans-serif'}}>
-                ♣ {players.find(p => String(p.id) === myId)?.chips?.toLocaleString() || '0'}
-              </span>
-            </div>
-            {handHint && (
-              <div className="px-3 py-1.5 rounded" style={{background:'rgba(212,175,55,0.1)',border:'1px solid rgba(212,175,55,0.3)'}}>
-                <span className="text-sm font-bold uppercase" style={{color:'#d4af37',fontFamily:'sans-serif'}}>{handHint}</span>
-              </div>
-            )}
+        <div className="flex items-center justify-center gap-4 w-full max-w-4xl p-4 rounded-3xl pointer-events-auto flex-wrap" style={{background: 'hsl(49, 63%, 92%)', boxShadow: '10px 10px 30px rgba(0, 0, 0, 0.1)', border: '1px solid hsl(43, 40%, 81%)'}}>
+          
+          <div className="flex gap-2 w-full md:w-auto md:flex-1">
+            <input 
+              type="range"
+              min={minRaise}
+              max={maxPossibleRaise}
+              step={settings.blind}
+              value={raiseAmount}
+              onChange={(e) => setRaiseAmount(Number(e.target.value))}
+              className="flex-1"
+              style={{accentColor: 'hsl(202, 49%, 28%)'}}
+            />
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap gap-2 justify-center">
+            <button
+              onClick={() => handleAction('raise', raiseAmount)}
+              disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || (raiseAmount < minRaise && raiseAmount < maxPossibleRaise)}
+              style={{background: 'hsl(202, 49%, 28%)', color: 'hsl(40, 100%, 99%)', border: 'none', borderRadius: '2rem', padding: '0.8rem 1.5rem', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', opacity: (!isMyTurn || gameState === 'waiting') ? 0.5 : 1}}
+            >
+              Raise {raiseAmount}
+            </button>
+
             <button
               onClick={() => handleAction('fold')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="px-6 py-3 rounded font-bold uppercase text-sm transition-colors disabled:opacity-30"
-              style={{background:'rgba(239,68,68,0.15)',border:'1px solid rgba(239,68,68,0.4)',color:'#f87171',fontFamily:'sans-serif'}}
+              style={{background: 'hsl(202, 36%, 55%)', color: 'hsl(40, 100%, 99%)', border: 'none', borderRadius: '2rem', padding: '0.8rem 1.5rem', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', opacity: (!isMyTurn || gameState === 'waiting') ? 0.5 : 1}}
             >
               Fold
             </button>
@@ -950,45 +1008,29 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
             <button
               onClick={() => handleAction(canCheck ? 'check' : 'call')}
               disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
-              className="px-6 py-3 rounded font-bold uppercase text-sm transition-colors disabled:opacity-30"
-              style={{background:'rgba(96,165,250,0.15)',border:'1px solid rgba(96,165,250,0.4)',color:'#60a5fa',fontFamily:'sans-serif'}}
+              style={{background: 'hsl(202, 36%, 55%)', color: 'hsl(40, 100%, 99%)', border: 'none', borderRadius: '2rem', padding: '0.8rem 1.5rem', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', opacity: (!isMyTurn || gameState === 'waiting') ? 0.5 : 1}}
             >
-              {canCheck ? 'Check' : (myBalance <= (currentBet - myCurrentBet) ? 'All In' : `Call ${currentBet - myCurrentBet}`)}
+              {canCheck ? 'Check' : 'Call'}
             </button>
 
-            <div className="flex flex-col min-w-[200px]">
-              <div className="flex items-center px-2 pb-1 gap-2">
-                <input 
-                  type="range"
-                  min={minRaise}
-                  max={maxPossibleRaise}
-                  step={settings.blind}
-                  value={raiseAmount}
-                  onChange={(e) => setRaiseAmount(Number(e.target.value))}
-                  className="flex-1"
-                  style={{accentColor:'#d4af37'}}
-                />
-              </div>
-              <button
-                onClick={() => handleAction('raise', raiseAmount)}
-                disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown' || (raiseAmount < minRaise && raiseAmount < maxPossibleRaise)}
-                className="w-full py-3 rounded font-black uppercase text-sm disabled:opacity-30 transition-colors"
-                style={{background:'linear-gradient(135deg,#b8860b,#d4af37,#b8860b)',color:'#000',fontStyle:'italic',fontFamily:"'Georgia',serif"}}
-              >
-                {raiseAmount >= maxPossibleRaise ? 'All In ♠' : `Raise ${raiseAmount}`}
-              </button>
-            </div>
+            <button
+              onClick={() => handleAction('raise', maxPossibleRaise)}
+              disabled={!isMyTurn || gameState === 'waiting' || gameState === 'showdown'}
+              style={{background: 'hsl(202, 36%, 55%)', color: 'hsl(40, 100%, 99%)', border: 'none', borderRadius: '2rem', padding: '0.8rem 1.5rem', fontWeight: 'bold', textTransform: 'uppercase', cursor: 'pointer', opacity: (!isMyTurn || gameState === 'waiting') ? 0.5 : 1}}
+            >
+              All In
+            </button>
           </div>
 
-          {/* AV Controls */}
-          <div className="flex gap-2">
-            <button onClick={toggleMic} className="p-3 rounded transition-all" style={{background: isMicOn ? 'rgba(212,175,55,0.1)' : 'rgba(239,68,68,0.15)', border: `1px solid ${isMicOn ? 'rgba(212,175,55,0.3)' : 'rgba(239,68,68,0.4)'}`, color: isMicOn ? '#d4af37' : '#f87171'}}>
+          <div className="flex gap-2 justify-end pl-4 border-l border-gray-300">
+            <button onClick={toggleMic} className="p-3 rounded-full transition-all" style={{background: isMicOn ? 'hsl(202, 49%, 28%)' : 'hsl(0, 100%, 56%)', color: '#fff'}}>
               {isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />}
             </button>
-            <button onClick={toggleVideo} className="p-3 rounded transition-all" style={{background: isVideoOn ? 'rgba(212,175,55,0.1)' : 'rgba(239,68,68,0.15)', border: `1px solid ${isVideoOn ? 'rgba(212,175,55,0.3)' : 'rgba(239,68,68,0.4)'}`, color: isVideoOn ? '#d4af37' : '#f87171'}}>
+            <button onClick={toggleVideo} className="p-3 rounded-full transition-all" style={{background: isVideoOn ? 'hsl(202, 49%, 28%)' : 'hsl(0, 100%, 56%)', color: '#fff'}}>
               {isVideoOn ? <Video className="w-5 h-5" /> : <VideoOff className="w-5 h-5" />}
             </button>
           </div>
+
         </div>
       </div>
 
@@ -998,10 +1040,10 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
           <motion.div
             initial={{ scale: 0.8, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            className="px-6 py-2 rounded font-bold text-sm uppercase"
-            style={{background:'linear-gradient(135deg,#b8860b,#d4af37)',color:'#000',fontStyle:'italic',fontFamily:"'Georgia',serif",boxShadow:'0 0 20px rgba(212,175,55,0.5)'}}
+            className="px-6 py-2 rounded-2xl font-bold text-sm uppercase shadow-lg"
+            style={{background: 'hsl(202, 49%, 28%)', color: 'hsl(40, 100%, 99%)', border: '2px solid hsl(202, 36%, 55%)'}}
           >
-            ♠ Твой ход ♠
+            Your Turn
           </motion.div>
         </div>
       )}
@@ -1009,8 +1051,8 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       {/* Waiting State */}
       {gameState === 'waiting' && !isHost && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-50">
-          <div className="px-8 py-4 rounded-2xl font-bold text-sm" style={{background:'rgba(0,0,0,0.85)',border:'1px solid rgba(212,175,55,0.3)',color:'rgba(212,175,55,0.6)',fontStyle:'italic',fontFamily:"'Georgia',serif"}}>
-            ♣ Ожидание начала игры... ♣
+          <div className="px-8 py-4 rounded-2xl font-bold text-sm" style={{background: 'hsl(49, 63%, 92%)', color: 'hsl(36, 71%, 13%)', border: '2px solid hsl(43, 40%, 60%)', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'}}>
+            Waiting for game to start...
           </div>
         </div>
       )}
