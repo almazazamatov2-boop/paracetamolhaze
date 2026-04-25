@@ -86,7 +86,14 @@ export default function PokerConsole() {
   const fetchLobbies = async () => {
     try {
       const { data } = await supabase.from('poker_lobbies').select('*').order('created_at', { ascending: false })
-      if (data) setOpenLobbies(data)
+      if (data) {
+        // Удаляем пустые лобби (где 0 игроков)
+        const emptyLobbies = data.filter(l => l.players_count <= 0)
+        if (emptyLobbies.length > 0) {
+          await supabase.from('poker_lobbies').delete().in('id', emptyLobbies.map(l => l.id))
+        }
+        setOpenLobbies(data.filter(l => l.players_count > 0))
+      }
     } catch (e) {
       console.error(e)
     }
@@ -142,13 +149,13 @@ export default function PokerConsole() {
             className="glass-panel p-10 max-w-md w-full text-center"
         >
           <h1 className="text-5xl font-black mb-8 tracking-tighter italic">POKER<span className="text-[#ff4500]">LIVE</span></h1>
-          <p className="text-white/60 mb-8">Please authorize with Twitch to play at the table.</p>
+          <p className="text-white/60 mb-8">Пожалуйста, авторизуйтесь через Twitch, чтобы войти за стол.</p>
           <button
             className="w-full bg-[#9146ff] hover:bg-[#772ce8] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all"
             onClick={() => window.location.href = '/auth/twitch?source=poker'}
           >
             <LogIn className="w-5 h-5" />
-            LOGIN WITH TWITCH
+            ВОЙТИ ЧЕРЕЗ TWITCH
           </button>
         </motion.div>
       </div>
@@ -176,7 +183,6 @@ export default function PokerConsole() {
           >
             <div className="text-center mb-12">
               <h1 className="text-7xl font-black tracking-tighter italic mb-2">POKER<span className="text-[#ff4500]">LIVE</span></h1>
-              <p className="text-white/40 uppercase tracking-[0.4em] text-xs">Professional Texas Hold'em Overlay</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
@@ -188,10 +194,10 @@ export default function PokerConsole() {
                 <div className="w-12 h-12 bg-[#ff4500]/20 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <Plus className="text-[#ff4500] w-6 h-6" />
                 </div>
-                <h2 className="text-2xl font-bold mb-3">Create Table</h2>
-                <p className="text-white/50 mb-8">Host a new game and invite friends to join your private or public table.</p>
+                <h2 className="text-2xl font-bold mb-3">Создать стол</h2>
+                <p className="text-white/50 mb-8">Создайте новую игру и пригласите друзей за свой приватный или публичный стол.</p>
                 <div className="text-[#ff4500] font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform flex items-center gap-2">
-                  Get Started <span className="text-xl">→</span>
+                  НАЧАТЬ <span className="text-xl">→</span>
                 </div>
               </motion.div>
 
@@ -203,10 +209,10 @@ export default function PokerConsole() {
                 <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                   <Search className="text-blue-500 w-6 h-6" />
                 </div>
-                <h2 className="text-2xl font-bold mb-3">Join Table</h2>
-                <p className="text-white/50 mb-8">Browse active tables and join an existing game with other players.</p>
+                <h2 className="text-2xl font-bold mb-3">Войти в игру</h2>
+                <p className="text-white/50 mb-8">Просмотрите активные столы и присоединитесь к существующей игре.</p>
                 <div className="text-blue-500 font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform flex items-center gap-2">
-                  Browse Lobbies <span className="text-xl">→</span>
+                  СПИСОК ЛОББИ <span className="text-xl">→</span>
                 </div>
               </motion.div>
             </div>
@@ -216,7 +222,7 @@ export default function PokerConsole() {
               onClick={() => window.location.href = '/'}
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to Main
+              Вернуться на главную
             </button>
           </motion.div>
         )}
@@ -231,19 +237,19 @@ export default function PokerConsole() {
           >
             <div className="glass-panel p-10 max-w-2xl w-full">
               <div className="flex justify-between items-center mb-10">
-                <h2 className="text-3xl font-black italic uppercase tracking-tight">Create <span className="text-[#ff4500]">Table</span></h2>
-                <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={() => setView('lobby')}>Cancel</button>
+                <h2 className="text-3xl font-black italic uppercase tracking-tight">Создать <span className="text-[#ff4500]">Стол</span></h2>
+                <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={() => setView('lobby')}>Отмена</button>
               </div>
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Table Name</label>
+                  <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Название стола</label>
                   <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-[#ff4500]/50 transition-colors" value={settings.name} onChange={e => setSettings({...settings, name: e.target.value})} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Seats</label>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Мест</label>
                     <div className="grid grid-cols-4 gap-2">
                       {[2, 5, 6, 9].map(s => (
                         <button
@@ -257,29 +263,33 @@ export default function PokerConsole() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Webcams</label>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Веб-камеры</label>
                     <button
                       className={`w-full py-3 rounded-xl font-bold transition-all border ${settings.withWebcams ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-white/10 bg-white/5 text-white/50'}`}
                       onClick={() => setSettings({...settings, withWebcams: !settings.withWebcams})}
                     >
-                      {settings.withWebcams ? 'ENABLED' : 'DISABLED'}
+                      {settings.withWebcams ? 'ВКЛЮЧЕНЫ' : 'ВЫКЛЮЧЕНЫ'}
                     </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-3 gap-6">
                   <div>
-                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Buy-in</label>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Бай-ин</label>
                     <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-[#ff4500]/50 transition-colors" type="number" value={settings.buyIn} onChange={e => setSettings({...settings, buyIn: parseInt(e.target.value)})} />
                   </div>
                   <div>
-                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Small Blind</label>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">М. Блайнд</label>
                     <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-[#ff4500]/50 transition-colors" type="number" value={settings.blind} onChange={e => setSettings({...settings, blind: parseInt(e.target.value)})} />
+                  </div>
+                  <div>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Анте</label>
+                    <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-[#ff4500]/50 transition-colors" type="number" value={settings.ante} onChange={e => setSettings({...settings, ante: parseInt(e.target.value)})} />
                   </div>
                 </div>
 
                 <button className="w-full bg-[#ff4500] hover:bg-[#e63e00] text-white font-black py-5 rounded-xl transition-all shadow-xl shadow-[#ff4500]/20 mt-6 uppercase tracking-widest" onClick={createRoom}>
-                  START NEW GAME
+                  НАЧАТЬ ИГРУ
                 </button>
               </div>
             </div>
@@ -296,16 +306,16 @@ export default function PokerConsole() {
           >
             <div className="w-full max-w-4xl">
               <div className="flex justify-between items-center mb-10">
-                <h2 className="text-3xl font-black italic uppercase tracking-tight">Active <span className="text-blue-500">Lobbies</span></h2>
+                <h2 className="text-3xl font-black italic uppercase tracking-tight">Активные <span className="text-blue-500">Лобби</span></h2>
                 <div className="flex gap-4">
-                  <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={fetchLobbies}>Refresh</button>
-                  <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={() => setView('lobby')}>Back</button>
+                  <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={fetchLobbies}>Обновить</button>
+                  <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={() => setView('lobby')}>Назад</button>
                 </div>
               </div>
 
               {openLobbies.length === 0 ? (
                 <div className="glass-panel p-20 text-center">
-                  <p className="text-white/40 italic">No active tables found at the moment.</p>
+                  <p className="text-white/40 italic">В данный момент активных столов нет.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -319,8 +329,9 @@ export default function PokerConsole() {
                       <div>
                         <h3 className="text-xl font-bold mb-1 group-hover:text-[#ff4500] transition-colors">{lobby.name}</h3>
                         <div className="flex gap-4 text-xs font-bold uppercase tracking-widest text-white/30">
-                          <span>{lobby.blind}/{lobby.blind * 2} Blinds</span>
-                          <span>{lobby.buy_in} Buy-in</span>
+                          <span>Блайнды {lobby.blind}/{lobby.blind * 2}</span>
+                          <span>Бай-ин {lobby.buy_in}</span>
+                          {lobby.ante > 0 && <span>Анте {lobby.ante}</span>}
                           <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {lobby.players_count}/{lobby.size}</span>
                         </div>
                       </div>
@@ -329,7 +340,7 @@ export default function PokerConsole() {
                           <input 
                             className="bg-white/5 border border-white/10 rounded-lg p-2 outline-none focus:border-[#ff4500]/50 w-32" 
                             type="password" 
-                            placeholder="Password" 
+                            placeholder="Пароль" 
                             value={passwordInput} 
                             onChange={e => setPasswordInput(e.target.value)} 
                           />
@@ -338,7 +349,7 @@ export default function PokerConsole() {
                           className={`px-8 py-3 rounded-xl font-black transition-all ${selectedLobby?.id === lobby.id ? 'bg-[#ff4500] text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                           onClick={() => selectedLobby?.id === lobby.id ? joinLobby(lobby) : setSelectedLobby(lobby)}
                         >
-                          {selectedLobby?.id === lobby.id ? 'JOIN' : 'SELECT'}
+                          {selectedLobby?.id === lobby.id ? 'ВОЙТИ' : 'ВЫБРАТЬ'}
                         </button>
                       </div>
                     </motion.div>
