@@ -3,19 +3,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  ArrowLeft, 
-  Video, 
-  VideoOff, 
-  Mic, 
-  MicOff, 
-  Trophy, 
   Settings as SettingsIcon,
   Users,
   LogOut,
   HelpCircle,
   X,
-  Volume2,
-  Camera
+  Trophy
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import PokerCard from './PokerCard'
@@ -33,34 +26,21 @@ const CHIP_COLORS: Record<number, string> = {
 }
 
 const PokerChip = ({ value, index }: { value: number, index: number }) => {
-  const colorClass = Object.entries(CHIP_COLORS)
-    .reverse()
-    .find(([v]) => value >= Number(v))?.[1] || CHIP_COLORS[1]
-
+  const colorClass = Object.entries(CHIP_COLORS).reverse().find(([v]) => value >= Number(v))?.[1] || CHIP_COLORS[1]
   return (
-    <motion.div
-      initial={{ y: -5, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className={`w-6 h-6 rounded-full border-2 ${colorClass} shadow-md flex items-center justify-center relative`}
-      style={{ marginTop: index > 0 ? -18 : 0, zIndex: 50 + index }}
-    >
+    <div className={`w-6 h-6 rounded-full border-2 ${colorClass} shadow-md flex items-center justify-center relative`} style={{ marginTop: index > 0 ? -18 : 0, zIndex: 50 + index }}>
       <span className="text-[6px] font-black">{value}</span>
-    </motion.div>
+    </div>
   )
 }
 
-const ChipsStack = ({ amount, className = "" }: { amount: number, className?: string }) => {
+const ChipsStack = ({ amount }: { amount: number }) => {
   const denominations = [5000, 1000, 500, 100, 25, 5, 1]
   const chips: number[] = []
   let remaining = amount
-  denominations.forEach(d => {
-    while (remaining >= d && chips.length < 10) {
-      chips.push(d)
-      remaining -= d
-    }
-  })
+  denominations.forEach(d => { while (remaining >= d && chips.length < 10) { chips.push(d); remaining -= d } })
   return (
-    <div className={`flex flex-col-reverse items-center justify-center ${className}`}>
+    <div className="flex flex-col-reverse items-center justify-center">
         {chips.map((val, i) => <PokerChip key={i} value={val} index={i} />)}
     </div>
   )
@@ -70,13 +50,11 @@ interface TableProps {
   roomId: string
   user: { id: string, display_name: string, profile_image_url: string }
   settings: {
-    name: string
-    size: number
     buyIn: number
     blind: number
     withWebcams: boolean
-    password?: string
     ante?: number
+    size: number
   }
   onBack: () => void
 }
@@ -85,218 +63,95 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const [players, setPlayers] = useState<any[]>([])
   const [communityCards, setCommunityCards] = useState<{ suit: string, value: string }[]>([])
   const [pot, setPot] = useState(0)
-  const [gameState, setGameState] = useState<'waiting' | 'preflop' | 'flop' | 'turn' | 'river' | 'showdown'>('waiting')
+  const [gameState, setGameState] = useState<string>('waiting')
   const [raiseAmount, setRaiseAmount] = useState(40)
-  
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({})
   const [peers, setPeers] = useState<Record<string, RTCPeerConnection>>({})
-  
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([])
-  const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([])
-  const [selectedVideo, setSelectedVideo] = useState<string>('')
-  const [selectedAudio, setSelectedAudio] = useState<string>('')
-  
-  const [isMicOn, setIsMicOn] = useState(true)
-  const [isVideoOn, setIsVideoOn] = useState(true)
-  const [volumeMusic, setVolumeMusic] = useState(50)
-  const [volumeSFX, setVolumeSFX] = useState(70)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showHandRanks, setShowHandRanks] = useState(false)
-  
   const [currentBet, setCurrentBet] = useState(0)
   const [currentTurn, setCurrentTurn] = useState<string | null>(null)
   const [joinedPlayers, setJoinedPlayers] = useState<any[]>([])
   const [winnerInfo, setWinnerInfo] = useState<{ id: string; handName: string }[]>([])
+  const [showHandRanks, setShowHandRanks] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const dealerIndexRef = useRef(0)
-  const deckRef = useRef<Card[]>([])
   const fullStateRef = useRef<PokerGameState | null>(null)
-
   const myId = String(user?.id || user?.display_name || '')
 
   // --- LOGIC ---
   const broadcastMessage = (msg: any) => {
-    if (!roomId) return
     supabase.channel(roomId).send({ type: 'broadcast', event: 'game_logic', payload: msg })
     applyGameMessage(msg)
   }
 
   const applyGameMessage = (msg: any) => {
     if (msg.phase !== undefined) setGameState(msg.phase)
-    else if (msg.state !== undefined) setGameState(msg.state)
-    if (msg.players) {
-      const isShowdown = (msg.phase || msg.state) === 'showdown'
-      const sanitized = msg.players.map((p: any) => {
+    if (msg.players) setPlayers(msg.players.map((p: any) => {
+        const isShowdown = (msg.phase || gameState) === 'showdown'
         const isMe = String(p.id) === myId
         let cards = p.cards || []
         if (!isMe && !isShowdown) cards = p.cards?.length > 0 ? p.cards.map(() => ({ suit: 'X', value: 'X' })) : []
         return { ...p, cards }
-      })
-      setPlayers(sanitized)
-    }
+    }))
     if (msg.pot !== undefined) setPot(msg.pot)
     if (msg.communityCards !== undefined) setCommunityCards(msg.communityCards)
     if (msg.currentBet !== undefined) setCurrentBet(msg.currentBet)
     if (msg.currentTurn !== undefined) setCurrentTurn(msg.currentTurn)
     if (msg.winners !== undefined) setWinnerInfo(msg.winners || [])
-    if (msg.players && msg.deck !== undefined) {
-      fullStateRef.current = {
-        players: msg.players, 
-        pot: msg.pot ?? pot,
-        sidePots: msg.sidePots ?? [],
-        currentBet: msg.currentBet ?? currentBet,
-        dealerIndex: msg.dealerIndex ?? dealerIndexRef.current,
-        activePlayerIndex: msg.players.findIndex((p: any) => String(p.id) === String(msg.currentTurn)),
-        phase: msg.phase || msg.state || 'waiting',
-        communityCards: msg.communityCards ?? communityCards,
-        lastRaiserId: msg.lastRaiserId ?? null,
-        deck: msg.deck,
-        winners: msg.winners,
-      }
-    }
   }
 
   const handleAction = (action: 'fold' | 'call' | 'raise' | 'check', amount?: number) => {
     if (!fullStateRef.current) return
     const nextState = PokerLogic.handleAction(fullStateRef.current, myId, action, amount)
     fullStateRef.current = nextState
-    broadcastMessage({
-      phase: nextState.phase,
-      players: nextState.players,
-      pot: nextState.pot,
-      currentBet: nextState.currentBet,
-      currentTurn: nextState.players[nextState.activePlayerIndex]?.id,
-      communityCards: nextState.communityCards,
-      deck: nextState.deck,
-      winners: nextState.winners || [],
-    })
+    broadcastMessage({ phase: nextState.phase, players: nextState.players, pot: nextState.pot, currentBet: nextState.currentBet, currentTurn: nextState.players[nextState.activePlayerIndex]?.id, communityCards: nextState.communityCards, winners: nextState.winners || [] })
   }
 
   const startNewGame = () => {
     if (joinedPlayers.length < 2) return
-    const playersWithChips = joinedPlayers.map(jp => {
-      const prev = players.find(p => String(p.id) === String(jp.id))
-      return { ...jp, chips: prev?.chips && prev.chips > 0 ? prev.chips : settings.buyIn }
-    })
+    const playersWithChips = joinedPlayers.map(jp => ({ ...jp, chips: settings.buyIn }))
     dealerIndexRef.current = (dealerIndexRef.current + 1) % playersWithChips.length
     const newState = PokerLogic.prepareNewHand(playersWithChips, dealerIndexRef.current, settings.blind, settings.buyIn, settings.ante || 0)
-    broadcastMessage({
-      phase: newState.phase,
-      players: newState.players,
-      pot: newState.pot,
-      currentBet: newState.currentBet,
-      currentTurn: newState.players[newState.activePlayerIndex]?.id,
-      communityCards: newState.communityCards,
-      deck: newState.deck,
-      dealerIndex: newState.dealerIndex,
-    })
+    fullStateRef.current = newState
+    broadcastMessage({ phase: newState.phase, players: newState.players, pot: newState.pot, currentBet: newState.currentBet, currentTurn: newState.players[newState.activePlayerIndex]?.id, communityCards: newState.communityCards, dealerIndex: newState.dealerIndex })
   }
 
-  // --- WEBRTC ---
-  const createPeer = (targetId: string, stream: MediaStream) => {
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
-    stream.getTracks().forEach(track => pc.addTrack(track, stream))
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        supabase.channel(roomId).send({ type: 'broadcast', event: 'webrtc', payload: { type: 'candidate', from: myId, to: targetId, candidate: event.candidate } })
-      }
-    }
-    pc.ontrack = (event) => setRemoteStreams(prev => ({ ...prev, [targetId]: event.streams[0] }))
-    return pc
-  }
-
+  // --- WEBRTC & PRESENCE ---
   useEffect(() => {
-    if (!user || !roomId) return
     const channel = supabase.channel(roomId, { config: { presence: { key: myId } } })
-    channel
-      .on('presence', { event: 'sync' }, async () => {
-        const state = channel.presenceState()
-        const onlineUsers = Object.values(state).flat() as any[]
-        const uniqueUsers = Array.from(new Map(onlineUsers.map(u => [u.id, u])).values())
+    channel.on('presence', { event: 'sync' }, () => {
+        const uniqueUsers = Array.from(new Map((Object.values(channel.presenceState()).flat() as any[]).map(u => [u.id, u])).values())
         setJoinedPlayers(uniqueUsers)
-        if (uniqueUsers[0]?.id === myId) {
-          supabase.from('poker_lobbies').update({ players_count: uniqueUsers.length }).eq('id', roomId).then()
-        }
-        if (localStream) {
-          uniqueUsers.forEach(async (u) => {
-            const uId = String(u.id)
-            if (uId !== myId && !peers[uId]) {
-              const pc = createPeer(uId, localStream)
-              const offer = await pc.createOffer()
-              await pc.setLocalDescription(offer)
-              setPeers(prev => ({ ...prev, [uId]: pc }))
-              channel.send({ type: 'broadcast', event: 'webrtc', payload: { type: 'offer', from: myId, to: uId, offer } })
-            }
-          })
-        }
-      })
-      .on('broadcast', { event: 'game_logic' }, (payload) => applyGameMessage(payload.payload))
-      .on('broadcast', { event: 'webrtc' }, async (payload) => {
-        const { type, from, to, offer, answer, candidate } = payload.payload
-        if (to !== myId) return
-        if (type === 'offer') {
-          const pc = createPeer(from, localStream!)
-          await pc.setRemoteDescription(new RTCSessionDescription(offer))
-          const ans = await pc.createAnswer()
-          await pc.setLocalDescription(ans)
-          setPeers(prev => ({ ...prev, [from]: pc }))
-          channel.send({ type: 'broadcast', event: 'webrtc', payload: { type: 'answer', from: myId, to: from, answer: ans } })
-        } else if (type === 'answer') {
-          await peers[from]?.setRemoteDescription(new RTCSessionDescription(answer))
-        } else if (type === 'candidate') {
-          await peers[from]?.addIceCandidate(new RTCIceCandidate(candidate))
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({ id: user.id || user.display_name, display_name: user.display_name, profile_image_url: user.profile_image_url })
-        }
-      })
+    })
+    .on('broadcast', { event: 'game_logic' }, (payload) => applyGameMessage(payload.payload))
+    .subscribe(async (status) => { if (status === 'SUBSCRIBED') await channel.track({ id: user.id, display_name: user.display_name, profile_image_url: user.profile_image_url }) })
     return () => { channel.unsubscribe() }
-  }, [user, roomId, localStream])
-
-  // --- MEDIA ---
-  useEffect(() => {
-    const loadDevices = async () => {
-      const devices = await navigator.mediaDevices.enumerateDevices()
-      setVideoDevices(devices.filter(d => d.kind === 'videoinput'))
-      setAudioDevices(devices.filter(d => d.kind === 'audioinput'))
-    }
-    loadDevices()
-  }, [])
+  }, [roomId])
 
   useEffect(() => {
     if (!settings.withWebcams) return
-    const constraints = {
-      video: selectedVideo ? { deviceId: { exact: selectedVideo } } : true,
-      audio: selectedAudio ? { deviceId: { exact: selectedAudio } } : true
-    }
-    navigator.mediaDevices.getUserMedia(constraints)
-      .then(stream => {
-        if (localStream) localStream.getTracks().forEach(t => t.stop())
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
         setLocalStream(stream)
         if (videoRef.current) videoRef.current.srcObject = stream
-      })
-  }, [settings.withWebcams, selectedVideo, selectedAudio])
+    })
+  }, [])
 
-  // --- POSITIONING (FIXED - NO ROTATION) ---
+  // --- EXACT PIXEL COORDINATES ---
   const getPlayerPosition = (index: number) => {
-    // Exact positions to match the perfect photo (around the oval)
     const positions = [
-        { top: '82%', left: '50%' }, // Bottom Mid (Seat 1)
-        { top: '75%', left: '25%' }, // Bottom Left (Seat 2)
-        { top: '55%', left: '12%' }, // Mid Left (Seat 3)
-        { top: '35%', left: '12%' }, // Top Left (Seat 4)
-        { top: '16%', left: '38%' }, // Top Mid Left (Seat 5)
-        { top: '16%', left: '62%' }, // Top Mid Right (Seat 6)
-        { top: '35%', left: '88%' }, // Top Right (Seat 7)
-        { top: '55%', left: '88%' }, // Mid Right (Seat 8)
-        { top: '75%', left: '75%' }, // Bottom Right (Seat 9)
+        { left: 890, top: 760 }, // YOU (Bottom Center)
+        { left: 580, top: 650 }, // Bottom Left
+        { left: 450, top: 420 }, // Left
+        { left: 580, top: 260 }, // Top Left
+        { left: 890, top: 180 }, // Top Center
+        { left: 1200, top: 260 }, // Top Right
+        { left: 1320, top: 420 }, // Right
+        { left: 1200, top: 650 }, // Bottom Right
+        { left: 1450, top: 760 }, // (Extra seat if 9)
     ]
     const p = positions[index % positions.length]
-    return { ...p, transform: 'translate(-50%, -50%)' }
+    return { left: `${p.left}px`, top: `${p.top}px`, position: 'absolute' as const }
   }
 
   const isMyTurn = String(currentTurn) === myId
@@ -304,162 +159,131 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
   const canCheck = (myPlayer?.bet || 0) >= currentBet
 
   return (
-    <div className="fixed inset-0 overflow-hidden select-none text-white font-sans bg-[#0c0c0c]">
-      {/* BACKGROUND */}
-      <div className="absolute inset-0 opacity-60 pointer-events-none" style={{ backgroundImage: `radial-gradient(circle at 50% 40%, #2a1b12 0%, #000 100%)` }} />
-      <div className="absolute inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
-
+    <div className="fixed inset-0 w-[1920px] h-[1080px] bg-[#2b1e14] overflow-hidden select-none text-white font-sans left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 origin-center scale-[0.8] 2xl:scale-100">
+      
       {/* TOP LEFT INFO */}
-      <div className="absolute top-6 left-6 z-40 glass-panel p-4 min-w-[200px] border-white/5 bg-black/60 shadow-2xl">
-        <div className="text-xs font-black text-white/50 uppercase tracking-[0.2em] mb-1">NL Hold'em</div>
-        <div className="text-2xl font-black text-white tracking-tighter">${settings.blind.toFixed(2)} / ${(settings.blind * 2).toFixed(2)}</div>
-        <div className="mt-3 pt-3 border-t border-white/5 text-[9px] font-black text-white/30 uppercase tracking-widest space-y-1">
-          <div className="flex justify-between"><span>Рука:</span> <span className="text-white/60">#45678912</span></div>
-          <div className="flex justify-between"><span>Время:</span> <span className="text-white/60">{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span></div>
-        </div>
+      <div className="absolute left-[60px] top-[40px] z-40">
+        <div className="text-2xl font-bold opacity-80 mb-1">NL Hold'em</div>
+        <div className="text-[28px] font-bold">${settings.blind.toFixed(2)} / ${(settings.blind * 2).toFixed(2)}</div>
       </div>
 
       {/* TOP RIGHT BUTTONS */}
-      <div className="absolute top-6 right-6 z-40 flex gap-3">
-        <button onClick={() => setShowSettings(true)} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-white/10 border-white/5 bg-black/60 shadow-xl group"><SettingsIcon className="w-5 h-5 mb-1 text-white/40 group-hover:text-white" /><span className="text-[9px] font-black text-white/40 group-hover:text-white uppercase tracking-widest">Настройки</span></button>
-        <button onClick={onBack} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-white/10 border-white/5 bg-black/60 shadow-xl group"><Users className="w-5 h-5 mb-1 text-white/40 group-hover:text-white" /><span className="text-[9px] font-black text-white/40 group-hover:text-white uppercase tracking-widest">Лобби</span></button>
-        <button onClick={onBack} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-red-500/20 border-white/5 bg-black/60 shadow-xl group"><LogOut className="w-5 h-5 mb-1 text-white/40 group-hover:text-red-500" /><span className="text-[9px] font-black text-white/40 group-hover:text-red-500 uppercase tracking-widest">Выйти</span></button>
-      </div>
-
-      {/* TABLE */}
-      <div className="absolute inset-0 flex items-center justify-center p-20">
-        <div className="relative w-full max-w-[1100px] aspect-[2.1/1] rounded-[280px] border-[18px] border-[#31251e] shadow-[0_50px_120px_rgba(0,0,0,1)] overflow-hidden">
-            <div className="absolute inset-0 bg-[#063b2a]" style={{ backgroundImage: `radial-gradient(circle at 50% 50%, #0a4f38 0%, #052a20 100%)` }} />
-            <div className="absolute inset-[24px] border border-white/10 rounded-[254px] pointer-events-none shadow-[inset_0_0_40px_rgba(0,0,0,0.5)]" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-10">
-                <div className="flex gap-4">
-                    {communityCards.map((card, i) => <motion.div key={i} initial={{ scale: 0.8, opacity: 0, rotateY: 90 }} animate={{ scale: 1, opacity: 1, rotateY: 0 }} transition={{ delay: i * 0.1 }}><PokerCard suit={card.suit as any} value={card.value as any} className="w-20 h-30 shadow-2xl" /></motion.div>)}
-                    {Array.from({ length: 5 - communityCards.length }).map((_, i) => <div key={i} className="w-20 h-30 rounded-xl border border-white/5 bg-black/10 shadow-inner" />)}
-                </div>
-                <div className="bg-black/70 px-12 py-3.5 rounded-2xl border border-white/10 shadow-2xl"><span className="text-2xl font-black italic text-white uppercase"><span className="text-white/40 not-italic mr-2">БАНК:</span> ${pot.toFixed(2)}</span></div>
-            </div>
-        </div>
-
-        {/* PLAYERS */}
-        <div className="absolute inset-0 pointer-events-none">
-            {joinedPlayers.map((presencePlayer, i) => {
-                if (!presencePlayer) return null
-                const pId = String(presencePlayer.id)
-                const isMe = pId === myId
-                const gp = players.find(p => String(p.id) === pId)
-                const pos = getPlayerPosition(i)
-                
-                return (
-                    <motion.div key={pId} className="absolute pointer-events-auto" style={pos}>
-                        <div className={`relative flex gap-4 ${gp?.folded ? 'opacity-30 grayscale' : ''}`}>
-                            <div className="flex flex-col gap-1 justify-center">
-                                {gp?.cards?.map((card: any, idx: number) => <motion.div key={idx} initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: idx * 0.1 }}><PokerCard suit={card.suit as any} value={card.value as any} isFlipped={card.suit === 'X'} className="w-12 h-18 shadow-2xl rounded-sm" /></motion.div>)}
-                            </div>
-                            <div className={`relative w-40 h-52 glass-panel overflow-hidden border-2 transition-all duration-500 shadow-2xl ${pId === String(currentTurn) ? 'border-[#ff4500] ring-[8px] ring-[#ff4500]/20 scale-105 z-30' : 'border-white/10'}`}>
-                                {gp?.isDealer && <div className="absolute top-2 right-2 z-20 w-6 h-6 bg-white text-black rounded-full flex items-center justify-center text-[10px] font-black shadow-lg">D</div>}
-                                <div className="h-[82%] bg-[#080808] relative group">
-                                    {isMe && settings.withWebcams ? (
-                                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror bg-black" />
-                                    ) : (
-                                        remoteStreams[pId] ? (
-                                            <video autoPlay playsInline className="w-full h-full object-cover bg-black" ref={el => { if (el) el.srcObject = remoteStreams[pId] }} />
-                                        ) : (
-                                            <img src={presencePlayer.profile_image_url || '/poker/assets/ninja.png'} className="w-full h-full object-cover opacity-60" alt="" />
-                                        )
-                                    )}
-                                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90" />
-                                </div>
-                                <div className="absolute bottom-0 left-0 w-full p-2.5 text-center bg-black/95 border-t border-white/5">
-                                    <div className="text-[10px] font-black truncate text-white uppercase tracking-widest">{presencePlayer.display_name} {isMe && '(Вы)'}</div>
-                                    <div className="text-[13px] font-black text-green-500 mt-0.5">${(gp?.chips ?? settings.buyIn).toFixed(2)}</div>
-                                </div>
-                            </div>
-                            {gp?.bet > 0 && <div className="absolute -top-24 left-1/2 -translate-x-1/2 flex flex-col items-center"><ChipsStack amount={gp.bet} /><div className="mt-2 bg-black/80 px-4 py-1.5 rounded-full text-[11px] font-black text-white border border-white/10 italic tracking-tighter">${gp.bet.toFixed(2)}</div></div>}
-                        </div>
-                    </motion.div>
-                )
-            })}
-        </div>
-      </div>
-
-      {/* BOTTOM LEFT OPTIONS */}
-      <div className="absolute bottom-8 left-8 z-40 glass-panel p-6 border-white/5 bg-black/80 space-y-4 min-w-[220px] shadow-2xl">
-        {['Фолд на любую ставку', 'Пропускать раздачи', 'Авто-докупка'].map((label, idx) => (
-            <label key={idx} className="flex items-center gap-3 cursor-pointer group">
-                <input type="checkbox" className="peer appearance-none w-5 h-5 rounded border-2 border-white/10 bg-white/5 checked:bg-[#ff4500] checked:border-[#ff4500] transition-all cursor-pointer" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/30 group-hover:text-white transition-colors">{label}</span>
-            </label>
+      <div className="absolute right-[60px] top-[40px] z-40 flex gap-4">
+        {[ {icon: <SettingsIcon />, label: 'Настройки'}, {icon: <Users />, label: 'Лобби'}, {icon: <LogOut />, label: 'Выйти'} ].map((b, i) => (
+            <button key={i} onClick={i > 0 ? onBack : undefined} className="w-[90px] h-[90px] bg-black/50 border border-white/10 rounded-xl flex flex-col items-center justify-center group hover:bg-white/10 transition-all">
+                <div className="text-white/40 group-hover:text-white mb-1">{b.icon}</div>
+                <div className="text-[10px] font-bold text-white/40 group-hover:text-white uppercase">{b.label}</div>
+            </button>
         ))}
       </div>
 
-      {/* HUD (FIXED VISIBILITY) */}
-      <div className="absolute bottom-8 right-8 z-50 flex items-end gap-3">
-          <button onClick={() => setShowHandRanks(true)} className="w-16 h-16 glass-panel flex items-center justify-center hover:bg-white/10 transition-all border-white/10 bg-black/80 shadow-2xl group"><HelpCircle className="w-6 h-6 text-white/20 group-hover:text-white" /></button>
-          
-          {/* Always show HUD panel if in a game phase, but disable buttons if not turn */}
-          <AnimatePresence>
-            {(gameState !== 'waiting' && gameState !== 'showdown') && (
-              <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="flex flex-col items-end gap-4">
-                <div className={`glass-panel p-6 bg-black/95 border-white/10 shadow-2xl w-[580px] transition-opacity ${isMyTurn ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                    <div className="flex gap-4 mb-6 h-18">
-                        <button onClick={() => handleAction('fold')} className="flex-1 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/20 text-xl font-black italic uppercase transition-all shadow-xl">ФОЛД</button>
-                        {canCheck ? (
-                            <button onClick={() => handleAction('check')} className="flex-1 rounded-xl bg-green-950/40 hover:bg-green-900/60 border border-green-500/20 text-xl font-black italic uppercase transition-all shadow-xl">ЧЕК</button>
-                        ) : (
-                            <button onClick={() => handleAction('call')} className="flex-1 rounded-xl bg-green-950/40 hover:bg-green-900/60 border border-green-500/20 text-xl font-black italic uppercase flex flex-col items-center justify-center shadow-xl">
-                                <span>КОЛЛ</span><span className="text-[10px] font-bold text-green-400 mt-1">${(currentBet - (myPlayer?.bet || 0)).toFixed(2)}</span>
-                            </button>
-                        )}
-                        <button onClick={() => handleAction('raise', raiseAmount)} className="flex-1 rounded-xl bg-green-950/40 hover:bg-green-900/60 border border-green-500/20 text-xl font-black italic uppercase flex flex-col items-center justify-center shadow-xl">
-                            <span>РЕЙЗ ДО</span><span className="text-[10px] font-bold text-green-400 mt-1">${raiseAmount.toFixed(2)}</span>
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-6 mb-6 px-2">
-                        <button onClick={() => setRaiseAmount(prev => Math.max(prev - settings.blind, currentBet * 2))} className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-full">-</button>
-                        <input type="range" min={currentBet * 2} max={myPlayer?.chips + (myPlayer?.bet || 0)} step={settings.blind} value={raiseAmount} onChange={(e) => setRaiseAmount(parseInt(e.target.value))} className="flex-1 h-1.5 bg-white/10 appearance-none accent-[#ff4500]" />
-                        <button onClick={() => setRaiseAmount(prev => prev + settings.blind)} className="w-10 h-10 flex items-center justify-center bg-white/5 rounded-full">+</button>
-                        <div className="w-24 bg-black/60 border border-white/10 rounded-lg p-2.5 text-center text-sm font-black italic text-[#ff4500]">${raiseAmount.toFixed(2)}</div>
-                    </div>
-                    <div className="grid grid-cols-5 gap-2">{['МИН', '1/2', '2/3', 'ПОТ', 'МАКС'].map(label => (<button key={label} className="py-2.5 bg-white/5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white/20 border border-white/5">{label}</button>))}</div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+      {/* POKER TABLE OVAL */}
+      <div className="absolute left-[500px] top-[280px] w-[920px] height-[520px] h-[520px] bg-[#1f4d2b] rounded-[460px] border-[15px] border-[#3d2a1d] shadow-[inset_0_0_80px_rgba(0,0,0,0.9)] overflow-hidden">
+            {/* Center Area */}
+            <div className="absolute top-[210px] left-1/2 -translate-x-1/2 bg-black/40 px-6 py-2 rounded-xl text-xl font-bold">
+                Банк: ${pot.toFixed(2)}
+            </div>
+
+            {/* Card Slots */}
+            <div className="absolute top-[240px] left-1/2 -translate-x-1/2 flex gap-[10px]">
+                {Array.from({ length: 5 }).map((_, i) => {
+                    const card = communityCards[i]
+                    return (
+                        <div key={i} className="w-[60px] h-[85px] bg-[#2e6b3c] border border-white/10 rounded-lg flex items-center justify-center">
+                            {card && <PokerCard suit={card.suit as any} value={card.value as any} className="w-full h-full" />}
+                        </div>
+                    )
+                })}
+            </div>
       </div>
 
-      {/* SETTINGS MODAL */}
-      <AnimatePresence>{showSettings && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="glass-panel p-10 max-w-lg w-full bg-[#111] border-white/10">
-                <div className="flex justify-between items-center mb-10"><h2 className="text-3xl font-black italic uppercase tracking-tighter text-[#ff4500]">Настройки</h2><button onClick={() => setShowSettings(false)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-6 h-6 text-white/40" /></button></div>
-                <div className="space-y-10">
-                    <div className="grid grid-cols-1 gap-6">
-                        <div><label className="block text-[10px] font-black uppercase text-white/30 mb-4">Выберите камеру</label><select value={selectedVideo} onChange={e => setSelectedVideo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none text-sm font-bold"><option value="">По умолчанию</option>{videoDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label}</option>)}</select></div>
-                        <div><label className="block text-[10px] font-black uppercase text-white/30 mb-4">Выберите микрофон</label><select value={selectedAudio} onChange={e => setSelectedAudio(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none text-sm font-bold"><option value="">По умолчанию</option>{audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label}</option>)}</select></div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => setIsVideoOn(!isVideoOn)} className={`flex items-center justify-center gap-3 py-4 rounded-xl font-black text-xs uppercase border-2 ${isVideoOn ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>{isVideoOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}{isVideoOn ? 'Видео ВКЛ' : 'Видео ВЫКЛ'}</button>
-                        <button onClick={() => setIsMicOn(!isMicOn)} className={`flex items-center justify-center gap-3 py-4 rounded-xl font-black text-xs uppercase border-2 ${isMicOn ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>{isMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}{isMicOn ? 'Мик ВКЛ' : 'Мик ВЫКЛ'}</button>
-                    </div>
-                </div>
-            </motion.div>
-          </motion.div>
-      )}</AnimatePresence>
+      {/* PLAYERS */}
+      {joinedPlayers.map((presencePlayer, i) => {
+          const pId = String(presencePlayer.id)
+          const isMe = pId === myId
+          const gp = players.find(p => String(p.id) === pId)
+          const pos = getPlayerPosition(i)
+          
+          return (
+              <div key={pId} style={pos} className={`w-[140px] flex flex-col items-center z-30 transition-all ${gp?.folded ? 'opacity-30 grayscale' : ''}`}>
+                  {/* Video/Avatar Box */}
+                  <div className={`w-[140px] h-[100px] bg-[#121212] rounded-lg border-2 ${isMe ? 'border-orange-500 shadow-[0_0_15px_rgba(243,156,18,0.3)]' : 'border-white/10'} overflow-hidden relative`}>
+                      {isMe ? <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" /> : <img src={presencePlayer.profile_image_url || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + pId} className="w-full h-full object-cover" />}
+                      <div className="absolute bottom-0 left-0 w-full bg-black/60 p-1 text-[10px] text-center font-bold truncate">{presencePlayer.display_name}</div>
+                      {gp?.isDealer && <div className="absolute top-1 right-1 w-5 h-5 bg-white text-black rounded-full flex items-center justify-center text-[10px] font-black">D</div>}
+                  </div>
+                  
+                  {/* Cards & Chips */}
+                  <div className="mt-1 font-bold text-green-500">${(gp?.chips ?? settings.buyIn).toFixed(2)}</div>
+                  <div className="flex gap-1 mt-1">
+                      {gp?.cards?.map((c: any, ci: number) => <PokerCard key={ci} suit={c.suit} value={c.value} isFlipped={c.suit === 'X'} className="w-8 h-12 rounded shadow-lg" />)}
+                  </div>
+                  
+                  {/* Bet Amount */}
+                  {gp?.bet > 0 && (
+                      <div className="absolute -top-16 flex flex-col items-center">
+                          <ChipsStack amount={gp.bet} />
+                          <div className="bg-black/80 px-3 py-0.5 rounded-full text-[10px] font-bold text-white mt-1 border border-white/5">${gp.bet.toFixed(2)}</div>
+                      </div>
+                  )}
+              </div>
+          )
+      })}
+
+      {/* BETTING PANEL */}
+      <div className="absolute left-[1450px] top-[700px] w-[410px] height-[280px] bg-[#121212]/95 border border-white/10 rounded-xl p-6 shadow-2xl flex flex-col justify-between z-50 transition-opacity" style={{ opacity: isMyTurn ? 1 : 0.5, pointerEvents: isMyTurn ? 'auto' : 'none' }}>
+            <div className="flex gap-3 h-[60px]">
+                <button onClick={() => handleAction('fold')} className="flex-1 bg-[#b03030] rounded-lg font-bold text-lg hover:opacity-80">ФОЛД</button>
+                <button onClick={() => handleAction('call')} className="flex-1 bg-[#2d9cdb] rounded-lg font-bold text-lg hover:opacity-80 flex flex-col items-center justify-center">
+                    КОЛЛ
+                    <small className="text-xs opacity-70 mt-1">${(currentBet - (myPlayer?.bet || 0)).toFixed(2)}</small>
+                </button>
+                <button onClick={() => handleAction('raise', raiseAmount)} className="flex-1 bg-[#2ecc71] rounded-lg font-bold text-lg hover:opacity-80 flex flex-col items-center justify-center">
+                    РЕЙЗ ДО
+                    <small className="text-xs opacity-70 mt-1">${raiseAmount.toFixed(2)}</small>
+                </button>
+            </div>
+
+            <div className="my-5 flex items-center gap-4">
+                <button onClick={() => setRaiseAmount(p => Math.max(p - settings.blind, currentBet * 2))} className="w-10 h-10 rounded-full bg-white/10 text-xl font-bold">-</button>
+                <input type="range" min={currentBet * 2} max={myPlayer?.chips + (myPlayer?.bet || 0)} step={settings.blind} value={raiseAmount} onChange={(e) => setRaiseAmount(Number(e.target.value))} className="flex-1 h-1 bg-white/10 accent-green-500 appearance-none" />
+                <button onClick={() => setRaiseAmount(p => p + settings.blind)} className="w-10 h-10 rounded-full bg-white/10 text-xl font-bold">+</button>
+                <div className="w-24 bg-black/60 border border-white/10 rounded-lg p-2 text-center text-orange-400 font-bold">${raiseAmount.toFixed(2)}</div>
+            </div>
+
+            <div className="flex gap-2">
+                {['МИН', '1/2', '2/3', 'ПОТ', 'МАКС'].map(l => <button key={l} className="flex-1 bg-white/5 border border-white/5 py-2 rounded-lg text-[10px] font-bold text-white/50 hover:text-white transition-all">{l}</button>)}
+            </div>
+      </div>
+
+      {/* BOTTOM LEFT OPTIONS */}
+      <div className="absolute left-[60px] bottom-[60px] bg-black/60 p-5 rounded-xl flex flex-col gap-3 border border-white/5 z-40">
+          <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-green-500" /> Фолд на любую ставку</label>
+          <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer"><input type="checkbox" defaultChecked className="w-4 h-4 accent-green-500" /> Пропускать раздачи</label>
+          <label className="flex items-center gap-3 text-sm text-white/70 cursor-pointer"><input type="checkbox" className="w-4 h-4 accent-green-500" /> Авто-докупка</label>
+      </div>
+
+      {/* HELP BUTTON */}
+      <button onClick={() => setShowHandRanks(true)} className="absolute right-[60px] bottom-[60px] w-14 h-14 bg-black/60 rounded-full flex items-center justify-center text-white/20 hover:text-white transition-colors border border-white/5 z-40">
+          <HelpCircle className="w-7 h-7" />
+      </button>
 
       {/* WINNER OVERLAY */}
-      <AnimatePresence>{winnerInfo.length > 0 && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-2xl">
-             <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="glass-panel p-16 text-center border-[#ff4500]/50 bg-black/60 shadow-2xl max-w-lg w-full">
-                <Trophy className="w-20 h-20 text-yellow-500 mx-auto mb-8 animate-bounce" />
-                <h2 className="text-5xl font-black italic uppercase tracking-tighter mb-4 text-white">ПОБЕДИТЕЛЬ!</h2>
-                <div className="text-3xl font-black text-[#ff4500] mb-6 uppercase tracking-widest">{players.find(p => p.id === winnerInfo[0]?.id)?.name || 'Кто-то'}</div>
-                <div className="text-white/40 font-black uppercase tracking-[0.4em] mb-12 text-sm">{winnerInfo[0]?.handName}</div>
-                {joinedPlayers[0]?.id === myId && (<button onClick={startNewGame} className="w-full bg-[#ff4500] hover:bg-[#e63e00] text-white font-black py-5 rounded-2xl transition-all shadow-2xl shadow-[#ff4500]/40 uppercase tracking-widest text-xl italic">Следующая раздача</button>)}
-             </motion.div>
+      <AnimatePresence>
+        {winnerInfo.length > 0 && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-xl">
+             <div className="bg-black/60 p-16 rounded-[40px] border border-orange-500/50 text-center shadow-[0_0_100px_rgba(255,165,0,0.2)]">
+                <Trophy className="w-20 h-20 text-yellow-500 mx-auto mb-6 animate-bounce" />
+                <h2 className="text-5xl font-black italic uppercase tracking-tighter mb-4">ПОБЕДИТЕЛЬ!</h2>
+                <div className="text-3xl font-bold text-orange-500 uppercase">{players.find(p => p.id === winnerInfo[0]?.id)?.name || 'Кто-то'}</div>
+                <div className="text-white/40 uppercase tracking-[0.4em] mt-2 mb-12 text-sm">{winnerInfo[0]?.handName}</div>
+                {joinedPlayers[0]?.id === myId && (<button onClick={startNewGame} className="w-full bg-orange-500 hover:bg-orange-600 py-5 rounded-2xl font-black text-xl italic uppercase tracking-widest shadow-2xl">Следующая раздача</button>)}
+             </div>
           </motion.div>
-      )}</AnimatePresence>
+        )}
+      </AnimatePresence>
 
-      <style jsx global>{`
+      <style jsx>{`
         .mirror { transform: scaleX(-1); }
       `}</style>
     </div>
