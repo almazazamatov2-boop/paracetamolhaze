@@ -194,7 +194,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     })
   }
 
-  // --- WEBRTC SIGNALING ---
+  // --- WEBRTC ---
   const createPeer = (targetId: string, stream: MediaStream) => {
     const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
     stream.getTracks().forEach(track => pc.addTrack(track, stream))
@@ -203,29 +203,22 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
         supabase.channel(roomId).send({ type: 'broadcast', event: 'webrtc', payload: { type: 'candidate', from: myId, to: targetId, candidate: event.candidate } })
       }
     }
-    pc.ontrack = (event) => {
-      setRemoteStreams(prev => ({ ...prev, [targetId]: event.streams[0] }))
-    }
+    pc.ontrack = (event) => setRemoteStreams(prev => ({ ...prev, [targetId]: event.streams[0] }))
     return pc
   }
 
-  // --- PRESENCE & WEBRTC ---
   useEffect(() => {
     if (!user || !roomId) return
     const channel = supabase.channel(roomId, { config: { presence: { key: myId } } })
-    
     channel
       .on('presence', { event: 'sync' }, async () => {
         const state = channel.presenceState()
         const onlineUsers = Object.values(state).flat() as any[]
         const uniqueUsers = Array.from(new Map(onlineUsers.map(u => [u.id, u])).values())
         setJoinedPlayers(uniqueUsers)
-        
         if (uniqueUsers[0]?.id === myId) {
           supabase.from('poker_lobbies').update({ players_count: uniqueUsers.length }).eq('id', roomId).then()
         }
-
-        // Auto-connect WebRTC to new peers
         if (localStream) {
           uniqueUsers.forEach(async (u) => {
             const uId = String(u.id)
@@ -243,7 +236,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       .on('broadcast', { event: 'webrtc' }, async (payload) => {
         const { type, from, to, offer, answer, candidate } = payload.payload
         if (to !== myId) return
-
         if (type === 'offer') {
           const pc = createPeer(from, localStream!)
           await pc.setRemoteDescription(new RTCSessionDescription(offer))
@@ -265,7 +257,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     return () => { channel.unsubscribe() }
   }, [user, roomId, localStream])
 
-  // --- DEVICES ---
+  // --- MEDIA ---
   useEffect(() => {
     const loadDevices = async () => {
       const devices = await navigator.mediaDevices.enumerateDevices()
@@ -289,41 +281,23 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       })
   }, [settings.withWebcams, selectedVideo, selectedAudio])
 
-  // --- POSITIONING (ROTATED) ---
-  const rotatedPlayers = useMemo(() => {
-    const myIdx = joinedPlayers.findIndex(p => String(p.id) === myId)
-    if (myIdx === -1) return joinedPlayers
-    // Rotate so current user is always at the bottom
-    return [...joinedPlayers.slice(myIdx), ...joinedPlayers.slice(0, myIdx)]
-  }, [joinedPlayers, myId])
-
+  // --- POSITIONING (FIXED - NO ROTATION) ---
   const getPlayerPosition = (index: number) => {
+    // Exact positions to match the perfect photo (around the oval)
     const positions = [
-      { top: '82%', left: '50%' }, // Bottom (Index 0 = Me)
-      { top: '75%', left: '22%' }, // Bottom Left
-      { top: '50%', left: '10%' }, // Mid Left
-      { top: '25%', left: '22%' }, // Top Left
-      { top: '15%', left: '50%' }, // Top Mid
-      { top: '25%', left: '78%' }, // Top Right
-      { top: '50%', left: '90%' }, // Mid Right
-      { top: '75%', left: '78%' }, // Bottom Right
+        { top: '82%', left: '50%' }, // Bottom Mid (Seat 1)
+        { top: '75%', left: '25%' }, // Bottom Left (Seat 2)
+        { top: '55%', left: '12%' }, // Mid Left (Seat 3)
+        { top: '35%', left: '12%' }, // Top Left (Seat 4)
+        { top: '16%', left: '38%' }, // Top Mid Left (Seat 5)
+        { top: '16%', left: '62%' }, // Top Mid Right (Seat 6)
+        { top: '35%', left: '88%' }, // Top Right (Seat 7)
+        { top: '55%', left: '88%' }, // Mid Right (Seat 8)
+        { top: '75%', left: '75%' }, // Bottom Right (Seat 9)
     ]
     const p = positions[index % positions.length]
     return { ...p, transform: 'translate(-50%, -50%)' }
   }
-
-  // --- RENDER HELPERS ---
-  const handRankings = [
-    { name: 'Рояль-флеш', cards: [{v:'A',s:'S'}, {v:'K',s:'S'}, {v:'Q',s:'S'}, {v:'J',s:'S'}, {v:'T',s:'S'}] },
-    { name: 'Стрит-флеш', cards: [{v:'9',s:'H'}, {v:'8',s:'H'}, {v:'7',s:'H'}, {v:'6',s:'H'}, {v:'5',s:'H'}] },
-    { name: 'Каре', cards: [{v:'A',s:'S'}, {v:'A',s:'H'}, {v:'A',s:'D'}, {v:'A',s:'C'}, {v:'K',s:'S'}] },
-    { name: 'Фулл-хаус', cards: [{v:'K',s:'S'}, {v:'K',s:'H'}, {v:'K',s:'D'}, {v:'Q',s:'S'}, {v:'Q',s:'H'}] },
-    { name: 'Флеш', cards: [{v:'A',s:'D'}, {v:'J',s:'D'}, {v:'8',s:'D'}, {v:'5',s:'D'}, {v:'2',s:'D'}] },
-    { name: 'Стрит', cards: [{v:'9',s:'S'}, {v:'8',s:'H'}, {v:'7',s:'D'}, {v:'6',s:'C'}, {v:'5',s:'S'}] },
-    { name: 'Сет (Тройка)', cards: [{v:'Q',s:'S'}, {v:'Q',s:'H'}, {v:'Q',s:'D'}, {v:'A',s:'S'}, {v:'7',s:'H'}] },
-    { name: 'Две пары', cards: [{v:'J',s:'S'}, {v:'J',s:'H'}, {v:'T',s:'D'}, {v:'T',s:'C'}, {v:'2',s:'S'}] },
-    { name: 'Пара', cards: [{v:'8',s:'S'}, {v:'8',s:'H'}, {v:'A',s:'D'}, {v:'K',s:'C'}, {v:'5',s:'S'}] },
-  ]
 
   const isMyTurn = String(currentTurn) === myId
   const myPlayer = players.find(p => String(p.id) === myId)
@@ -333,7 +307,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
     <div className="fixed inset-0 overflow-hidden select-none text-white font-sans bg-[#0c0c0c]">
       {/* BACKGROUND */}
       <div className="absolute inset-0 opacity-60 pointer-events-none" style={{ backgroundImage: `radial-gradient(circle at 50% 40%, #2a1b12 0%, #000 100%)` }} />
-      <div className="absolute inset-0 pointer-events-none opacity-[0.03]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
+      <div className="absolute inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }} />
 
       {/* TOP LEFT INFO */}
       <div className="absolute top-6 left-6 z-40 glass-panel p-4 min-w-[200px] border-white/5 bg-black/60 shadow-2xl">
@@ -347,9 +321,9 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
       {/* TOP RIGHT BUTTONS */}
       <div className="absolute top-6 right-6 z-40 flex gap-3">
-        <button onClick={() => setShowSettings(true)} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-white/10 transition-all border-white/5 bg-black/60 group"><SettingsIcon className="w-5 h-5 mb-1 text-white/40 group-hover:text-white" /><span className="text-[9px] font-black text-white/40 group-hover:text-white uppercase tracking-widest">Настройки</span></button>
-        <button onClick={onBack} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-white/10 transition-all border-white/5 bg-black/60 group"><Users className="w-5 h-5 mb-1 text-white/40 group-hover:text-white" /><span className="text-[9px] font-black text-white/40 group-hover:text-white uppercase tracking-widest">Лобби</span></button>
-        <button onClick={onBack} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-red-500/20 transition-all border-white/5 bg-black/60 group"><LogOut className="w-5 h-5 mb-1 text-white/40 group-hover:text-red-500" /><span className="text-[9px] font-black text-white/40 group-hover:text-red-500 uppercase tracking-widest">Выйти</span></button>
+        <button onClick={() => setShowSettings(true)} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-white/10 border-white/5 bg-black/60 shadow-xl group"><SettingsIcon className="w-5 h-5 mb-1 text-white/40 group-hover:text-white" /><span className="text-[9px] font-black text-white/40 group-hover:text-white uppercase tracking-widest">Настройки</span></button>
+        <button onClick={onBack} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-white/10 border-white/5 bg-black/60 shadow-xl group"><Users className="w-5 h-5 mb-1 text-white/40 group-hover:text-white" /><span className="text-[9px] font-black text-white/40 group-hover:text-white uppercase tracking-widest">Лобби</span></button>
+        <button onClick={onBack} className="flex flex-col items-center justify-center w-20 h-20 glass-panel hover:bg-red-500/20 border-white/5 bg-black/60 shadow-xl group"><LogOut className="w-5 h-5 mb-1 text-white/40 group-hover:text-red-500" /><span className="text-[9px] font-black text-white/40 group-hover:text-red-500 uppercase tracking-widest">Выйти</span></button>
       </div>
 
       {/* TABLE */}
@@ -360,7 +334,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-10">
                 <div className="flex gap-4">
                     {communityCards.map((card, i) => <motion.div key={i} initial={{ scale: 0.8, opacity: 0, rotateY: 90 }} animate={{ scale: 1, opacity: 1, rotateY: 0 }} transition={{ delay: i * 0.1 }}><PokerCard suit={card.suit as any} value={card.value as any} className="w-20 h-30 shadow-2xl" /></motion.div>)}
-                    {Array.from({ length: 5 - communityCards.length }).map((_, i) => <div key={i} className="w-20 h-30 rounded-xl border border-white/5 bg-black/10" />)}
+                    {Array.from({ length: 5 - communityCards.length }).map((_, i) => <div key={i} className="w-20 h-30 rounded-xl border border-white/5 bg-black/10 shadow-inner" />)}
                 </div>
                 <div className="bg-black/70 px-12 py-3.5 rounded-2xl border border-white/10 shadow-2xl"><span className="text-2xl font-black italic text-white uppercase"><span className="text-white/40 not-italic mr-2">БАНК:</span> ${pot.toFixed(2)}</span></div>
             </div>
@@ -368,13 +342,12 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
 
         {/* PLAYERS */}
         <div className="absolute inset-0 pointer-events-none">
-            {rotatedPlayers.map((presencePlayer, i) => {
+            {joinedPlayers.map((presencePlayer, i) => {
                 if (!presencePlayer) return null
                 const pId = String(presencePlayer.id)
                 const isMe = pId === myId
                 const gp = players.find(p => String(p.id) === pId)
                 const pos = getPlayerPosition(i)
-                const playerIndexInGame = players.findIndex(p => String(p.id) === pId)
                 
                 return (
                     <motion.div key={pId} className="absolute pointer-events-auto" style={pos}>
@@ -383,7 +356,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                                 {gp?.cards?.map((card: any, idx: number) => <motion.div key={idx} initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: idx * 0.1 }}><PokerCard suit={card.suit as any} value={card.value as any} isFlipped={card.suit === 'X'} className="w-12 h-18 shadow-2xl rounded-sm" /></motion.div>)}
                             </div>
                             <div className={`relative w-40 h-52 glass-panel overflow-hidden border-2 transition-all duration-500 shadow-2xl ${pId === String(currentTurn) ? 'border-[#ff4500] ring-[8px] ring-[#ff4500]/20 scale-105 z-30' : 'border-white/10'}`}>
-                                <div className="absolute top-2 left-2 z-20 w-6 h-6 bg-black/80 rounded border border-white/10 flex items-center justify-center text-[10px] font-black text-white/60">{playerIndexInGame !== -1 ? playerIndexInGame + 1 : '?'}</div>
                                 {gp?.isDealer && <div className="absolute top-2 right-2 z-20 w-6 h-6 bg-white text-black rounded-full flex items-center justify-center text-[10px] font-black shadow-lg">D</div>}
                                 <div className="h-[82%] bg-[#080808] relative group">
                                     {isMe && settings.withWebcams ? (
@@ -402,7 +374,7 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
                                     <div className="text-[13px] font-black text-green-500 mt-0.5">${(gp?.chips ?? settings.buyIn).toFixed(2)}</div>
                                 </div>
                             </div>
-                            {gp?.bet > 0 && <div className="absolute -top-24 left-1/2 -translate-x-1/2 flex flex-col items-center"><ChipsStack amount={gp.bet} /><div className="mt-2 bg-black/80 px-4 py-1.5 rounded-full text-[11px] font-black text-white border border-white/10">${gp.bet.toFixed(2)}</div></div>}
+                            {gp?.bet > 0 && <div className="absolute -top-24 left-1/2 -translate-x-1/2 flex flex-col items-center"><ChipsStack amount={gp.bet} /><div className="mt-2 bg-black/80 px-4 py-1.5 rounded-full text-[11px] font-black text-white border border-white/10 italic tracking-tighter">${gp.bet.toFixed(2)}</div></div>}
                         </div>
                     </motion.div>
                 )
@@ -414,22 +386,21 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       <div className="absolute bottom-8 left-8 z-40 glass-panel p-6 border-white/5 bg-black/80 space-y-4 min-w-[220px] shadow-2xl">
         {['Фолд на любую ставку', 'Пропускать раздачи', 'Авто-докупка'].map((label, idx) => (
             <label key={idx} className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative flex items-center justify-center">
-                    <input type="checkbox" className="peer appearance-none w-5 h-5 rounded border-2 border-white/10 bg-white/5 checked:bg-[#ff4500] checked:border-[#ff4500] transition-all cursor-pointer" />
-                    <div className="absolute pointer-events-none opacity-0 peer-checked:opacity-100 text-white font-black text-[10px]">✓</div>
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/30 group-hover:text-white/60 transition-colors">{label}</span>
+                <input type="checkbox" className="peer appearance-none w-5 h-5 rounded border-2 border-white/10 bg-white/5 checked:bg-[#ff4500] checked:border-[#ff4500] transition-all cursor-pointer" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/30 group-hover:text-white transition-colors">{label}</span>
             </label>
         ))}
       </div>
 
-      {/* BOTTOM RIGHT CONTROLS */}
+      {/* HUD (FIXED VISIBILITY) */}
       <div className="absolute bottom-8 right-8 z-50 flex items-end gap-3">
           <button onClick={() => setShowHandRanks(true)} className="w-16 h-16 glass-panel flex items-center justify-center hover:bg-white/10 transition-all border-white/10 bg-black/80 shadow-2xl group"><HelpCircle className="w-6 h-6 text-white/20 group-hover:text-white" /></button>
+          
+          {/* Always show HUD panel if in a game phase, but disable buttons if not turn */}
           <AnimatePresence>
-            {isMyTurn && (
-              <motion.div initial={{ x: 100, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 100, opacity: 0 }} className="flex flex-col items-end gap-4">
-                <div className="glass-panel p-6 bg-black/95 border-white/10 shadow-2xl w-[580px]">
+            {(gameState !== 'waiting' && gameState !== 'showdown') && (
+              <motion.div initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }} className="flex flex-col items-end gap-4">
+                <div className={`glass-panel p-6 bg-black/95 border-white/10 shadow-2xl w-[580px] transition-opacity ${isMyTurn ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
                     <div className="flex gap-4 mb-6 h-18">
                         <button onClick={() => handleAction('fold')} className="flex-1 rounded-xl bg-red-950/40 hover:bg-red-900/60 border border-red-500/20 text-xl font-black italic uppercase transition-all shadow-xl">ФОЛД</button>
                         {canCheck ? (
@@ -475,27 +446,10 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
           </motion.div>
       )}</AnimatePresence>
 
-      {/* HAND RANKS SIDEBAR */}
-      <AnimatePresence>{showHandRanks && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex justify-end p-8 bg-black/40 backdrop-blur-sm" onClick={() => setShowHandRanks(false)}>
-             <motion.div initial={{ x: 400 }} animate={{ x: 0 }} exit={{ x: 400 }} className="glass-panel p-8 max-w-md w-full bg-[#0a0a0a] border-white/10 h-full overflow-y-auto custom-scrollbar" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-8"><h2 className="text-2xl font-black italic uppercase tracking-tighter text-[#ff4500]">Комбинации</h2><button onClick={() => setShowHandRanks(false)} className="p-2 hover:bg-white/10 rounded-full"><X className="w-5 h-5 text-white/40" /></button></div>
-                <div className="space-y-6">
-                    {handRankings.map((rank, i) => (
-                        <div key={i} className="bg-white/5 p-4 rounded-2xl border border-white/5 flex flex-col gap-3 group hover:bg-white/10 transition-colors">
-                            <span className="text-xs font-black text-white/80 uppercase tracking-[0.2em]">{rank.name}</span>
-                            <div className="flex gap-1.5">{rank.cards.map((c, ci) => <PokerCard key={ci} suit={c.s as any} value={c.v as any} className="w-10 h-14 rounded shadow-lg group-hover:-translate-y-1 transition-transform" />)}</div>
-                        </div>
-                    ))}
-                </div>
-             </motion.div>
-          </motion.div>
-      )}</AnimatePresence>
-
       {/* WINNER OVERLAY */}
       <AnimatePresence>{winnerInfo.length > 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-2xl">
-             <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="glass-panel p-16 text-center border-[#ff4500]/50 bg-black/60 shadow-[0_0_100px_rgba(255,69,0,0.3)] max-w-lg w-full">
+             <motion.div initial={{ scale: 0.8, y: 20 }} animate={{ scale: 1, y: 0 }} className="glass-panel p-16 text-center border-[#ff4500]/50 bg-black/60 shadow-2xl max-w-lg w-full">
                 <Trophy className="w-20 h-20 text-yellow-500 mx-auto mb-8 animate-bounce" />
                 <h2 className="text-5xl font-black italic uppercase tracking-tighter mb-4 text-white">ПОБЕДИТЕЛЬ!</h2>
                 <div className="text-3xl font-black text-[#ff4500] mb-6 uppercase tracking-widest">{players.find(p => p.id === winnerInfo[0]?.id)?.name || 'Кто-то'}</div>
@@ -506,8 +460,6 @@ export default function PokerTable({ roomId, user, settings, onBack }: TableProp
       )}</AnimatePresence>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 69, 0, 0.3); border-radius: 10px; }
         .mirror { transform: scaleX(-1); }
       `}</style>
     </div>
