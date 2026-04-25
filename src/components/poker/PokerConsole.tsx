@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
+import { Plus, Users, Monitor, Search, ArrowLeft, LogIn } from 'lucide-react'
 
 type TableSize = 2 | 4 | 5 | 6 | 9
 type View = 'lobby' | 'create' | 'game' | 'lobbies'
@@ -18,27 +19,15 @@ interface TableSettings {
   ante?: number
 }
 
-// Vintage Poker Theme
+// Modern Dark Theme
 const theme = {
   colors: {
-    primaryCta: 'hsl(202, 49%, 28%)',
-    primaryCtaDarker: 'hsl(202, 49%, 18%)',
-    secondaryCta: 'hsl(202, 36%, 55%)',
-    darkBg: 'hsl(43, 40%, 60%)',
-    lightBg: 'hsl(43, 40%, 81%)',
-    lightestBg: 'hsl(43, 40%, 86%)',
-    fontColorLight: 'hsl(40, 100%, 99%)',
-    fontColorDark: 'hsl(36, 71%, 3%)',
-    fontColorDarkLighter: 'hsl(36, 71%, 13%)',
-    playingCardBg: 'hsl(49, 63%, 92%)',
-  },
-  fonts: {
-    fontFamilySerif: "'Playfair Display', serif",
-    fontFamilySansSerif: "'Roboto', sans-serif",
-  },
-  other: {
-    stdBorderRadius: '2rem',
-    cardDropShadow: '10px 10px 30px rgba(0, 0, 0, 0.1)',
+    primary: '#ff4500',
+    background: '#111111',
+    card: 'rgba(30, 30, 30, 0.85)',
+    border: 'rgba(255, 255, 255, 0.12)',
+    text: '#ffffff',
+    textMuted: '#a0a0a0',
   }
 }
 
@@ -54,7 +43,7 @@ export default function PokerConsole() {
   const [passwordInput, setPasswordInput] = useState('')
   const [settings, setSettings] = useState<TableSettings>({
     name: 'POKERLIVE Table',
-    size: 5,
+    size: 6,
     buyIn: 1000,
     blind: 10,
     withWebcams: true,
@@ -63,12 +52,6 @@ export default function PokerConsole() {
   })
 
   useEffect(() => {
-    // Add Google Fonts
-    const link = document.createElement('link')
-    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700;1,900&family=Roboto:wght@400;700&display=swap'
-    link.rel = 'stylesheet'
-    document.head.appendChild(link)
-
     const fetchUser = async () => {
       try {
         const res = await fetch('/api/auth_me')
@@ -144,38 +127,44 @@ export default function PokerConsole() {
 
   if (loadingAuth) {
     return (
-      <div style={styles.root}>
-        <div style={{fontFamily: theme.fonts.fontFamilySerif, fontSize: '2rem'}}>Loading...</div>
+      <div className="min-h-screen bg-[#111] flex items-center justify-center">
+        <div className="text-white text-2xl font-bold animate-pulse">Loading...</div>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div style={styles.root}>
-        <div style={styles.authBox}>
-          <h1 style={styles.logo}>POKERLIVE</h1>
-          <div style={styles.authCard}>
-            <p style={{marginBottom: '2rem', fontFamily: theme.fonts.fontFamilySansSerif, color: theme.colors.fontColorDarkLighter}}>Please authorize with Twitch to play</p>
-            <button
-              style={styles.primaryBtn}
-              onClick={() => window.location.href = '/auth/twitch?source=poker'}
-              onMouseEnter={e => (e.currentTarget.style.background = theme.colors.primaryCtaDarker)}
-              onMouseLeave={e => (e.currentTarget.style.background = theme.colors.primaryCta)}
-            >
-              LOGIN WITH TWITCH
-            </button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-[#111] flex items-center justify-center p-4">
+        <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="glass-panel p-10 max-w-md w-full text-center"
+        >
+          <h1 className="text-5xl font-black mb-8 tracking-tighter italic">POKER<span className="text-[#ff4500]">LIVE</span></h1>
+          <p className="text-white/60 mb-8">Please authorize with Twitch to play at the table.</p>
+          <button
+            className="w-full bg-[#9146ff] hover:bg-[#772ce8] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all"
+            onClick={() => window.location.href = '/auth/twitch?source=poker'}
+          >
+            <LogIn className="w-5 h-5" />
+            LOGIN WITH TWITCH
+          </button>
+        </motion.div>
       </div>
     )
   }
 
-  // Use dynamic import for the table to avoid SSR issues with canvas/rtc
   const DynamicTable = view === 'game' ? require('./PokerTable').default : null
 
   return (
-    <div style={styles.root}>
+    <div className="min-h-screen bg-[#111] text-white overflow-hidden relative">
+      {/* Animated Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[#ff4500]/5 blur-[120px] rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#9146ff]/5 blur-[120px] rounded-full" />
+      </div>
+
       <AnimatePresence mode="wait">
         {view === 'lobby' && (
           <motion.div
@@ -183,31 +172,51 @@ export default function PokerConsole() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            style={styles.centeredView}
+            className="relative z-10 flex flex-col items-center justify-center min-h-screen p-6"
           >
-            <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-              <h1 style={styles.logo}>POKERLIVE</h1>
+            <div className="text-center mb-12">
+              <h1 className="text-7xl font-black tracking-tighter italic mb-2">POKER<span className="text-[#ff4500]">LIVE</span></h1>
+              <p className="text-white/40 uppercase tracking-[0.4em] text-xs">Professional Texas Hold'em Overlay</p>
             </div>
 
-            <div style={styles.lobbyGrid}>
-              <div style={styles.card} onClick={() => setView('create')}>
-                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, marginBottom: '1rem', color: theme.colors.fontColorDark}}>Create Table</h2>
-                <p style={{fontFamily: theme.fonts.fontFamilySansSerif, color: theme.colors.fontColorDarkLighter}}>Host a new game and invite friends.</p>
-                <button style={{...styles.primaryBtn, marginTop: '2rem'}}>CREATE</button>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
+              <motion.div 
+                whileHover={{ y: -5 }}
+                onClick={() => setView('create')}
+                className="glass-panel p-8 cursor-pointer group"
+              >
+                <div className="w-12 h-12 bg-[#ff4500]/20 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Plus className="text-[#ff4500] w-6 h-6" />
+                </div>
+                <h2 className="text-2xl font-bold mb-3">Create Table</h2>
+                <p className="text-white/50 mb-8">Host a new game and invite friends to join your private or public table.</p>
+                <div className="text-[#ff4500] font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform flex items-center gap-2">
+                  Get Started <span className="text-xl">→</span>
+                </div>
+              </motion.div>
 
-              <div style={styles.card} onClick={() => { fetchLobbies(); setView('lobbies') }}>
-                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, marginBottom: '1rem', color: theme.colors.fontColorDark}}>Join Table</h2>
-                <p style={{fontFamily: theme.fonts.fontFamilySansSerif, color: theme.colors.fontColorDarkLighter}}>Join an existing public table.</p>
-                <button style={{...styles.secondaryBtn, marginTop: '2rem'}}>BROWSE</button>
-              </div>
+              <motion.div 
+                whileHover={{ y: -5 }}
+                onClick={() => { fetchLobbies(); setView('lobbies') }}
+                className="glass-panel p-8 cursor-pointer group"
+              >
+                <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Search className="text-blue-500 w-6 h-6" />
+                </div>
+                <h2 className="text-2xl font-bold mb-3">Join Table</h2>
+                <p className="text-white/50 mb-8">Browse active tables and join an existing game with other players.</p>
+                <div className="text-blue-500 font-bold text-sm uppercase tracking-wider group-hover:translate-x-2 transition-transform flex items-center gap-2">
+                  Browse Lobbies <span className="text-xl">→</span>
+                </div>
+              </motion.div>
             </div>
 
             <button
-              style={{...styles.textBtn, marginTop: '2rem'}}
+              className="mt-12 text-white/40 hover:text-white transition-colors flex items-center gap-2 text-sm uppercase tracking-widest"
               onClick={() => window.location.href = '/'}
             >
-              ← Back to Main
+              <ArrowLeft className="w-4 h-4" />
+              Back to Main
             </button>
           </motion.div>
         )}
@@ -218,34 +227,28 @@ export default function PokerConsole() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            style={styles.centeredView}
+            className="relative z-10 flex items-center justify-center min-h-screen p-6"
           >
-            <div style={{...styles.card, maxWidth: '600px', width: '100%'}}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
-                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, margin: 0}}>Create Table</h2>
-                <button style={styles.textBtn} onClick={() => setView('lobby')}>Cancel</button>
+            <div className="glass-panel p-10 max-w-2xl w-full">
+              <div className="flex justify-between items-center mb-10">
+                <h2 className="text-3xl font-black italic uppercase tracking-tight">Create <span className="text-[#ff4500]">Table</span></h2>
+                <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={() => setView('lobby')}>Cancel</button>
               </div>
 
-              <div style={{display: 'flex', flexDirection: 'column', gap: '1.5rem'}}>
+              <div className="space-y-6">
                 <div>
-                  <label style={styles.label}>Table Name</label>
-                  <input style={styles.input} value={settings.name} onChange={e => setSettings({...settings, name: e.target.value})} />
+                  <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Table Name</label>
+                  <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-[#ff4500]/50 transition-colors" value={settings.name} onChange={e => setSettings({...settings, name: e.target.value})} />
                 </div>
 
-                <div style={{display: 'flex', gap: '1rem'}}>
-                  <div style={{flex: 1}}>
-                    <label style={styles.label}>Seats (Default 5 for vintage)</label>
-                    <div style={{display: 'flex', gap: '0.5rem'}}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Seats</label>
+                    <div className="grid grid-cols-4 gap-2">
                       {[2, 5, 6, 9].map(s => (
                         <button
                           key={s}
-                          style={{
-                            ...styles.input, 
-                            cursor: 'pointer', 
-                            textAlign: 'center', 
-                            background: settings.size === s ? theme.colors.primaryCta : '#fff',
-                            color: settings.size === s ? '#fff' : theme.colors.fontColorDark
-                          }}
+                          className={`py-3 rounded-xl font-bold transition-all ${settings.size === s ? 'bg-[#ff4500] text-white shadow-lg shadow-[#ff4500]/20' : 'bg-white/5 text-white hover:bg-white/10'}`}
                           onClick={() => setSettings({...settings, size: s as TableSize})}
                         >
                           {s}
@@ -253,30 +256,30 @@ export default function PokerConsole() {
                       ))}
                     </div>
                   </div>
-                  <div style={{flex: 1}}>
-                    <label style={styles.label}>Webcams</label>
+                  <div>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Webcams</label>
                     <button
-                      style={{...styles.input, cursor: 'pointer', textAlign: 'center', background: settings.withWebcams ? theme.colors.secondaryCta : '#fff'}}
+                      className={`w-full py-3 rounded-xl font-bold transition-all border ${settings.withWebcams ? 'border-green-500/50 bg-green-500/10 text-green-500' : 'border-white/10 bg-white/5 text-white/50'}`}
                       onClick={() => setSettings({...settings, withWebcams: !settings.withWebcams})}
                     >
-                      {settings.withWebcams ? 'Enabled' : 'Disabled'}
+                      {settings.withWebcams ? 'ENABLED' : 'DISABLED'}
                     </button>
                   </div>
                 </div>
 
-                <div style={{display: 'flex', gap: '1rem'}}>
-                  <div style={{flex: 1}}>
-                    <label style={styles.label}>Buy-in</label>
-                    <input style={styles.input} type="number" value={settings.buyIn} onChange={e => setSettings({...settings, buyIn: parseInt(e.target.value)})} />
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Buy-in</label>
+                    <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-[#ff4500]/50 transition-colors" type="number" value={settings.buyIn} onChange={e => setSettings({...settings, buyIn: parseInt(e.target.value)})} />
                   </div>
-                  <div style={{flex: 1}}>
-                    <label style={styles.label}>Small Blind</label>
-                    <input style={styles.input} type="number" value={settings.blind} onChange={e => setSettings({...settings, blind: parseInt(e.target.value)})} />
+                  <div>
+                    <label className="block text-xs uppercase font-bold text-white/40 mb-3 tracking-widest">Small Blind</label>
+                    <input className="w-full bg-white/5 border border-white/10 rounded-xl p-4 outline-none focus:border-[#ff4500]/50 transition-colors" type="number" value={settings.blind} onChange={e => setSettings({...settings, blind: parseInt(e.target.value)})} />
                   </div>
                 </div>
 
-                <button style={{...styles.primaryBtn, marginTop: '1rem'}} onClick={createRoom}>
-                  START GAME
+                <button className="w-full bg-[#ff4500] hover:bg-[#e63e00] text-white font-black py-5 rounded-xl transition-all shadow-xl shadow-[#ff4500]/20 mt-6 uppercase tracking-widest" onClick={createRoom}>
+                  START NEW GAME
                 </button>
               </div>
             </div>
@@ -289,35 +292,42 @@ export default function PokerConsole() {
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -50 }}
-            style={{ ...styles.centeredView, justifyContent: 'flex-start', paddingTop: '4rem' }}
+            className="relative z-10 flex flex-col items-center min-h-screen p-6 pt-24"
           >
-            <div style={{ width: '100%', maxWidth: '800px' }}>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
-                <h2 style={{fontFamily: theme.fonts.fontFamilySerif, margin: 0}}>Open Tables</h2>
-                <div style={{display: 'flex', gap: '1rem'}}>
-                  <button style={styles.secondaryBtn} onClick={fetchLobbies}>Refresh</button>
-                  <button style={styles.textBtn} onClick={() => setView('lobby')}>Back</button>
+            <div className="w-full max-w-4xl">
+              <div className="flex justify-between items-center mb-10">
+                <h2 className="text-3xl font-black italic uppercase tracking-tight">Active <span className="text-blue-500">Lobbies</span></h2>
+                <div className="flex gap-4">
+                  <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={fetchLobbies}>Refresh</button>
+                  <button className="text-white/40 hover:text-white transition-colors text-xs uppercase font-bold tracking-widest" onClick={() => setView('lobby')}>Back</button>
                 </div>
               </div>
 
               {openLobbies.length === 0 ? (
-                <div style={styles.card}>
-                  <p style={{fontFamily: theme.fonts.fontFamilySansSerif, textAlign: 'center'}}>No open tables found.</p>
+                <div className="glass-panel p-20 text-center">
+                  <p className="text-white/40 italic">No active tables found at the moment.</p>
                 </div>
               ) : (
-                <div style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                <div className="space-y-4">
                   {openLobbies.map(lobby => (
-                    <div key={lobby.id} style={{...styles.card, padding: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        key={lobby.id} 
+                        className="glass-panel p-6 flex justify-between items-center group"
+                    >
                       <div>
-                        <h3 style={{fontFamily: theme.fonts.fontFamilySerif, margin: '0 0 0.5rem 0'}}>{lobby.name}</h3>
-                        <p style={{fontFamily: theme.fonts.fontFamilySansSerif, margin: 0, color: theme.colors.fontColorDarkLighter, fontSize: '0.9rem'}}>
-                          Blinds: {lobby.blind}/{lobby.blind * 2} | Buy-in: {lobby.buy_in} | Players: {lobby.players_count}/{lobby.size}
-                        </p>
+                        <h3 className="text-xl font-bold mb-1 group-hover:text-[#ff4500] transition-colors">{lobby.name}</h3>
+                        <div className="flex gap-4 text-xs font-bold uppercase tracking-widest text-white/30">
+                          <span>{lobby.blind}/{lobby.blind * 2} Blinds</span>
+                          <span>{lobby.buy_in} Buy-in</span>
+                          <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {lobby.players_count}/{lobby.size}</span>
+                        </div>
                       </div>
-                      <div style={{display: 'flex', gap: '1rem', alignItems: 'center'}}>
+                      <div className="flex gap-4 items-center">
                         {selectedLobby?.id === lobby.id && lobby.has_password && (
                           <input 
-                            style={{...styles.input, width: '120px', padding: '0.5rem'}} 
+                            className="bg-white/5 border border-white/10 rounded-lg p-2 outline-none focus:border-[#ff4500]/50 w-32" 
                             type="password" 
                             placeholder="Password" 
                             value={passwordInput} 
@@ -325,13 +335,13 @@ export default function PokerConsole() {
                           />
                         )}
                         <button 
-                          style={selectedLobby?.id === lobby.id ? styles.primaryBtn : styles.secondaryBtn}
+                          className={`px-8 py-3 rounded-xl font-black transition-all ${selectedLobby?.id === lobby.id ? 'bg-[#ff4500] text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
                           onClick={() => selectedLobby?.id === lobby.id ? joinLobby(lobby) : setSelectedLobby(lobby)}
                         >
                           {selectedLobby?.id === lobby.id ? 'JOIN' : 'SELECT'}
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               )}
@@ -345,7 +355,7 @@ export default function PokerConsole() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ width: '100%', height: '100vh', position: 'relative' }}
+            className="fixed inset-0 z-50 bg-[#111]"
           >
             <DynamicTable
               roomId={roomId}
@@ -360,114 +370,3 @@ export default function PokerConsole() {
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  root: {
-    minHeight: '100vh',
-    backgroundColor: theme.colors.lightestBg,
-    color: theme.colors.fontColorDark,
-    fontFamily: theme.fonts.fontFamilySansSerif,
-    lineHeight: theme.fonts.fontLineHeight,
-    overflow: 'hidden',
-  },
-  centeredView: {
-    position: 'relative',
-    zIndex: 10,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: '100vh',
-    padding: '2rem',
-    width: '100%',
-  },
-  logo: {
-    fontFamily: theme.fonts.fontFamilySerif,
-    fontSize: '4rem',
-    color: theme.colors.fontColorDark,
-    margin: 0,
-    fontWeight: 900,
-  },
-  authBox: {
-    textAlign: 'center',
-    zIndex: 10,
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '100%',
-    maxWidth: '500px',
-  },
-  card: {
-    backgroundColor: theme.colors.playingCardBg,
-    borderRadius: theme.other.stdBorderRadius,
-    padding: '2.5rem',
-    boxShadow: theme.other.cardDropShadow,
-  },
-  authCard: {
-    backgroundColor: theme.colors.playingCardBg,
-    borderRadius: theme.other.stdBorderRadius,
-    padding: '3rem',
-    boxShadow: theme.other.cardDropShadow,
-    marginTop: '2rem',
-  },
-  primaryBtn: {
-    backgroundColor: theme.colors.primaryCta,
-    color: theme.colors.fontColorLight,
-    border: 'none',
-    borderRadius: '2rem',
-    padding: '0.8rem 2rem',
-    fontWeight: 'bold',
-    fontFamily: theme.fonts.fontFamilySansSerif,
-    cursor: 'pointer',
-    transition: 'background 0.2s',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    textTransform: 'uppercase',
-    width: '100%',
-  },
-  secondaryBtn: {
-    backgroundColor: theme.colors.secondaryCta,
-    color: theme.colors.fontColorLight,
-    border: 'none',
-    borderRadius: '2rem',
-    padding: '0.8rem 2rem',
-    fontWeight: 'bold',
-    fontFamily: theme.fonts.fontFamilySansSerif,
-    cursor: 'pointer',
-    transition: 'background 0.2s',
-    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-    textTransform: 'uppercase',
-    width: '100%',
-  },
-  textBtn: {
-    backgroundColor: 'transparent',
-    color: theme.colors.primaryCta,
-    border: 'none',
-    fontWeight: 'bold',
-    fontFamily: theme.fonts.fontFamilySansSerif,
-    cursor: 'pointer',
-  },
-  lobbyGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-    gap: '2rem',
-    width: '100%',
-    maxWidth: '800px',
-  },
-  label: {
-    display: 'block',
-    fontFamily: theme.fonts.fontFamilySansSerif,
-    fontWeight: 'bold',
-    marginBottom: '0.5rem',
-    color: theme.colors.fontColorDark,
-  },
-  input: {
-    width: '100%',
-    padding: '0.8rem 1rem',
-    borderRadius: '1rem',
-    border: `1px solid ${theme.colors.darkBg}`,
-    fontFamily: theme.fonts.fontFamilySansSerif,
-    fontSize: '1rem',
-    outline: 'none',
-    backgroundColor: '#fff',
-  }
-}

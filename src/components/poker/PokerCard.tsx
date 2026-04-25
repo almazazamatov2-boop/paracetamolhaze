@@ -11,20 +11,6 @@ interface CardProps {
   className?: string
 }
 
-const suitSymbols: Record<string, string> = {
-  H: '♥',
-  D: '♦',
-  C: '♣',
-  S: '♠',
-}
-
-const suitColors: Record<string, string> = {
-  H: 'text-red-500',
-  D: 'text-blue-500',
-  C: 'text-emerald-500',
-  S: 'text-white',
-}
-
 const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: CardProps) => {
   // Graceful handling of missing/invalid data
   if (!suit || !value || suit === 'X') {
@@ -34,7 +20,6 @@ const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: Card
   // Mapping engine values to file names
   const fileName = `${value === 'T' ? '10' : value}${suit}.svg`;
   const cardSrc = `/poker/cards/${fileName}`;
-  const shirtSrc = `/poker/shirts/red-back.png`;
 
   return (
     <motion.div
@@ -46,45 +31,48 @@ const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: Card
     >
       {/* Front Side (Face) */}
       <div 
-        className="absolute inset-0 rounded-lg border-2 border-black/10 shadow-lg overflow-hidden flex items-center justify-center"
+        className="absolute inset-0 rounded-xl border border-white/10 shadow-2xl overflow-hidden flex items-center justify-center bg-white"
         style={{ 
             backfaceVisibility: 'hidden', 
             WebkitBackfaceVisibility: 'hidden',
-            backgroundColor: 'hsl(49, 63%, 92%)',
-            boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
         }}
       >
         {/* SVG Card Face */}
         <img 
             src={cardSrc} 
             alt={`${value}${suit}`} 
-            className="w-full h-full object-contain scale-[3.5] translate-y-[2%] translate-x-[1%]"
+            className="w-full h-full object-contain scale-[3.2]"
             onError={(e) => {
                 console.error('Card Image Load Error:', cardSrc);
                 e.currentTarget.style.display = 'none';
             }}
         />
-        {/* Subtle texture/gradient overlay */}
-        <div className="absolute inset-0 pointer-events-none" style={{background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%)'}} />
+        {/* Subtle glare */}
+        <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/10 to-transparent" />
       </div>
 
-      {/* Back Side (The shirt / Rubashka) */}
+      {/* Back Side (The shirt / Rubashka) - OUR CUSTOM DESIGN */}
       <div 
-        className="absolute inset-0 rounded-lg border-2 border-white/20 shadow-xl overflow-hidden"
+        className="absolute inset-0 rounded-xl border-2 border-white/20 shadow-2xl overflow-hidden"
         style={{ 
             backfaceVisibility: 'hidden', 
             WebkitBackfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)',
-            backgroundColor: 'hsl(202, 49%, 28%)',
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
         }}
       >
-        <img 
-            src={shirtSrc} 
-            alt="Shirt" 
-            className="w-full h-full object-cover opacity-60"
-        />
-        {/* Vintage Pattern Overlay */}
-        <div className="absolute inset-0 pointer-events-none opacity-20" style={{backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '10px 10px'}} />
+        {/* Patterned Background */}
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_2px_2px,_white_1px,_transparent_0)] bg-[length:8px_8px]" />
+        
+        {/* Trophy Logo */}
+        <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center backdrop-blur-sm">
+                <Trophy className="text-white/20 w-6 h-6 md:w-8 md:h-8" />
+            </div>
+        </div>
+
+        {/* Glossy Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-white/5 via-transparent to-white/10" />
       </div>
     </motion.div>
   )
@@ -93,3 +81,4 @@ const PokerCard = memo(({ suit, value, isFlipped = false, className = "" }: Card
 PokerCard.displayName = 'PokerCard'
 
 export default PokerCard
+
