@@ -16,16 +16,19 @@ let _channel_lobby = null;
 let _channel_players = null;
 let _channel_chat = null;
 
-// Попытка подхватить ID из URL (для админки/оверлея)
+// Попытка подхватить ID из URL (для админки/оверлея) или из глобала
 const _urlParams = new URLSearchParams(window.location.search);
-if (!window.currentLobbyId) window.currentLobbyId = _urlParams.get('lobbyId');
 if (!window.userId) window.userId = _urlParams.get('userId') || _urlParams.get('user_id');
+if (!window.currentLobbyId) window.currentLobbyId = _urlParams.get('lobbyId');
 
 // Глобальные переменные (если не объявлены в основном файле)
 if (typeof window.drawnNumbers === 'undefined') window.drawnNumbers = new Set();
 if (typeof window.drawnOrder === 'undefined') window.drawnOrder = [];
 if (typeof window.isAdmin === 'undefined') window.isAdmin = false;
-if (typeof window.isSuperAdmin === 'undefined') window.isSuperAdmin = ADMIN_IDS.includes(Number(window.userId));
+if (typeof window.isSuperAdmin === 'undefined') {
+    const rawId = window.userId ? window.userId.replace(/^b/, '') : '';
+    window.isSuperAdmin = ADMIN_IDS.includes(Number(rawId)) || (window.userId && ADMIN_IDS.includes(Number(window.userId)));
+}
 
 // Авто-подписка и проверка прав для админки/оверлея
 if (window.currentLobbyId) {

@@ -897,8 +897,8 @@
       return id;
     }
 
-    const userId = String(tgUser?.id || getBrowserUserId());
-    const userName = tgUser?.first_name || localStorage.getItem('browserNickname') || 'Игрок';
+    var userId = String(tgUser?.id || getBrowserUserId());
+    var userName = tgUser?.first_name || localStorage.getItem('browserNickname') || 'Игрок';
     var isSuperAdmin = ADMIN_IDS.includes(Number(userId));
 
     // ====== СОСТОЯНИЕ ======
