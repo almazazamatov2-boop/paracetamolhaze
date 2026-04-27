@@ -7,6 +7,9 @@
 const SUPABASE_URL = 'https://dlybapjwphbcynfkdxyk.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRseWJhcGp3cGhiY3luZmtkeHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTEzMzQsImV4cCI6MjA5MjAyNzMzNH0.XVjs3XJVUR51NXjxgFKnCrW1f-Irv3AQRItonjeDDPk';
 
+const ADMIN_IDS = [1177637332, 177637332, 6069277, 1374581977];
+if (!window.ADMIN_IDS) window.ADMIN_IDS = ADMIN_IDS;
+
 // ── глобальный клиент ──────────────────────────────────────────────────────
 let _sb = null;
 let _channel_lobby = null;
@@ -22,14 +25,29 @@ if (!window.userId) window.userId = _urlParams.get('userId') || _urlParams.get('
 if (typeof window.drawnNumbers === 'undefined') window.drawnNumbers = new Set();
 if (typeof window.drawnOrder === 'undefined') window.drawnOrder = [];
 if (typeof window.isAdmin === 'undefined') window.isAdmin = false;
-if (typeof window.isSuperAdmin === 'undefined') window.isSuperAdmin = false;
+if (typeof window.isSuperAdmin === 'undefined') window.isSuperAdmin = ADMIN_IDS.includes(Number(window.userId));
 
-// Авто-подписка для админки/оверлея
+// Авто-подписка и проверка прав для админки/оверлея
 if (window.currentLobbyId) {
-    setTimeout(() => {
-        console.log('[Realtime] Auto-subscribing to lobby:', window.currentLobbyId);
+    (async () => {
+        const sb = getSB();
+        const { data: lobby } = await sb.from('loto_lobbies').select('*').eq('id', window.currentLobbyId).single();
+        if (lobby) {
+            window.currentLobby = {
+                id: lobby.id,
+                code: lobby.code,
+                name: lobby.name,
+                maxPlayers: lobby.max_players,
+                admin_id: lobby.admin_id
+            };
+            window.isAdmin = (lobby.admin_id === window.userId) || window.isSuperAdmin;
+            window.drawnOrder = (lobby.drawn_numbers || []).map(Number);
+            window.drawnNumbers = new Set(window.drawnOrder);
+            console.log('[Realtime] Initial state loaded, isAdmin:', window.isAdmin);
+            if (window.updateDisplay) window.updateDisplay(); // для admin.html
+        }
         subscribeToLobby(window.currentLobbyId);
-    }, 500);
+    })();
 }
 
 function getSB() {
@@ -58,7 +76,12 @@ window.fetch = async function(...args) {
     }
     
     if (action === 'get_state') {
-      return new Response(JSON.stringify({ type: 'state', drawn: Array.from(drawnNumbers), lobby: currentLobby }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      const drawn = window.drawnOrder || [];
+      return new Response(JSON.stringify({ 
+        type: 'state', 
+        drawn: drawn,
+        lobby: window.currentLobby || { players: [] } 
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     if (action === 'list_lobbies' || url.includes('/api/lobbies')) {
@@ -134,6 +157,8 @@ function subscribeToLobby(lobbyId) {
         const newNums = arr.filter(n => !drawnNumbers.has(n));
         drawnNumbers = new Set(arr);
         drawnOrder = arr;
+        if (window.updateDrawnNumbersDisplay) window.updateDrawnNumbersDisplay();
+        if (window.updateDisplay) window.updateDisplay();
         if (newNums.length > 0) {
           updateDrawnNumbersDisplay();
           playSound('barrel');
@@ -467,12 +492,12 @@ window.refreshLobbyList = async function() {
 
 // ── OVERRIDE: adminAddBarrel через Supabase ───────────────────────────────
 window.adminAddBarrel = async function(val) {
-  if (!isSuperAdmin && !isAdmin) { alert('❌ Нет доступа'); return; }
-  if (!currentLobbyId) { alert('Сначала создай лобби'); return; }
+  if (!window.isSuperAdmin && !window.isAdmin) { alert('❌ Нет доступа'); return; }
+  if (!window.currentLobbyId) { alert('Сначала создай лобби'); return; }
   const n = Number(val || document.getElementById('adminAddNumber')?.value || document.getElementById('numberInput')?.value);
   if (!(n >= 1 && n <= 90)) { alert('Введите число 1-90'); return; }
   const sb = getSB();
-  const { data: lobby } = await sb.from('loto_lobbies').select('drawn_numbers').eq('id', currentLobbyId).single();
+  const { data: lobby } = await sb.from('loto_lobbies').select('drawn_numbers').eq('id', window.currentLobbyId).single();
   const arr = (lobby?.drawn_numbers || []).map(Number);
   if (arr.includes(n)) { showToast('⚠️ Уже выпало'); return; }
   arr.push(n);
@@ -482,21 +507,22 @@ window.adminAddBarrel = async function(val) {
 };
 
 window.adminUndoLast = async function() {
-  if (!isAdmin) { alert('❌ Нет доступа'); return; }
-  if (!currentLobbyId) return;
+  if (!window.isAdmin) { alert('❌ Нет доступа'); return; }
+  if (!window.currentLobbyId) return;
   const sb = getSB();
-  const { data: lobby } = await sb.from('loto_lobbies').select('drawn_numbers').eq('id', currentLobbyId).single();
+  const { data: lobby } = await sb.from('loto_lobbies').select('drawn_numbers').eq('id', window.currentLobbyId).single();
   const arr = (lobby?.drawn_numbers || []).map(Number);
   if (!arr.length) return;
   arr.pop();
-  await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', currentLobbyId);
+  await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', window.currentLobbyId);
 };
 
 window.adminResetBarrels = async function() {
-  if (!isAdmin) { alert('❌ Нет доступа'); return; }
+  if (!window.isAdmin) { alert('❌ Нет доступа'); return; }
   if (!confirm('Сбросить все выпавшие бочонки?')) return;
+  if (!window.currentLobbyId) return;
   const sb = getSB();
-  await sb.from('loto_lobbies').update({ drawn_numbers: [] }).eq('id', currentLobbyId);
+  await sb.from('loto_lobbies').update({ drawn_numbers: [] }).eq('id', window.currentLobbyId);
 };
 
 // ── Объявить победу ───────────────────────────────────────────────────────
@@ -510,16 +536,16 @@ window.checkWinLocal = async function() {
       if (cardNumbers[r]?.[c]) allNums.push(cardNumbers[r][c]);
   const total = allNums.length;
   const marked = allNums.filter(n => markedCells.has(n)).length;
-  if (total > 0 && marked === total && currentLobbyId) {
+  if (total > 0 && marked === total && window.currentLobbyId) {
     const sb = getSB();
     // Обновляем статистику
-    const { data: p } = await sb.from('loto_players').select('games_played,games_won').eq('id', userId).maybeSingle();
-    await sb.from('loto_players').update({ games_played: (p?.games_played||0)+1, games_won: (p?.games_won||0)+1 }).eq('id', userId);
+    const { data: p } = await sb.from('loto_players').select('games_played,games_won').eq('id', window.userId).maybeSingle();
+    await sb.from('loto_players').update({ games_played: (p?.games_played||0)+1, games_won: (p?.games_won||0)+1 }).eq('id', window.userId);
     // Сигнализируем всем через event
     await sb.from('loto_lobbies').update({
       status: 'finished',
-      event: { type: 'game_won', winner_id: userId, winner_name: userProfile.nickname || 'Игрок', ts: Date.now() }
-    }).eq('id', currentLobbyId);
+      event: { type: 'game_won', winner_id: window.userId, winner_name: window.userProfile.nickname || 'Игрок', ts: Date.now() }
+    }).eq('id', window.currentLobbyId);
   }
 };
 
