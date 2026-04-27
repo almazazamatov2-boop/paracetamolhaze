@@ -1,220 +1,540 @@
 // =============================================
-// LOTO — Supabase Realtime Bridge (V3 - Bulletproof)
-// Переписан на чистые перехватчики функций без вмешательства в fetch
+// LOTO — Supabase Bridge V4 (fetch interceptor)
+// Перехватывает ВСЕ запросы к /api/loto и транслирует их в Supabase.
+// Monkey-patching функций убран — fetch-перехват надёжнее и не зависит
+// от порядка загрузки скриптов.
 // =============================================
 
-const SUPABASE_URL = 'https://dlybapjwphbcynfkdxyk.supabase.co';
+const SUPABASE_URL  = 'https://dlybapjwphbcynfkdxyk.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRseWJhcGp3cGhiY3luZmtkeHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTEzMzQsImV4cCI6MjA5MjAyNzMzNH0.XVjs3XJVUR51NXjxgFKnCrW1f-Irv3AQRItonjeDDPk';
 
-const ADMIN_IDS = [1177637332, 177637332, 6069277, 1374581977];
+// ── Supabase клиент ──────────────────────────────────────────────────────────
 
 let _sb = null;
-let _channel_lobby = null;
-let _channel_players = null;
-let _channel_chat = null;
-let _lastEventTs = 0;
 
 function getSB() {
-  if (!_sb && window.supabase) _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  if (_sb) return _sb;
+  if (!window.supabase) return null;
+  _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   return _sb;
+}
+
+// Ждёт инициализации SDK (на случай гонки, хотя в <head> она маловероятна)
+function waitForSB() {
+  return new Promise(resolve => {
+    const sb = getSB();
+    if (sb) return resolve(sb);
+    const t = setInterval(() => {
+      const sb2 = getSB();
+      if (sb2) { clearInterval(t); resolve(sb2); }
+    }, 50);
+  });
+}
+
+// ── Утилиты ──────────────────────────────────────────────────────────────────
+
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { 'Content-Type': 'application/json' }
+  });
 }
 
 function genCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let res = '';
-  for (let i = 0; i < 6; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
-  return res;
+  let r = '';
+  for (let i = 0; i < 6; i++) r += chars[Math.floor(Math.random() * chars.length)];
+  return r;
 }
 
-// ── Перехват функций (Monkey-patching) ──────────────────────────────────────
-
-(function setupBridge() {
-  console.log('[Realtime Bridge] Initializing hooks...');
-
-  // Ждем, пока основная страница определит свои функции
-  const checkInterval = setInterval(() => {
-    if (window.initWS && !window.initWS._patched) {
-      console.log('[Realtime Bridge] Patching global functions...');
-      
-      const _origInitWS = window.initWS;
-      window.initWS = async function() {
-        window.initWS._patched = true;
-        console.log('[Realtime Bridge] initWS called');
-        
-        // Подхватываем параметры из URL
-        const params = new URLSearchParams(window.location.search);
-        if (!window.userId) window.userId = params.get('userId') || params.get('user_id');
-        if (!window.currentLobbyId) window.currentLobbyId = params.get('lobbyId');
-
-        // Инициализируем Supabase
-        const sb = getSB();
-        if (!sb) { console.error('Supabase not loaded!'); _origInitWS(); return; }
-
-        // Если мы в лобби — грузим данные
-        if (window.currentLobbyId) {
-          const { data: lobby } = await sb.from('loto_lobbies').select('*').eq('id', window.currentLobbyId).maybeSingle();
-          if (lobby) {
-            window.isAdmin = String(lobby.admin_id) === String(window.userId) || (window.ADMIN_IDS && window.ADMIN_IDS.includes(Number(window.userId)));
-            window.drawnOrder = (lobby.drawn_numbers || []).map(Number);
-            window.drawnNumbers = new Set(window.drawnOrder);
-            subscribeToLobby(window.currentLobbyId);
-          }
-        }
-
-        // Вызываем оригинал для настройки UI (он вызовет наш пропатченный sendAPI для auth)
-        _origInitWS();
-      };
-      window.initWS._patched = true;
-
-      // Патчим sendAPI (HTTP запросы)
-      const _origSendAPI = window.sendAPI;
-      window.sendAPI = async function(data) {
-        console.log('[Realtime Bridge] sendAPI intercepted:', data.action || data.type);
-        const action = data.action || data.type;
-
-        if (action === 'auth') {
-          return { type: 'auth_success', user: { id: window.userId, nickname: window.userName } };
-        }
-
-        if (action === 'get_state') {
-          return { 
-            type: 'state', 
-            drawn: window.drawnOrder || [],
-            lobby: window.currentLobby || { players: [] } 
-          };
-        }
-
-        // Для действий админа из старого кода (admin.html)
-        if (action === 'draw_number' || action === 'add_barrel') {
-          await window.adminAddBarrel(data.number);
-          return { type: 'success' };
-        }
-
-        return { type: 'success', blocked: true };
-      };
-
-      // Патчим sendWS (WebSocket команды)
-      window.sendWS = async function(msg) {
-        console.log('[Realtime Bridge] sendWS intercepted:', msg.type);
-        const sb = getSB();
-        if (!sb) return;
-
-        try {
-          switch (msg.type) {
-            case 'create_lobby': {
-              const code = genCode();
-              const { data: lobby } = await sb.from('loto_lobbies').insert({
-                code,
-                name: msg.name || 'Моя игра',
-                admin_id: window.userId,
-                max_players: msg.maxPlayers || 10,
-                status: 'waiting'
-              }).select().single();
-
-              await sb.from('loto_players').upsert({
-                id: window.userId,
-                lobby_id: lobby.id,
-                nickname: window.userName || 'Админ',
-                is_admin: true
-              });
-
-              window.currentLobbyId = lobby.id;
-              window.isAdmin = true;
-              subscribeToLobby(lobby.id);
-              if (window.showScreen) window.showScreen('lobbyWaitScreen');
-              break;
-            }
-
-            case 'join_lobby': {
-              const { data: lobby } = await sb.from('loto_lobbies').select('*').eq('code', msg.code.toUpperCase()).maybeSingle();
-              if (!lobby) { alert('Лобби не найдено'); return; }
-              
-              await sb.from('loto_players').upsert({
-                id: window.userId,
-                lobby_id: lobby.id,
-                nickname: window.userName || 'Игрок'
-              });
-
-              window.currentLobbyId = lobby.id;
-              window.isAdmin = String(lobby.admin_id) === String(window.userId);
-              subscribeToLobby(lobby.id);
-              if (window.showScreen) window.showScreen('lobbyWaitScreen');
-              break;
-            }
-
-            case 'start_game': {
-              if (!window.isAdmin || !window.currentLobbyId) return;
-              const { data: players } = await sb.from('loto_players').select('id').eq('lobby_id', window.currentLobbyId);
-              for (const p of players) {
-                const card = window.generateLotoCard ? window.generateLotoCard() : [[null]];
-                await sb.from('loto_players').update({ card, status: 'playing' }).eq('id', p.id).eq('lobby_id', window.currentLobbyId);
-              }
-              await sb.from('loto_lobbies').update({ status: 'playing', event: { type: 'game_started', ts: Date.now() } }).eq('id', window.currentLobbyId);
-              break;
-            }
-
-            case 'chat_message': {
-              if (!window.currentLobbyId) return;
-              await sb.from('loto_chat').insert({
-                lobby_id: window.currentLobbyId,
-                user_id: window.userId,
-                nickname: window.userName || 'Игрок',
-                text: msg.text
-              });
-              break;
-            }
-          }
-        } catch(e) { console.error(e); }
-      };
-
-      clearInterval(checkInterval);
+// Стандартная карточка лото 3×9 (5 чисел в строке) — запасной вариант,
+// если window.generateLotoCard ещё не определена (например, для adminStart)
+function _defaultCard() {
+  const rows = [[], [], []];
+  // Для каждого столбца (десятки): 1-10, 11-20, … 81-90
+  for (let col = 0; col < 9; col++) {
+    const min = col * 10 + 1;
+    const max = col === 8 ? 90 : (col + 1) * 10;
+    const pool = [];
+    for (let n = min; n <= max; n++) pool.push(n);
+    // Перемешать
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-  }, 100);
-})();
+    for (let r = 0; r < 3; r++) rows[r].push(pool[r] !== undefined ? pool[r] : null);
+  }
+  // Оставить ровно 5 чисел в каждой строке
+  rows.forEach(row => {
+    const filled = row.map((v, i) => v !== null ? i : -1).filter(i => i >= 0);
+    // Перемешать индексы заполненных клеток
+    for (let i = filled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [filled[i], filled[j]] = [filled[j], filled[i]];
+    }
+    // Обнулить лишние (оставить 5)
+    filled.slice(5).forEach(i => { row[i] = null; });
+  });
+  return rows;
+}
 
-// ── Подписки и Логика ───────────────────────────────────────────────────────
+// ── Supabase Realtime подписки ────────────────────────────────────────────────
+
+let _subscribedLobbyId = null;
 
 function subscribeToLobby(lobbyId) {
-  const sb = getSB();
-  if (!sb) return;
+  if (_subscribedLobbyId === lobbyId) return;
+  _subscribedLobbyId = lobbyId;
 
-  sb.channel('loto-' + lobbyId)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'loto_lobbies', filter: `id=eq.${lobbyId}` }, ({ new: row }) => {
-      if (row.drawn_numbers) {
-        window.drawnOrder = row.drawn_numbers.map(Number);
-        window.drawnNumbers = new Set(window.drawnOrder);
-        if (window.updateDisplay) window.updateDisplay();
-        if (window.updateDrawnNumbersDisplay) window.updateDrawnNumbersDisplay();
-      }
-      const ev = row.event;
-      if (ev && ev.type === 'game_started') {
+  const sb = getSB();
+  if (!sb) { console.warn('[Bridge] Supabase not ready for subscription'); return; }
+
+  // Изменения лобби: бочонки, статус, событие
+  sb.channel('bridge-lobby-' + lobbyId)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'loto_lobbies',
+      filter: `id=eq.${lobbyId}`
+    }, ({ new: row }) => {
+      const drawn = (row.drawn_numbers || []).map(Number);
+
+      // Обновляем глобальные переменные index.html
+      if (typeof window.drawnOrder    !== 'undefined') window.drawnOrder    = drawn;
+      if (typeof window.drawnNumbers  !== 'undefined') window.drawnNumbers  = new Set(drawn);
+
+      // UI
+      if (window.updateDisplay)             window.updateDisplay();
+      if (window.updateDrawnNumbersDisplay) window.updateDrawnNumbersDisplay();
+
+      // Событие «игра стартовала» — загружаем карточку текущего игрока
+      if (row.event && row.event.type === 'game_started') {
         _loadMyCard(lobbyId);
       }
     })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'loto_players', filter: `lobby_id=eq.${lobbyId}` }, async () => {
-      const { data: players } = await sb.from('loto_players').select('*').eq('lobby_id', lobbyId);
-      window.currentLobby = { ...window.currentLobby, players: players.map(p => ({ id: p.id, nickname: p.nickname, isAdmin: p.is_admin })) };
+    .subscribe();
+
+  // Изменения состава игроков
+  sb.channel('bridge-players-' + lobbyId)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'loto_players',
+      filter: `lobby_id=eq.${lobbyId}`
+    }, async () => {
+      const { data: players } = await sb
+        .from('loto_players').select('*').eq('lobby_id', lobbyId);
+      if (!players) return;
+
+      const mapped = players.map(p => ({
+        id:       p.id,
+        nickname: p.nickname,
+        isAdmin:  p.is_admin,
+        status:   p.status,
+        progress: (p.marked_cells || []).length
+      }));
+
+      if (typeof window.currentLobby !== 'undefined') {
+        window.currentLobby = { ...(window.currentLobby || {}), players: mapped };
+      }
+      if (window.renderPlayers)     window.renderPlayers(mapped);
       if (window.updateLobbyDisplay) window.updateLobbyDisplay();
-      if (window.renderPlayers) window.renderPlayers(window.currentLobby.players);
     })
     .subscribe();
+
+  // Новые сообщения чата
+  sb.channel('bridge-chat-' + lobbyId)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'loto_chat',
+      filter: `lobby_id=eq.${lobbyId}`
+    }, ({ new: row }) => {
+      if (window.appendChatMessage) {
+        window.appendChatMessage({
+          id:        row.id,
+          userId:    row.user_id,
+          nickname:  row.nickname,
+          text:      row.text,
+          timestamp: row.created_at
+        });
+      }
+    })
+    .subscribe();
+
+  console.log('[Bridge] Subscribed to lobby:', lobbyId);
 }
 
 async function _loadMyCard(lobbyId) {
-  const sb = getSB();
-  const { data } = await sb.from('loto_players').select('card').eq('id', window.userId).eq('lobby_id', lobbyId).maybeSingle();
+  const sb  = getSB();
+  const uid = window.userId;
+  if (!sb || !uid) return;
+  const { data } = await sb
+    .from('loto_players').select('card')
+    .eq('id', uid).eq('lobby_id', lobbyId)
+    .maybeSingle();
   if (data?.card) {
-    window.cardNumbers = data.card;
+    window.cardNumbers   = data.card;
     window.gameScreenShown = true;
-    if (window.renderCard) window.renderCard();
-    if (window.showScreen) window.showScreen('gameScreen');
+    if (window.renderCard)  window.renderCard();
+    if (window.showScreen)  window.showScreen('gameScreen');
   }
 }
 
+// ── Вспомогательные запросы к Supabase ───────────────────────────────────────
+
+async function _getLobbyState(sb, lobbyId) {
+  const [{ data: lobby }, { data: players }] = await Promise.all([
+    sb.from('loto_lobbies').select('*').eq('id', lobbyId).maybeSingle(),
+    sb.from('loto_players').select('*').eq('lobby_id', lobbyId)
+  ]);
+  return {
+    lobby,
+    players: (players || []).map(p => ({
+      id:       p.id,
+      nickname: p.nickname,
+      isAdmin:  p.is_admin,
+      status:   p.status,
+      progress: (p.marked_cells || []).length
+    }))
+  };
+}
+
+// ── Главный обработчик API ────────────────────────────────────────────────────
+
+async function _handleLotoAPI(url, options) {
+  const sb    = await waitForSB();
+  const isGet = !options?.method || options.method === 'GET';
+  let body    = {};
+  let action;
+
+  if (isGet) {
+    const qs = new URLSearchParams((String(url).split('?')[1]) || '');
+    action   = qs.get('action');
+    body     = { lobbyId: qs.get('lobbyId'), userId: window.userId };
+  } else {
+    try { body = JSON.parse(options.body || '{}'); } catch (e) {}
+    action = body.action || body.type;
+  }
+
+  // Часто используемые поля — с надёжными fallback-ами
+  const lobbyId  = body.lobbyId  || window.currentLobbyId  || null;
+  const userId   = String(body.userId  || window.userId   || '');
+  const nickname = body.nickname || window.userProfile?.nickname || window.userName || 'Игрок';
+
+  console.log('[Bridge] action:', action, '| lobby:', lobbyId, '| user:', userId);
+
+  switch (action) {
+
+    // ─────────────────────────────────────────────────────────────
+    // Авторизация — мгновенно возвращаем auth_success,
+    // снимая «вечную загрузку»
+    // ─────────────────────────────────────────────────────────────
+    case 'auth':
+      return jsonResponse({
+        type: 'auth_success',
+        user: { id: userId, nickname, games_played: 0, games_won: 0 }
+      });
+
+    // ─────────────────────────────────────────────────────────────
+    // Получение состояния лобби (поллинг, тоже будет перехвачен)
+    // ─────────────────────────────────────────────────────────────
+    case 'get_state': {
+      if (!lobbyId) return jsonResponse({ type: 'no_change' });
+
+      const { lobby, players } = await _getLobbyState(sb, lobbyId);
+      if (!lobby) return jsonResponse({ type: 'error', message: 'Лобби не найдено' }, 404);
+
+      const drawn = (lobby.drawn_numbers || []).map(Number);
+      subscribeToLobby(lobbyId); // Подписываемся, если ещё нет
+
+      return jsonResponse({
+        type: 'state_update',
+        drawn,
+        lobby: {
+          id:          lobby.id,
+          code:        lobby.code,
+          name:        lobby.name,
+          status:      lobby.status,
+          admin_id:    lobby.admin_id,
+          max_players: lobby.max_players,
+          players
+        }
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Список лобби для экрана «Войти в лобби»
+    // ─────────────────────────────────────────────────────────────
+    case 'list_lobbies': {
+      const { data: lobbies } = await sb.from('loto_lobbies')
+        .select('id, code, name, max_players, status')
+        .in('status', ['waiting', 'playing'])
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (!lobbies || lobbies.length === 0) return jsonResponse([]);
+
+      // Добавляем количество игроков
+      const result = await Promise.all(lobbies.map(async l => {
+        const { count } = await sb
+          .from('loto_players')
+          .select('id', { count: 'exact', head: true })
+          .eq('lobby_id', l.id);
+        return { ...l, players_count: count || 0, has_password: 0 };
+      }));
+
+      return jsonResponse(result);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Создать лобби
+    // ─────────────────────────────────────────────────────────────
+    case 'create_lobby': {
+      const code = genCode();
+      const { data: lobby, error } = await sb.from('loto_lobbies').insert({
+        code,
+        name:         body.name    || 'Моя игра',
+        admin_id:     userId,
+        max_players:  body.maxPlayers || 10,
+        status:       'waiting',
+        drawn_numbers: []
+      }).select().single();
+
+      if (error) return jsonResponse({ type: 'error', message: error.message });
+
+      await sb.from('loto_players').upsert({
+        id:       userId,
+        lobby_id: lobby.id,
+        nickname,
+        is_admin: true,
+        status:   'waiting'
+      }, { onConflict: 'id,lobby_id' });
+
+      subscribeToLobby(lobby.id);
+
+      // Возвращаем lobby_created — handleWsMessage переключит экран
+      return jsonResponse({
+        type: 'lobby_created',
+        lobby: {
+          id:          lobby.id,
+          code:        lobby.code,
+          name:        lobby.name,
+          status:      lobby.status,
+          admin_id:    lobby.admin_id,
+          max_players: lobby.max_players,
+          players:     [{ id: userId, nickname, isAdmin: true }]
+        }
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Войти в лобби по коду
+    // ─────────────────────────────────────────────────────────────
+    case 'join_lobby': {
+      const code = (body.code || '').toUpperCase().trim();
+      if (!code) return jsonResponse({ type: 'error', message: 'Введите код лобби' });
+
+      const { data: lobby } = await sb.from('loto_lobbies')
+        .select('*').eq('code', code).maybeSingle();
+
+      if (!lobby)                    return jsonResponse({ type: 'error', message: 'Лобби не найдено. Проверь код.' });
+      if (lobby.status === 'finished') return jsonResponse({ type: 'error', message: 'Игра уже завершена.' });
+
+      const isAdminHere = String(lobby.admin_id) === String(userId);
+
+      await sb.from('loto_players').upsert({
+        id:       userId,
+        lobby_id: lobby.id,
+        nickname,
+        is_admin: isAdminHere,
+        status:   'waiting'
+      }, { onConflict: 'id,lobby_id' });
+
+      subscribeToLobby(lobby.id);
+
+      // lobby_joined → handleWsMessage запросит get_state сам
+      return jsonResponse({
+        type:    'lobby_joined',
+        lobbyId: lobby.id,
+        isAdmin: isAdminHere
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Покинуть лобби
+    // ─────────────────────────────────────────────────────────────
+    case 'leave_lobby': {
+      if (lobbyId && userId) {
+        await sb.from('loto_players')
+          .delete().eq('id', userId).eq('lobby_id', lobbyId);
+      }
+      return jsonResponse({ type: 'left_lobby' });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Запустить игру (только для хоста)
+    // ─────────────────────────────────────────────────────────────
+    case 'start_game': {
+      if (!lobbyId) return jsonResponse({ type: 'error', message: 'Нет лобби' });
+
+      // Проверяем права
+      const { data: lobbyCheck } = await sb
+        .from('loto_lobbies').select('admin_id').eq('id', lobbyId).single();
+      if (!lobbyCheck || String(lobbyCheck.admin_id) !== String(userId)) {
+        return jsonResponse({ type: 'error', message: 'Только хост может запустить игру' });
+      }
+
+      const { data: players } = await sb
+        .from('loto_players').select('id').eq('lobby_id', lobbyId);
+
+      const generateCard = window.generateLotoCard || _defaultCard;
+
+      for (const p of (players || [])) {
+        const card = generateCard();
+        await sb.from('loto_players')
+          .update({ card, status: 'playing', marked_cells: [] })
+          .eq('id', p.id).eq('lobby_id', lobbyId);
+      }
+
+      await sb.from('loto_lobbies').update({
+        status:        'playing',
+        drawn_numbers: [],
+        event:         { type: 'game_started', ts: Date.now() }
+      }).eq('id', lobbyId);
+
+      return jsonResponse({ type: 'state_update', lobby: { status: 'playing' } });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Вытащить бочонок (из admin.html и внутри index.html)
+    // ─────────────────────────────────────────────────────────────
+    case 'draw_number': {
+      if (!lobbyId) return jsonResponse({ type: 'error', message: 'Нет лобби' });
+      const num = Number(body.number);
+      if (!num || num < 1 || num > 90) return jsonResponse({ type: 'error', message: 'Введите число 1–90' });
+
+      const { data: lobby } = await sb
+        .from('loto_lobbies').select('drawn_numbers, admin_id').eq('id', lobbyId).single();
+      if (!lobby) return jsonResponse({ type: 'error', message: 'Лобби не найдено' }, 404);
+
+      // Проверка прав администратора
+      if (String(lobby.admin_id) !== String(userId)) {
+        return jsonResponse({ type: 'error', message: 'Нет прав. userId в URL не совпадает с admin_id лобби.' });
+      }
+
+      const arr = [...(lobby.drawn_numbers || [])];
+      if (arr.includes(num)) return jsonResponse({ type: 'error', message: 'Это число уже выпало!' });
+      arr.push(num);
+
+      await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lobbyId);
+
+      // Ответ понятен и admin.html (data.drawn) и index.html (handleWsMessage → msg.drawn)
+      return jsonResponse({ type: 'state_update', drawn: arr });
+    }
+
+    // Отменить последний/конкретный бочонок
+    case 'undo_number': {
+      if (!lobbyId) return jsonResponse({ all: [] });
+      const num = Number(body.number);
+      const { data: lobby } = await sb
+        .from('loto_lobbies').select('drawn_numbers').eq('id', lobbyId).single();
+      const arr = (lobby?.drawn_numbers || []).filter(n => n !== num);
+      await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lobbyId);
+      return jsonResponse({ all: arr });
+    }
+
+    // Сбросить все бочонки
+    case 'reset_numbers': {
+      if (lobbyId) {
+        await sb.from('loto_lobbies').update({ drawn_numbers: [] }).eq('id', lobbyId);
+      }
+      return jsonResponse({ type: 'success' });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Чат
+    // ─────────────────────────────────────────────────────────────
+    case 'chat_message': {
+      if (!lobbyId) return jsonResponse({ type: 'success' });
+      const { data: msg } = await sb.from('loto_chat').insert({
+        lobby_id: lobbyId,
+        user_id:  userId,
+        nickname: body.nickname || nickname,
+        text:     body.text || ''
+      }).select().single();
+
+      return jsonResponse({
+        type: 'chat_message',
+        message: msg ? {
+          id:        msg.id,
+          userId:    msg.user_id,
+          nickname:  msg.nickname,
+          text:      msg.text,
+          timestamp: msg.created_at
+        } : null
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Обновление профиля / ника
+    // ─────────────────────────────────────────────────────────────
+    case 'update_profile': {
+      if (lobbyId && userId && body.nickname) {
+        await sb.from('loto_players')
+          .update({ nickname: body.nickname })
+          .eq('id', userId).eq('lobby_id', lobbyId);
+      }
+      return jsonResponse({ type: 'success' });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Прогресс закрытых клеток (нужен для прогресс-бара в admin.html)
+    // ─────────────────────────────────────────────────────────────
+    case 'mark_cell': {
+      if (lobbyId && userId) {
+        const count    = Number(body.count) || 0;
+        // Храним dummy-массив нужной длины — admin.html берёт .length
+        const dummyArr = Array.from({ length: count }, (_, i) => i);
+        await sb.from('loto_players')
+          .update({ marked_cells: dummyArr })
+          .eq('id', userId).eq('lobby_id', lobbyId);
+      }
+      return jsonResponse({ type: 'success' });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Неизвестное действие — тихо возвращаем успех
+    // ─────────────────────────────────────────────────────────────
+    default:
+      console.log('[Bridge] Unhandled action:', action);
+      return jsonResponse({ type: 'success' });
+  }
+}
+
+// ── Установка fetch-перехватчика ──────────────────────────────────────────────
+
+(function installBridge() {
+  const _origFetch = window.fetch.bind(window);
+
+  window.fetch = function bridgedFetch(url, options) {
+    const urlStr = String(url);
+    // Перехватываем только наши API-маршруты
+    if (urlStr.includes('/api/loto') || urlStr.includes('/api/drawn')) {
+      return _handleLotoAPI(urlStr, options).catch(err => {
+        console.error('[Bridge] Unhandled error:', err);
+        return jsonResponse({ type: 'error', message: String(err?.message || err) });
+      });
+    }
+    return _origFetch(url, options);
+  };
+
+  console.log('[Loto Bridge V4] ✅ fetch interceptor installed — /api/loto → Supabase');
+})();
+
+// ── Обратная совместимость: adminAddBarrel ────────────────────────────────────
+// Используется как прямой вызов из старых мест в коде
+
 window.adminAddBarrel = async function(val) {
-  const sb = getSB();
-  if (!sb || !window.currentLobbyId) return;
-  const { data: lobby } = await sb.from('loto_lobbies').select('drawn_numbers').eq('id', window.currentLobbyId).single();
-  const arr = [...(lobby.drawn_numbers || []), Number(val)];
-  await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', window.currentLobbyId);
+  const sb  = getSB();
+  const lid = window.currentLobbyId;
+  if (!sb || !lid) return;
+  const { data: lobby } = await sb
+    .from('loto_lobbies').select('drawn_numbers').eq('id', lid).single();
+  const arr = [...(lobby?.drawn_numbers || []), Number(val)];
+  await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lid);
 };

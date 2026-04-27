@@ -620,7 +620,11 @@
         // Инициализация Realtime для админки
         async function initAdminRealtime() {
             if (!lobbyId) return;
-            const sb = window.supabase.createClient('https://dlybapjwphbcynfkdxyk.supabase.co', 'sb_publishable_MjA0ZTRmMmEtNDMzMS00ODg3LThjYmMtNjI1MzQ5NDkzYTAwOjExYWI3OGRhLWY2N2EtNDdhMy1iYjhkLTBiYmUwOGQ1MGRlMA==');
+            // Используем тот же anon-ключ что и в loto-realtime.js
+            const sb = window.supabase.createClient(
+                'https://dlybapjwphbcynfkdxyk.supabase.co',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRseWJhcGp3cGhiY3luZmtkeHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTEzMzQsImV4cCI6MjA5MjAyNzMzNH0.XVjs3XJVUR51NXjxgFKnCrW1f-Irv3AQRItonjeDDPk'
+            );
             
             // Подписка на изменения лобби (бочонки)
             sb.channel('admin-lobby')
