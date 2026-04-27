@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
 
         await redis.sadd(`loto:lobby_players:${lobbyId}`, userId);
         await redis.hset(`loto:player_status:${lobbyId}`, { [userId]: 'waiting' });
+        await redis.hincrby(`loto:lobby:${lobbyId}`, 'version', 1);
 
         return NextResponse.json({ 
           type: 'lobby_joined', 
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
         if (lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Только админ может начать' });
 
         await redis.hset(`loto:lobby:${lobbyId}`, { status: 'playing', started_at: Math.floor(Date.now() / 1000).toString() });
+        await redis.hincrby(`loto:lobby:${lobbyId}`, 'version', 1);
         
         return NextResponse.json({ type: 'game_started' });
       }
@@ -136,6 +138,7 @@ export async function POST(req: NextRequest) {
         }
 
         await redis.rpush(`loto:drawn:${lobbyId}`, number);
+        await redis.hincrby(`loto:lobby:${lobbyId}`, 'version', 1);
         const drawn = await redis.lrange(`loto:drawn:${lobbyId}`, 0, -1);
         return NextResponse.json({ type: 'number_drawn', number, all: drawn.map(Number), drawn: drawn.map(Number) });
       }
@@ -150,6 +153,7 @@ export async function POST(req: NextRequest) {
         } else {
           await redis.rpop(`loto:drawn:${lobbyId}`);
         }
+        await redis.hincrby(`loto:lobby:${lobbyId}`, 'version', 1);
         const drawn = await redis.lrange(`loto:drawn:${lobbyId}`, 0, -1);
         return NextResponse.json({ type: 'state_update', all: drawn.map(Number), drawn: drawn.map(Number) });
       }
@@ -160,6 +164,7 @@ export async function POST(req: NextRequest) {
         if (lobby.admin_id !== userId) return NextResponse.json({ type: 'error', message: 'Только админ может сбросить' });
 
         await redis.del(`loto:drawn:${lobbyId}`);
+        await redis.hincrby(`loto:lobby:${lobbyId}`, 'version', 1);
         return NextResponse.json({ type: 'state_update', all: [], drawn: [] });
       }
 
@@ -185,6 +190,7 @@ export async function POST(req: NextRequest) {
         };
         await redis.rpush(`loto:chat:${lobbyId}`, JSON.stringify(msg));
         await redis.ltrim(`loto:chat:${lobbyId}`, -50, -1); // Keep last 50
+        await redis.hincrby(`loto:lobby:${lobbyId}`, 'version', 1);
         return NextResponse.json({ type: 'chat_message', message: msg });
       }
 
@@ -243,8 +249,19 @@ export async function GET(req: NextRequest) {
     switch (action) {
       case 'get_state': {
         const lobbyId = searchParams.get('lobbyId');
+        const clientVersion = searchParams.get('v');
         if (!lobbyId) return NextResponse.json({ error: 'Missing lobbyId' }, { status: 400 });
 
+        // ⚡ FAST PATH: если клиент передал версию — проверяем только её (1 Redis-команда)
+        if (clientVersion !== null && clientVersion !== '-1') {
+          const currentVersion = await redis.hget(`loto:lobby:${lobbyId}`, 'version');
+          if (currentVersion === null) return NextResponse.json({ error: 'Lobby not found' }, { status: 404 });
+          if (String(currentVersion) === String(clientVersion)) {
+            return NextResponse.json({ type: 'no_change' });
+          }
+        }
+
+        // FULL PATH: версия изменилась или первый запрос — тянем полное состояние
         const lobby: any = await redis.hgetall(`loto:lobby:${lobbyId}`);
         if (!lobby || Object.keys(lobby).length === 0) return NextResponse.json({ error: 'Lobby not found' }, { status: 404 });
 
@@ -281,12 +298,13 @@ export async function GET(req: NextRequest) {
 
         return NextResponse.json({
           type: 'state_update',
+          version: lobby.version || '0',
           lobby: { ...lobby, players },
           drawn: drawn.map(Number),
           chat: chat.map(m => JSON.parse(m as string))
         }, {
           headers: {
-            'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5'
+            'Cache-Control': 'no-store'
           }
         });
       }

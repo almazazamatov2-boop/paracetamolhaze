@@ -1051,6 +1051,7 @@
 
     // ====== POLLING & API ======
     let pollInterval = null;
+    let lastKnownVersion = -1; // Версия состояния, известная клиенту
     let wsReady = false; const chatMessagesList = []; const chatMessagesIds = new Set();
 
     function initWS() {
@@ -1084,16 +1085,22 @@
           setTimeout(() => { const el = document.getElementById('connStatus'); if(el) el.style.opacity='0'; }, 2000);
         })
         .catch(() => setConnStatus('error', 'Ошибка'));
-      // Поллинг
+      // Поллинг — умный, version-based
       if (!pollInterval) {
         pollInterval = setInterval(async () => {
           if (!currentLobbyId) return;
           try {
-            const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`);
+            // Передаём клиентскую версию — сервер вернёт no_change если ничего не изменилось (1 Redis-команда)
+            const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}&v=${lastKnownVersion}`);
             if (res.status === 404 || res.status === 410) { clearGameSession(); showScreen('mainMenu'); return; }
-            if (res.ok) { const msg = await res.json(); handleWsMessage(msg); }
+            if (res.ok) {
+              const msg = await res.json();
+              if (msg.type === 'no_change') return; // Ничего не изменилось — пропускаем
+              if (msg.version !== undefined) lastKnownVersion = String(msg.version);
+              handleWsMessage(msg);
+            }
           } catch(e) {}
-        }, 2500);
+        }, 1000); // 1 сек вместо 2.5 сек — безопасно т.к. большинство запросов = 1 Redis-команда
       }
     }
 
@@ -1131,6 +1138,7 @@
           break;
 
         case 'state_update':
+          if (msg.version !== undefined) lastKnownVersion = String(msg.version);
           if (msg.lobby) {
             // Обновляем лобби
             currentLobbyId = msg.lobby.id;
@@ -1194,9 +1202,10 @@
           currentLobbyId = msg.lobbyId || msg.lobby?.id;
           isAdmin = msg.isAdmin || false;
           gameScreenShown = false;
+          lastKnownVersion = -1; // Новое лобби — сбрасываем версию
           showScreen('lobbyWaitScreen');
           // Сразу запрашиваем состояние
-          fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`).then(r => r.json()).then(m => handleWsMessage(m));
+          fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`).then(r => r.json()).then(m => { if (m.version !== undefined) lastKnownVersion = String(m.version); handleWsMessage(m); });
           break;
 
         case 'player_joined':
@@ -1656,6 +1665,7 @@
       cardNumbers = []; markedCells.clear(); drawnNumbers.clear(); drawnOrder = [];
       alreadyWon = false; alreadyNotified14 = false;
       chatMessagesList.length = 0; chatMessagesIds.clear();
+      lastKnownVersion = -1; // Сбрасываем версию при выходе
       sessionStorage.removeItem('currentLobbyId'); sessionStorage.removeItem('isAdmin');
       sessionStorage.removeItem('cardNumbers'); sessionStorage.removeItem('markedCells');
       sessionStorage.removeItem('gameScreenShown');

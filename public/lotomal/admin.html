@@ -613,10 +613,28 @@
             });
         }
 
-        // Автообновление данных каждые 2 секунды
-        setInterval(() => {
-            loadFromServer();
-        }, 2000);
+        // Автообновление данных — умный, version-based (5 сек вместо 2 сек)
+        // Админ сам делает изменения, ему нужен поллинг только для списка игроков
+        let adminKnownVersion = -1;
+        setInterval(async () => {
+            if (!lobbyId) return;
+            try {
+                const res = await fetch(`/api/loto?action=get_state&lobbyId=${lobbyId}&v=${adminKnownVersion}`, { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.type === 'no_change') return; // Ничего не изменилось — 1 Redis-команда
+                if (data.version !== undefined) adminKnownVersion = String(data.version);
+                if (data.error) { console.error('Loto State Error:', data.error); return; }
+                drawnOrder = (data.drawn || []).map(Number);
+                drawnNumbers = new Set(drawnOrder);
+                updateDisplay();
+                if (data.lobby && data.lobby.players) {
+                    const pPanel = document.getElementById('playersPanel');
+                    if (pPanel) pPanel.style.display = 'block';
+                    renderPlayers(data.lobby.players);
+                }
+            } catch(e) { console.error('Admin poll error:', e); }
+        }, 5000);
 
     </script>
 </body>
