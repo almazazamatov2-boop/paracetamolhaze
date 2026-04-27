@@ -1054,7 +1054,7 @@
     let lastKnownVersion = -1; // Версия состояния, известная клиенту
     let wsReady = false; const chatMessagesList = []; const chatMessagesIds = new Set();
 
-    function initWS() {
+    window.initWS = function() {
       wsReady = true;
       // Восстановление сессии
       const _sid   = sessionStorage.getItem('currentLobbyId');
@@ -1104,7 +1104,7 @@
       }
     }
 
-    async function sendAPI(data) {
+    window.sendAPI = async function(data) {
       try {
         const res = await fetch('/api/loto', {
           method: 'POST',
@@ -1120,7 +1120,7 @@
       }
     }
 
-    function sendWS(msg) {
+    window.sendWS = function(msg) {
       // Прокси для обратной совместимости
       sendAPI({ ...msg, action: msg.type, userId, lobbyId: currentLobbyId });
     }

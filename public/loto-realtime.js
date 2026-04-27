@@ -321,6 +321,13 @@ window.sendAPI = async function(data) {
 };
 
 // ── OVERRIDE: sendWS (заменяем оригинал) ─────────────────────────────────
+function genCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let res = '';
+  for (let i = 0; i < 6; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+  return res;
+}
+
 window.sendWS = async function(msg) {
   const sb = getSB();
   try {
