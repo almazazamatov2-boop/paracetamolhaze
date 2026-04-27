@@ -233,6 +233,10 @@ window.fetch = async function(...args) {
       }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
+    if (action === 'auth') {
+      return new Response(JSON.stringify({ type: 'auth_success', user: { id: window.userId, nickname: window.userName } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
     // Блокируем остальные Redis API чтобы они не уходили на бэкенд
     return new Response(JSON.stringify({ blocked: true, type: 'success' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
