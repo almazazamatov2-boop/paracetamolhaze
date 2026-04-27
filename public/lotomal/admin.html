@@ -615,27 +615,45 @@
 
         // Автообновление данных — умный, version-based (5 сек вместо 2 сек)
         // Админ сам делает изменения, ему нужен поллинг только для списка игроков
-        let adminKnownVersion = -1;
-        setInterval(async () => {
+        // Инициализация Realtime для админки
+        async function initAdminRealtime() {
             if (!lobbyId) return;
-            try {
-                const res = await fetch(`/api/loto?action=get_state&lobbyId=${lobbyId}&v=${adminKnownVersion}`, { cache: 'no-store' });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.type === 'no_change') return; // Ничего не изменилось — 1 Redis-команда
-                if (data.version !== undefined) adminKnownVersion = String(data.version);
-                if (data.error) { console.error('Loto State Error:', data.error); return; }
-                drawnOrder = (data.drawn || []).map(Number);
-                drawnNumbers = new Set(drawnOrder);
-                updateDisplay();
-                if (data.lobby && data.lobby.players) {
-                    const pPanel = document.getElementById('playersPanel');
-                    if (pPanel) pPanel.style.display = 'block';
-                    renderPlayers(data.lobby.players);
-                }
-            } catch(e) { console.error('Admin poll error:', e); }
-        }, 5000);
+            const sb = window.supabase.createClient('https://dlybapjwphbcynfkdxyk.supabase.co', 'sb_publishable_MjA0ZTRmMmEtNDMzMS00ODg3LThjYmMtNjI1MzQ5NDkzYTAwOjExYWI3OGRhLWY2N2EtNDdhMy1iYjhkLTBiYmUwOGQ1MGRlMA==');
+            
+            // Подписка на изменения лобби (бочонки)
+            sb.channel('admin-lobby')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'loto_lobbies', filter: `id=eq.${lobbyId}` }, 
+                payload => {
+                    drawnOrder = (payload.new.drawn_numbers || []).map(Number);
+                    drawnNumbers = new Set(drawnOrder);
+                    updateDisplay();
+                })
+                .subscribe();
+
+            // Подписка на игроков (прогресс)
+            sb.channel('admin-players')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'loto_players', filter: `lobby_id=eq.${lobbyId}` }, 
+                async () => {
+                    // При любом изменении игроков — перекачиваем список (проще чем частичное обновление)
+                    const { data: players } = await sb.from('loto_players').select('*').eq('lobby_id', lobbyId);
+                    if (players) {
+                        const pPanel = document.getElementById('playersPanel');
+                        if (pPanel) pPanel.style.display = 'block';
+                        renderPlayers(players.map(p => ({
+                            nickname: p.nickname,
+                            progress: (p.marked_cells || []).length
+                        })));
+                    }
+                })
+                .subscribe();
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initAdminRealtime();
+        });
 
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/loto-realtime.js"></script>
 </body>
 </html>

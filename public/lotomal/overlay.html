@@ -150,22 +150,25 @@
 
 </div>
 
-<script>
-    const query = new URLSearchParams(window.location.search);
-    const lobbyId = query.get('lobbyId');
-    let drawnOrder = [];
-    let lastNumber = null;
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const query = new URLSearchParams(window.location.search);
+        const lobbyId = query.get('lobbyId');
+        let drawnOrder = [];
+        let lastNumber = null;
 
-    async function updateDisplay() {
-        if (!lobbyId) {
-            document.body.innerHTML = '<div style="color:#FFD700;padding:20px;">Lobby ID not specified in URL (?lobbyId=...)</div>';
-            return;
+        // --- Supabase Config (from loto-realtime.js pattern) ---
+        const SB_URL = 'https://dlybapjwphbcynfkdxyk.supabase.co';
+        const SB_KEY = 'sb_publishable_MjA0ZTRmMmEtNDMzMS00ODg3LThjYmMtNjI1MzQ5NDkzYTAwOjExYWI3OGRhLWY2N2EtNDdhMy1iYjhkLTBiYmUwOGQ1MGRlMA==';
+        let sb = null;
+
+        function getSB() {
+            if (!sb) sb = window.supabase.createClient(SB_URL, SB_KEY);
+            return sb;
         }
-        try {
-            const res = await fetch(`/api/loto?action=get_state&lobbyId=${lobbyId}`, { cache: 'no-store' });
-            const data = await res.json();
-            const newOrder = (data.drawn || []).map(Number);
 
+        async function handleStateUpdate(data) {
+            const newOrder = (data.drawn_numbers || []).map(Number);
             const prevSet = new Set(drawnOrder);
             const newNumbers = newOrder.filter(n => !prevSet.has(n));
             drawnOrder = newOrder;
@@ -199,7 +202,7 @@
             }
             divider.style.display = 'block';
 
-            if (grid.children.length !== prev.length) {
+            if (grid.children.length !== prev.length || newNumbers.length > 0) {
                 grid.innerHTML = '';
                 prev.forEach(num => {
                     const b = document.createElement('div');
@@ -208,12 +211,30 @@
                     grid.appendChild(b);
                 });
             }
+        }
 
-        } catch(e) {}
-    }
+        async function init() {
+            if (!lobbyId) {
+                document.body.innerHTML = '<div style="color:#FFD700;padding:20px;">Lobby ID not specified in URL (?lobbyId=...)</div>';
+                return;
+            }
+            
+            const sbClient = getSB();
+            
+            // Initial fetch
+            const { data, error } = await sbClient.from('loto_lobbies').select('drawn_numbers').eq('id', lobbyId).single();
+            if (data) handleStateUpdate(data);
 
-    setInterval(updateDisplay, 2000);
-    updateDisplay();
-</script>
+            // Subscribe to changes
+            sbClient.channel('loto_overlay')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'loto_lobbies', filter: `id=eq.${lobbyId}` }, 
+                payload => {
+                    handleStateUpdate(payload.new);
+                })
+                .subscribe();
+        }
+
+        init();
+    </script>
 </body>
 </html>
