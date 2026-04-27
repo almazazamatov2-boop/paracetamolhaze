@@ -1614,7 +1614,7 @@
     async function saveProfile() {
       const newNick = document.getElementById('nicknameInput').value || userName;
       // Check nickname uniqueness via API
-      const resp = await sendAPI({ action: 'update_profile', userId, nickname: newNick, avatar: userProfile.avatar });
+      const resp = await sendAPI({ action: 'update_profile', userId, nickname: newNick, avatar: userProfile.avatar, lobbyId: currentLobbyId });
       if (resp && resp.type === 'error') {
         showToast('❌ ' + resp.message);
         return;

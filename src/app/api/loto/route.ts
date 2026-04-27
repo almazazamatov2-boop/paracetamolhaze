@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
           mode: mode || 'classic',
           total_rounds: rounds || 1,
           created_at: Math.floor(Date.now() / 1000).toString(),
+          version: '1',
         };
 
         await redis.hset(`loto:lobby:${lobbyId}`, lobby);
@@ -221,12 +222,17 @@ export async function POST(req: NextRequest) {
         if (newAvatar) updates.avatar = newAvatar;
         await redis.hset(profileKey, updates);
         
+        if (data.lobbyId) {
+          await redis.hincrby(`loto:lobby:${data.lobbyId}`, 'version', 1);
+        }
+        
         return NextResponse.json({ type: 'profile_updated' });
       }
 
       case 'mark_cell': {
         const { userId, lobbyId, count } = data;
         await redis.hset(`loto:player_progress:${lobbyId}`, { [userId]: count });
+        await redis.hincrby(`loto:lobby:${lobbyId}`, 'version', 1);
         return NextResponse.json({ type: 'progress_updated' });
       }
 
