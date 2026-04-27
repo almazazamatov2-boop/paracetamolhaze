@@ -36,18 +36,28 @@ if (window.currentLobbyId) {
         const sb = getSB();
         const { data: lobby } = await sb.from('loto_lobbies').select('*').eq('id', window.currentLobbyId).single();
         if (lobby) {
+            const { data: allPlayers } = await sb.from('loto_players').select('*').eq('lobby_id', window.currentLobbyId);
             window.currentLobby = {
                 id: lobby.id,
                 code: lobby.code,
                 name: lobby.name,
                 maxPlayers: lobby.max_players,
-                admin_id: lobby.admin_id
+                admin_id: lobby.admin_id,
+                players: (allPlayers || []).map(p => ({ 
+                    id: p.id, 
+                    nickname: p.nickname || 'Игрок', 
+                    avatar: p.avatar || '👤',
+                    progress: (p.marked_cells || []).length
+                }))
             };
             window.isAdmin = (lobby.admin_id === window.userId) || window.isSuperAdmin;
             window.drawnOrder = (lobby.drawn_numbers || []).map(Number);
             window.drawnNumbers = new Set(window.drawnOrder);
-            console.log('[Realtime] Initial state loaded, isAdmin:', window.isAdmin);
+            console.log('[Realtime] Initial state loaded, isAdmin:', window.isAdmin, 'Players:', (allPlayers || []).length);
             if (window.updateDisplay) window.updateDisplay(); // для admin.html
+            if (window.renderPlayers && allPlayers) window.renderPlayers(window.currentLobby.players); 
+        } else {
+            console.error('[Realtime] Lobby not found in Supabase:', window.currentLobbyId);
         }
         subscribeToLobby(window.currentLobbyId);
     })();
@@ -203,7 +213,8 @@ function subscribeToLobby(lobbyId) {
       if (!currentLobby) return;
       if (!currentLobby.players.find(x => x.id === p.id)) {
         currentLobby.players.push({ id: p.id, nickname: p.nickname || 'Игрок', avatar: p.avatar || '👤', isAdmin: false });
-        updateLobbyDisplay();
+        if (window.updateLobbyDisplay) window.updateLobbyDisplay();
+        if (window.renderPlayers) window.renderPlayers(currentLobby.players);
       }
     })
     .on('postgres_changes', {
@@ -212,7 +223,8 @@ function subscribeToLobby(lobbyId) {
     }, ({ old: p }) => {
       if (!currentLobby) return;
       currentLobby.players = currentLobby.players.filter(x => x.id !== p.id);
-      updateLobbyDisplay();
+      if (window.updateLobbyDisplay) window.updateLobbyDisplay();
+      if (window.renderPlayers) window.renderPlayers(currentLobby.players);
     })
     .subscribe();
 
