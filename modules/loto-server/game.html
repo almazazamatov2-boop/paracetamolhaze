@@ -2119,7 +2119,8 @@
         if (allStyles.find(s => s.id === savedMark)) currentMarkStyle = savedMark;
       }
       initMarkPicker();
-      initWS();
+      // initWS overridden by loto-realtime.js
+      await initWS();
     });
 
     document.addEventListener('keydown', (e) => {
@@ -2128,5 +2129,10 @@
       if (currentScreen === 'gameScreen') sendChat('game');
     });
   </script>
+
+  <!-- Supabase JS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- Supabase Realtime bridge (replaces ws://) -->
+  <script src="./loto-realtime.js"></script>
 </body>
 </html>
