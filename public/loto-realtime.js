@@ -13,6 +13,25 @@ let _channel_lobby = null;
 let _channel_players = null;
 let _channel_chat = null;
 
+// Попытка подхватить ID из URL (для админки/оверлея)
+const _urlParams = new URLSearchParams(window.location.search);
+if (!window.currentLobbyId) window.currentLobbyId = _urlParams.get('lobbyId');
+if (!window.userId) window.userId = _urlParams.get('userId') || _urlParams.get('user_id');
+
+// Глобальные переменные (если не объявлены в основном файле)
+if (typeof window.drawnNumbers === 'undefined') window.drawnNumbers = new Set();
+if (typeof window.drawnOrder === 'undefined') window.drawnOrder = [];
+if (typeof window.isAdmin === 'undefined') window.isAdmin = false;
+if (typeof window.isSuperAdmin === 'undefined') window.isSuperAdmin = false;
+
+// Авто-подписка для админки/оверлея
+if (window.currentLobbyId) {
+    setTimeout(() => {
+        console.log('[Realtime] Auto-subscribing to lobby:', window.currentLobbyId);
+        subscribeToLobby(window.currentLobbyId);
+    }, 500);
+}
+
 function getSB() {
   if (!_sb) _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   return _sb;
@@ -22,16 +41,31 @@ function getSB() {
 const _origFetch = window.fetch;
 window.fetch = async function(...args) {
   const url = typeof args[0] === 'string' ? args[0] : (args[0] instanceof URL ? args[0].href : '');
+  const options = args[1] || {};
+  
   if (url.includes('/api/loto') || url.includes('/api/drawn')) {
     console.log('[fetch Redirected to Supabase]', url);
-    // Для get_state возвращаем заглушку, т.к. Realtime сам все обновит
-    if (url.includes('action=get_state')) {
-      return new Response(JSON.stringify({ type: 'no_change' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    let body = {};
+    try { if (options.body) body = JSON.parse(options.body); } catch(e) {}
+    
+    const action = (new URL(url, location.origin)).searchParams.get('action') || body.action || body.type;
+
+    // Редирект действий на Supabase функции
+    if (action === 'draw_number' || action === 'add_barrel') {
+      const num = body.number || (new URL(url, location.origin)).searchParams.get('number');
+      if (num) await window.adminAddBarrel(num);
+      return new Response(JSON.stringify({ type: 'success', drawn: Array.from(drawnNumbers) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
-    // Для list_lobbies мы могли бы вернуть список, но лучше пусть работает через refreshLobbyList() override
-    if (url.includes('action=list_lobbies')) {
+    
+    if (action === 'get_state') {
+      return new Response(JSON.stringify({ type: 'state', drawn: Array.from(drawnNumbers), lobby: currentLobby }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (action === 'list_lobbies' || url.includes('/api/lobbies')) {
+      // Это сложнее, т.к. возвращает массив. Но обычно вызывается через refreshLobbyList()
       return new Response(JSON.stringify([]), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
+
     return new Response(JSON.stringify({ type: 'redirected' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
   return _origFetch(...args);
@@ -183,6 +217,7 @@ async function _loadMyCard(lobbyId) {
     gameScreenShown = true;
     renderCard();
     updateGameStats();
+    if (window.updateGameDisplay) window.updateGameDisplay();
     if (currentScreen !== 'gameScreen') showScreen('gameScreen');
   }
 }
@@ -200,6 +235,14 @@ function _onLobbyLeft() {
 window.initWS = async function() {
   setConnStatus('connecting', 'Подключение...');
   const sb = getSB();
+  
+  // Установка прав админа по ID (синхронизация с ADMIN_IDS из index.html)
+  if (window.ADMIN_IDS && window.ADMIN_IDS.includes(Number(userId))) {
+      window.isSuperAdmin = true;
+      const btn = document.getElementById('adminMenuBtn');
+      if (btn) btn.style.display = 'flex';
+  }
+
   // Upsert игрока в loto_players
   await sb.from('loto_players').upsert({
     id: userId,
@@ -272,7 +315,8 @@ window.sendWS = async function(msg) {
         gameScreenShown = false;
         subscribeToLobby(lobby.id);
         showScreen('lobbyWaitScreen');
-        updateLobbyDisplay();
+        if (window.updateLobbyDisplay) window.updateLobbyDisplay();
+        if (window.updateGameDisplay) window.updateGameDisplay();
         break;
       }
 
@@ -306,7 +350,8 @@ window.sendWS = async function(msg) {
         gameScreenShown = false;
         subscribeToLobby(lobby.id);
         showScreen('lobbyWaitScreen');
-        updateLobbyDisplay();
+        if (window.updateLobbyDisplay) window.updateLobbyDisplay();
+        if (window.updateGameDisplay) window.updateGameDisplay();
         break;
       }
 
@@ -421,11 +466,10 @@ window.refreshLobbyList = async function() {
 };
 
 // ── OVERRIDE: adminAddBarrel через Supabase ───────────────────────────────
-window.adminAddBarrel = async function() {
+window.adminAddBarrel = async function(val) {
   if (!isSuperAdmin && !isAdmin) { alert('❌ Нет доступа'); return; }
   if (!currentLobbyId) { alert('Сначала создай лобби'); return; }
-  const el = document.getElementById('adminAddNumber');
-  const n = Number(el.value);
+  const n = Number(val || document.getElementById('adminAddNumber')?.value || document.getElementById('numberInput')?.value);
   if (!(n >= 1 && n <= 90)) { alert('Введите число 1-90'); return; }
   const sb = getSB();
   const { data: lobby } = await sb.from('loto_lobbies').select('drawn_numbers').eq('id', currentLobbyId).single();

@@ -899,18 +899,18 @@
 
     const userId = String(tgUser?.id || getBrowserUserId());
     const userName = tgUser?.first_name || localStorage.getItem('browserNickname') || 'Игрок';
-    const isSuperAdmin = ADMIN_IDS.includes(Number(userId));
+    var isSuperAdmin = ADMIN_IDS.includes(Number(userId));
 
     // ====== СОСТОЯНИЕ ======
-    let currentScreen = 'mainMenu';
-    let currentLobby = null;
-    let currentLobbyId = null;
-    let isAdmin = false;
-    let cardNumbers = []; try { const _saved = sessionStorage.getItem("cardNumbers"); if(_saved) { cardNumbers = JSON.parse(_saved); console.log("Recovered card:", cardNumbers); } } catch(e) {} try { const saved = sessionStorage.getItem("cardNumbers"); if(saved) cardNumbers = JSON.parse(saved); } catch(e) {}
-    let markedCells = new Set(); try { const saved = sessionStorage.getItem("markedCells"); if(saved) markedCells = new Set(JSON.parse(saved)); } catch(e) {}
-    let drawnNumbers = new Set();
-    let drawnOrder = []; // порядок выпадения
-    let gameScreenShown = false;
+    var currentScreen = 'mainMenu';
+    var currentLobby = null;
+    var currentLobbyId = null;
+    var isAdmin = false;
+    var cardNumbers = []; try { const _saved = sessionStorage.getItem("cardNumbers"); if(_saved) { cardNumbers = JSON.parse(_saved); console.log("Recovered card:", cardNumbers); } } catch(e) {} try { const saved = sessionStorage.getItem("cardNumbers"); if(saved) cardNumbers = JSON.parse(saved); } catch(e) {}
+    var markedCells = new Set(); try { const saved = sessionStorage.getItem("markedCells"); if(saved) markedCells = new Set(JSON.parse(saved)); } catch(e) {}
+    var drawnNumbers = new Set();
+    var drawnOrder = []; // порядок выпадения
+    var gameScreenShown = false;
     let settings = { sound:false, vibration:true, animations:true };
     // Стиль закрашивания ячейки (эмодзи-маркер)
     const MARK_STYLES = [
