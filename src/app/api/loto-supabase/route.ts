@@ -372,7 +372,7 @@ async function handleAction(
         .eq('id', lobbyId);
       if (startErr) throw startErr;
 
-      return json({ type: 'state_update', lobby: { status: 'playing' } });
+      return handleAction(sb, 'get_state', { lobbyId, userId, nickname }, lobbyId, userId, nickname);
     }
 
     case 'draw_number': {

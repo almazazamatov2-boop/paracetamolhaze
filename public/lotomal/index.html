@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Лото</title>
-  <script src="/loto-realtime.js?v=7" defer></script>
+  <script src="/loto-realtime.js?v=8" defer></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body {
@@ -1175,19 +1175,18 @@
 
           if (msg.lobby) {
             // Обновляем лобби
-            currentLobbyId = normalizeLobbyId(msg.lobby.id);
+            currentLobbyId = normalizeLobbyId(msg.lobby.id) || currentLobbyId || normalizeLobbyId(localStorage.getItem('currentLobbyId'));
             currentLobby = {
-              code: msg.lobby.code,
-              name: msg.lobby.name,
-              maxPlayers: msg.lobby.max_players || 10,
-              players: msg.lobby.players || []
+              code: msg.lobby.code || currentLobby?.code || '',
+              name: msg.lobby.name || currentLobby?.name || '',
+              maxPlayers: msg.lobby.max_players || msg.lobby.maxPlayers || currentLobby?.maxPlayers || 10,
+              players: msg.lobby.players || currentLobby?.players || []
             };
             // isAdmin уже обновлён выше из msg.isAdmin (серверная проверка)
             if (msg.lobby.admin_id !== undefined && msg.isAdmin === undefined) {
               isAdmin = (String(msg.lobby.admin_id).trim() === String(userId).trim());
             }
             if (currentLobbyId) localStorage.setItem('currentLobbyId', currentLobbyId);
-            else localStorage.removeItem('currentLobbyId');
             localStorage.setItem('isAdmin', String(isAdmin));
 
             if (msg.lobby.status === 'playing' && !gameScreenShown && currentScreen !== 'mainMenu') {
