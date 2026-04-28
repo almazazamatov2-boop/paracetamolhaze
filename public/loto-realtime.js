@@ -11,21 +11,27 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // ── Supabase клиент ──────────────────────────────────────────────────────────
 
 let _sb = null;
+let _sbUnavailableUntil = 0;
+const SB_WAIT_TIMEOUT_MS = 450;
+const SB_RETRY_COOLDOWN_MS = 30000;
 
 function getSB() {
   if (_sb) return _sb;
   if (!window.supabase) return null;
   _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  _sbUnavailableUntil = 0;
   return _sb;
 }
 
 // Ждёт инициализации SDK (на случай гонки, хотя в <head> она маловероятна)
-function waitForSB(timeoutMs = 2500) {
+function waitForSB(timeoutMs = SB_WAIT_TIMEOUT_MS) {
+  if (Date.now() < _sbUnavailableUntil) return Promise.resolve(null);
   return new Promise(resolve => {
     const sb = getSB();
     if (sb) return resolve(sb);
     const timeout = setTimeout(() => {
       clearInterval(t);
+      _sbUnavailableUntil = Date.now() + SB_RETRY_COOLDOWN_MS;
       resolve(null);
     }, timeoutMs);
     const t = setInterval(() => {
@@ -59,6 +65,27 @@ function withTimeout(promise, timeoutMs = 4000, code = 'SUPABASE_TIMEOUT') {
     const t = setTimeout(() => reject(new Error(code)), timeoutMs);
     promise.then((v) => { clearTimeout(t); resolve(v); }).catch((e) => { clearTimeout(t); reject(e); });
   });
+}
+
+function toServerBridgeUrl(url) {
+  try {
+    const u = new URL(String(url), window.location.origin);
+    if (u.pathname === '/api/loto' || u.pathname === '/api/drawn') {
+      u.pathname = '/api/loto-supabase';
+      if (!u.searchParams.get('userId') && window.userId) {
+        u.searchParams.set('userId', String(window.userId));
+      }
+    }
+    return u.toString();
+  } catch (_) {
+    const mapped = String(url)
+      .replace('/api/loto', '/api/loto-supabase')
+      .replace('/api/drawn', '/api/loto-supabase');
+    if (mapped.includes('userId=')) return mapped;
+    if (!window.userId) return mapped;
+    const glue = mapped.includes('?') ? '&' : '?';
+    return `${mapped}${glue}userId=${encodeURIComponent(String(window.userId))}`;
+  }
 }
 
 function genCode() {
@@ -600,9 +627,11 @@ async function _handleLotoAPI(url, options) {
 
   window.fetch = function bridgedFetch(url, options) {
     const urlStr = String(url);
+    const isServerSupabaseRoute = urlStr.includes('/api/loto-supabase');
+    const isLotoRoute = (urlStr.includes('/api/loto') || urlStr.includes('/api/drawn')) && !isServerSupabaseRoute;
     // Перехватываем только наши API-маршруты
-    if (urlStr.includes('/api/loto') || urlStr.includes('/api/drawn')) {
-      return withTimeout(_handleLotoAPI(urlStr, options), 4500, 'SUPABASE_TIMEOUT').catch(err => {
+    if (isLotoRoute) {
+      return withTimeout(_handleLotoAPI(urlStr, options), 2500, 'SUPABASE_TIMEOUT').catch(err => {
         const msg = String(err?.message || err || '');
         const canFallback =
           msg.includes('SUPABASE_UNAVAILABLE') ||
@@ -611,8 +640,9 @@ async function _handleLotoAPI(url, options) {
           msg.includes('Failed to fetch') ||
           msg.includes('NetworkError');
         if (canFallback) {
-          console.warn('[Bridge] Supabase bridge fallback to server API:', msg);
-          return _origFetch(url, options);
+          const serverUrl = toServerBridgeUrl(urlStr);
+          console.warn('[Bridge] Supabase bridge fallback to server Supabase API:', msg);
+          return _origFetch(serverUrl, options);
         }
         console.error('[Bridge] Unhandled error:', err);
         return jsonResponse({ type: 'error', message: msg });
@@ -621,7 +651,7 @@ async function _handleLotoAPI(url, options) {
     return _origFetch(url, options);
   };
 
-  console.log('[Loto Bridge V5] ✅ fetch interceptor installed — /api/loto → Supabase');
+  console.log('[Loto Bridge V6] ✅ fetch interceptor installed — /api/loto → Supabase');
 })();
 
 // ── Обратная совместимость: adminAddBarrel ────────────────────────────────────
