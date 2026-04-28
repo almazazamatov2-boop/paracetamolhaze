@@ -150,7 +150,6 @@
 
 </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         function normalizeLobbyId(value) {
             if (value === null || value === undefined) return null;
@@ -164,19 +163,10 @@
         if (lobbyId) localStorage.setItem('currentLobbyId', lobbyId);
         let drawnOrder = [];
         let lastNumber = null;
+        let pollTimer = null;
 
-        // --- Supabase Config (from loto-realtime.js pattern) ---
-        const SB_URL = 'https://dlybapjwphbcynfkdxyk.supabase.co';
-        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRseWJhcGp3cGhiY3luZmtkeHlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY0NTEzMzQsImV4cCI6MjA5MjAyNzMzNH0.XVjs3XJVUR51NXjxgFKnCrW1f-Irv3AQRItonjeDDPk';
-        let sb = null;
-
-        function getSB() {
-            if (!sb) sb = window.supabase.createClient(SB_URL, SB_KEY);
-            return sb;
-        }
-
-        async function handleStateUpdate(data) {
-            const newOrder = (data.drawn_numbers || []).map(Number);
+        function handleStateUpdate(nextDrawn) {
+            const newOrder = (nextDrawn || []).map(Number);
             const prevSet = new Set(drawnOrder);
             const newNumbers = newOrder.filter(n => !prevSet.has(n));
             drawnOrder = newOrder;
@@ -221,25 +211,26 @@
             }
         }
 
+        async function fetchState() {
+            if (!lobbyId) return;
+            try {
+                const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(lobbyId)}`, { cache: 'no-store' });
+                if (!res.ok) return;
+                const payload = await res.json();
+                if (payload?.type === 'no_change') return;
+                const drawn = Array.isArray(payload?.drawn) ? payload.drawn : [];
+                handleStateUpdate(drawn);
+            } catch (_) {}
+        }
+
         async function init() {
             if (!lobbyId) {
                 document.body.innerHTML = '<div style="color:#FFD700;padding:20px;">Lobby ID not specified in URL (?lobbyId=...)</div>';
                 return;
             }
-            
-            const sbClient = getSB();
-            
-            // Initial fetch
-            const { data, error } = await sbClient.from('loto_lobbies').select('drawn_numbers').eq('id', lobbyId).single();
-            if (data) handleStateUpdate(data);
 
-            // Subscribe to changes
-            sbClient.channel('loto_overlay')
-                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'loto_lobbies', filter: `id=eq.${lobbyId}` }, 
-                payload => {
-                    handleStateUpdate(payload.new);
-                })
-                .subscribe();
+            await fetchState();
+            if (!pollTimer) pollTimer = setInterval(fetchState, 1000);
         }
 
         init();

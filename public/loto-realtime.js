@@ -48,6 +48,19 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+function failSupabase(err) {
+  if (!err) return;
+  const msg = String(err?.message || err || 'Supabase request failed');
+  throw new Error('SUPABASE_REQUEST_FAILED: ' + msg);
+}
+
+function withTimeout(promise, timeoutMs = 4000, code = 'SUPABASE_TIMEOUT') {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(code)), timeoutMs);
+    promise.then((v) => { clearTimeout(t); resolve(v); }).catch((e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 function genCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let r = '';
@@ -201,10 +214,12 @@ async function _loadMyCard(lobbyId) {
 // ── Вспомогательные запросы к Supabase ───────────────────────────────────────
 
 async function _getLobbyState(sb, lobbyId) {
-  const [{ data: lobby }, { data: players }] = await Promise.all([
+  const [{ data: lobby, error: lobbyErr }, { data: players, error: playersErr }] = await Promise.all([
     sb.from('loto_lobbies').select('*').eq('id', lobbyId).maybeSingle(),
     sb.from('loto_players').select('*').eq('lobby_id', lobbyId)
   ]);
+  failSupabase(lobbyErr);
+  failSupabase(playersErr);
   return {
     lobby,
     players: (players || []).map(p => ({
@@ -272,12 +287,13 @@ async function _handleLotoAPI(url, options) {
       let myMarkedCells = [];
 
       if (userId) {
-        const { data: playerRow } = await sb
+        const { data: playerRow, error: playerErr } = await sb
           .from('loto_players')
           .select('card, marked_cells')
           .eq('id', userId)
           .eq('lobby_id', lobbyId)
           .maybeSingle();
+        failSupabase(playerErr);
         if (playerRow) {
           myCard        = playerRow.card        || null;
           myMarkedCells = playerRow.marked_cells || [];
@@ -307,20 +323,22 @@ async function _handleLotoAPI(url, options) {
     // Список лобби для экрана «Войти в лобби»
     // ─────────────────────────────────────────────────────────────
     case 'list_lobbies': {
-      const { data: lobbies } = await sb.from('loto_lobbies')
+      const { data: lobbies, error: lobbiesErr } = await sb.from('loto_lobbies')
         .select('id, code, name, max_players, status')
         .in('status', ['waiting', 'playing'])
         .order('created_at', { ascending: false })
         .limit(20);
+      failSupabase(lobbiesErr);
 
       if (!lobbies || lobbies.length === 0) return jsonResponse([]);
 
       // Добавляем количество игроков
       const result = await Promise.all(lobbies.map(async l => {
-        const { count } = await sb
+        const { count, error: countErr } = await sb
           .from('loto_players')
           .select('id', { count: 'exact', head: true })
           .eq('lobby_id', l.id);
+        failSupabase(countErr);
         return { ...l, players_count: count || 0, has_password: 0 };
       }));
 
@@ -341,15 +359,16 @@ async function _handleLotoAPI(url, options) {
         drawn_numbers: []
       }).select().single();
 
-      if (error) return jsonResponse({ type: 'error', message: error.message });
+      failSupabase(error);
 
-      await sb.from('loto_players').upsert({
+      const { error: upsertErr } = await sb.from('loto_players').upsert({
         id:       userId,
         lobby_id: lobby.id,
         nickname,
         is_admin: true,
         status:   'waiting'
       }, { onConflict: 'id,lobby_id' });
+      failSupabase(upsertErr);
 
       subscribeToLobby(lobby.id);
 
@@ -375,21 +394,23 @@ async function _handleLotoAPI(url, options) {
       const code = (body.code || '').toUpperCase().trim();
       if (!code) return jsonResponse({ type: 'error', message: 'Введите код лобби' });
 
-      const { data: lobby } = await sb.from('loto_lobbies')
+      const { data: lobby, error: lobbyErr } = await sb.from('loto_lobbies')
         .select('*').eq('code', code).maybeSingle();
+      failSupabase(lobbyErr);
 
       if (!lobby)                    return jsonResponse({ type: 'error', message: 'Лобби не найдено. Проверь код.' });
       if (lobby.status === 'finished') return jsonResponse({ type: 'error', message: 'Игра уже завершена.' });
 
       const isAdminHere = String(lobby.admin_id) === String(userId);
 
-      await sb.from('loto_players').upsert({
+      const { error: upsertErr } = await sb.from('loto_players').upsert({
         id:       userId,
         lobby_id: lobby.id,
         nickname,
         is_admin: isAdminHere,
         status:   'waiting'
       }, { onConflict: 'id,lobby_id' });
+      failSupabase(upsertErr);
 
       subscribeToLobby(lobby.id);
 
@@ -406,8 +427,9 @@ async function _handleLotoAPI(url, options) {
     // ─────────────────────────────────────────────────────────────
     case 'leave_lobby': {
       if (lobbyId && userId) {
-        await sb.from('loto_players')
+        const { error: leaveErr } = await sb.from('loto_players')
           .delete().eq('id', userId).eq('lobby_id', lobbyId);
+        failSupabase(leaveErr);
       }
       return jsonResponse({ type: 'left_lobby' });
     }
@@ -419,29 +441,33 @@ async function _handleLotoAPI(url, options) {
       if (!lobbyId) return jsonResponse({ type: 'error', message: 'Нет лобби' });
 
       // Проверяем права
-      const { data: lobbyCheck } = await sb
+      const { data: lobbyCheck, error: lobbyCheckErr } = await sb
         .from('loto_lobbies').select('admin_id').eq('id', lobbyId).single();
+      failSupabase(lobbyCheckErr);
       if (!lobbyCheck || String(lobbyCheck.admin_id) !== String(userId)) {
         return jsonResponse({ type: 'error', message: 'Только хост может запустить игру' });
       }
 
-      const { data: players } = await sb
+      const { data: players, error: playersErr } = await sb
         .from('loto_players').select('id').eq('lobby_id', lobbyId);
+      failSupabase(playersErr);
 
       const generateCard = window.generateLotoCard || _defaultCard;
 
       for (const p of (players || [])) {
         const card = generateCard();
-        await sb.from('loto_players')
+        const { error: updatePlayerErr } = await sb.from('loto_players')
           .update({ card, status: 'playing', marked_cells: [] })
           .eq('id', p.id).eq('lobby_id', lobbyId);
+        failSupabase(updatePlayerErr);
       }
 
-      await sb.from('loto_lobbies').update({
+      const { error: startErr } = await sb.from('loto_lobbies').update({
         status:        'playing',
         drawn_numbers: [],
         event:         { type: 'game_started', ts: Date.now() }
       }).eq('id', lobbyId);
+      failSupabase(startErr);
 
       return jsonResponse({ type: 'state_update', lobby: { status: 'playing' } });
     }
@@ -454,8 +480,9 @@ async function _handleLotoAPI(url, options) {
       const num = Number(body.number);
       if (!num || num < 1 || num > 90) return jsonResponse({ type: 'error', message: 'Введите число 1–90' });
 
-      const { data: lobby } = await sb
+      const { data: lobby, error: lobbyErr } = await sb
         .from('loto_lobbies').select('drawn_numbers, admin_id').eq('id', lobbyId).single();
+      failSupabase(lobbyErr);
       if (!lobby) return jsonResponse({ type: 'error', message: 'Лобби не найдено' }, 404);
 
       // Проверка прав администратора
@@ -467,7 +494,8 @@ async function _handleLotoAPI(url, options) {
       if (arr.includes(num)) return jsonResponse({ type: 'error', message: 'Это число уже выпало!' });
       arr.push(num);
 
-      await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lobbyId);
+      const { error: drawErr } = await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lobbyId);
+      failSupabase(drawErr);
 
       // Ответ понятен и admin.html (data.drawn) и index.html (handleWsMessage → msg.drawn)
       return jsonResponse({ type: 'state_update', drawn: arr });
@@ -477,17 +505,20 @@ async function _handleLotoAPI(url, options) {
     case 'undo_number': {
       if (!lobbyId) return jsonResponse({ all: [] });
       const num = Number(body.number);
-      const { data: lobby } = await sb
+      const { data: lobby, error: lobbyErr } = await sb
         .from('loto_lobbies').select('drawn_numbers').eq('id', lobbyId).single();
+      failSupabase(lobbyErr);
       const arr = (lobby?.drawn_numbers || []).filter(n => n !== num);
-      await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lobbyId);
+      const { error: undoErr } = await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lobbyId);
+      failSupabase(undoErr);
       return jsonResponse({ all: arr });
     }
 
     // Сбросить все бочонки
     case 'reset_numbers': {
       if (lobbyId) {
-        await sb.from('loto_lobbies').update({ drawn_numbers: [] }).eq('id', lobbyId);
+        const { error: resetErr } = await sb.from('loto_lobbies').update({ drawn_numbers: [] }).eq('id', lobbyId);
+        failSupabase(resetErr);
       }
       return jsonResponse({ type: 'success' });
     }
@@ -497,12 +528,13 @@ async function _handleLotoAPI(url, options) {
     // ─────────────────────────────────────────────────────────────
     case 'chat_message': {
       if (!lobbyId) return jsonResponse({ type: 'success' });
-      const { data: msg } = await sb.from('loto_chat').insert({
+      const { data: msg, error: msgErr } = await sb.from('loto_chat').insert({
         lobby_id: lobbyId,
         user_id:  userId,
         nickname: body.nickname || nickname,
         text:     body.text || ''
       }).select().single();
+      failSupabase(msgErr);
 
       return jsonResponse({
         type: 'chat_message',
@@ -521,9 +553,10 @@ async function _handleLotoAPI(url, options) {
     // ─────────────────────────────────────────────────────────────
     case 'update_profile': {
       if (lobbyId && userId && body.nickname) {
-        await sb.from('loto_players')
+        const { error: profileErr } = await sb.from('loto_players')
           .update({ nickname: body.nickname })
           .eq('id', userId).eq('lobby_id', lobbyId);
+        failSupabase(profileErr);
       }
       return jsonResponse({ type: 'success' });
     }
@@ -543,9 +576,10 @@ async function _handleLotoAPI(url, options) {
           const count = Number(body.count) || 0;
           cells = Array.from({ length: count }, (_, i) => i);
         }
-        await sb.from('loto_players')
+        const { error: markErr } = await sb.from('loto_players')
           .update({ marked_cells: cells })
           .eq('id', userId).eq('lobby_id', lobbyId);
+        failSupabase(markErr);
       }
       return jsonResponse({ type: 'success' });
     }
@@ -568,13 +602,20 @@ async function _handleLotoAPI(url, options) {
     const urlStr = String(url);
     // Перехватываем только наши API-маршруты
     if (urlStr.includes('/api/loto') || urlStr.includes('/api/drawn')) {
-      return _handleLotoAPI(urlStr, options).catch(err => {
-        if (String(err?.message || err).includes('SUPABASE_UNAVAILABLE')) {
-          console.warn('[Bridge] Supabase SDK unavailable, falling back to server API');
+      return withTimeout(_handleLotoAPI(urlStr, options), 4500, 'SUPABASE_TIMEOUT').catch(err => {
+        const msg = String(err?.message || err || '');
+        const canFallback =
+          msg.includes('SUPABASE_UNAVAILABLE') ||
+          msg.includes('SUPABASE_REQUEST_FAILED') ||
+          msg.includes('SUPABASE_TIMEOUT') ||
+          msg.includes('Failed to fetch') ||
+          msg.includes('NetworkError');
+        if (canFallback) {
+          console.warn('[Bridge] Supabase bridge fallback to server API:', msg);
           return _origFetch(url, options);
         }
         console.error('[Bridge] Unhandled error:', err);
-        return jsonResponse({ type: 'error', message: String(err?.message || err) });
+        return jsonResponse({ type: 'error', message: msg });
       });
     }
     return _origFetch(url, options);

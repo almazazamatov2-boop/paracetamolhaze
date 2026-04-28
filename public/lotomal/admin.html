@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Лото - Админ панель</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/loto-realtime.js"></script>
     <style>
         * {
@@ -460,6 +459,7 @@
         const query = new URLSearchParams(window.location.search);
         const lobbyId = normalizeId(query.get('lobbyId')) || normalizeId(localStorage.getItem('currentLobbyId'));
         const userId = normalizeId(query.get('userId')) || normalizeId(localStorage.getItem('browserUserId')) || getBrowserUserId();
+        let adminPollTimer = null;
         if (lobbyId) localStorage.setItem('currentLobbyId', lobbyId);
         if (userId) localStorage.setItem('browserUserId', userId);
 
@@ -602,6 +602,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             initGrid();
             loadFromServer();
+            if (!adminPollTimer) adminPollTimer = setInterval(loadFromServer, 1000);
         });
 
         function renderPlayers(players) {
@@ -635,6 +636,7 @@
         // Админ сам делает изменения, ему нужен поллинг только для списка игроков
         // Инициализация Realtime для админки
         async function initAdminRealtime() {
+            return;
             if (!lobbyId) return;
             // Используем тот же anon-ключ что и в loto-realtime.js
             const sb = window.supabase.createClient(

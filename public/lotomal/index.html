@@ -2335,7 +2335,13 @@
 
     function openOverlay() {
       if (!isSuperAdmin) { alert('❌ Нет доступа'); return; }
-      window.open('./overlay.html', '_blank');
+      const lid = normalizeLobbyId(currentLobbyId || localStorage.getItem('currentLobbyId'));
+      if (lid) {
+        localStorage.setItem('currentLobbyId', lid);
+        window.open('/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid), '_blank');
+        return;
+      }
+      window.open('/lotomal/overlay.html', '_blank');
     }
 
     // ====== ИНИЦИАЛИЗАЦИЯ ======
