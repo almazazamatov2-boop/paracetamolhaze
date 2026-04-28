@@ -167,12 +167,24 @@ async function _loadMyCard(lobbyId) {
   const uid = window.userId;
   if (!sb || !uid) return;
   const { data } = await sb
-    .from('loto_players').select('card')
+    .from('loto_players').select('card, marked_cells')
     .eq('id', uid).eq('lobby_id', lobbyId)
     .maybeSingle();
   if (data?.card) {
     window.cardNumbers   = data.card;
     window.gameScreenShown = true;
+    // V5: сохраняем в localStorage для F5-восстановления
+    try {
+      localStorage.setItem('cardNumbers',    JSON.stringify(data.card));
+      localStorage.setItem('gameScreenShown', 'true');
+      localStorage.setItem('currentLobbyId',  lobbyId);
+      if (data.marked_cells && data.marked_cells.length) {
+        localStorage.setItem('markedCells', JSON.stringify(data.marked_cells));
+        if (typeof window.markedCells !== 'undefined') {
+          window.markedCells = new Set(data.marked_cells.map(Number));
+        }
+      }
+    } catch(_) {}
     if (window.renderCard)  window.renderCard();
     if (window.showScreen)  window.showScreen('gameScreen');
   }
@@ -245,9 +257,31 @@ async function _handleLotoAPI(url, options) {
       const drawn = (lobby.drawn_numbers || []).map(Number);
       subscribeToLobby(lobbyId); // Подписываемся, если ещё нет
 
+      // ── V5: сервер-авторизация прав и восстановление карточки ────
+      const isAdminVerified = String(lobby.admin_id) === String(userId);
+      let myCard = null;
+      let myMarkedCells = [];
+
+      if (userId) {
+        const { data: playerRow } = await sb
+          .from('loto_players')
+          .select('card, marked_cells')
+          .eq('id', userId)
+          .eq('lobby_id', lobbyId)
+          .maybeSingle();
+        if (playerRow) {
+          myCard        = playerRow.card        || null;
+          myMarkedCells = playerRow.marked_cells || [];
+        }
+      }
+      // ─────────────────────────────────────────────────────────────
+
       return jsonResponse({
         type: 'state_update',
         drawn,
+        isAdmin:      isAdminVerified,   // всегда верифицируется на сервере
+        card:         myCard,            // null пока игра не стартовала
+        markedCells:  myMarkedCells,     // реальные числа, не dummy-индексы
         lobby: {
           id:          lobby.id,
           code:        lobby.code,
@@ -487,14 +521,21 @@ async function _handleLotoAPI(url, options) {
 
     // ─────────────────────────────────────────────────────────────
     // Прогресс закрытых клеток (нужен для прогресс-бара в admin.html)
+    // V5: храним реальные числа — восстанавливаем при F5
     // ─────────────────────────────────────────────────────────────
     case 'mark_cell': {
       if (lobbyId && userId) {
-        const count    = Number(body.count) || 0;
-        // Храним dummy-массив нужной длины — admin.html берёт .length
-        const dummyArr = Array.from({ length: count }, (_, i) => i);
+        // Принимаем cells:[10,45,88] (новый формат) или count:5 (старый fallback)
+        let cells;
+        if (Array.isArray(body.cells)) {
+          cells = body.cells.map(Number);
+        } else {
+          // Старый формат: dummy-массив нужной длины
+          const count = Number(body.count) || 0;
+          cells = Array.from({ length: count }, (_, i) => i);
+        }
         await sb.from('loto_players')
-          .update({ marked_cells: dummyArr })
+          .update({ marked_cells: cells })
           .eq('id', userId).eq('lobby_id', lobbyId);
       }
       return jsonResponse({ type: 'success' });
@@ -526,7 +567,7 @@ async function _handleLotoAPI(url, options) {
     return _origFetch(url, options);
   };
 
-  console.log('[Loto Bridge V4] ✅ fetch interceptor installed — /api/loto → Supabase');
+  console.log('[Loto Bridge V5] ✅ fetch interceptor installed — /api/loto → Supabase');
 })();
 
 // ── Обратная совместимость: adminAddBarrel ────────────────────────────────────

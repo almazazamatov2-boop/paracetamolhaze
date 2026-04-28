@@ -905,8 +905,8 @@
     var currentLobby = null;
     var currentLobbyId = null;
     var isAdmin = false;
-    var cardNumbers = []; try { const _saved = sessionStorage.getItem("cardNumbers"); if(_saved) { cardNumbers = JSON.parse(_saved); console.log("Recovered card:", cardNumbers); } } catch(e) {} try { const saved = sessionStorage.getItem("cardNumbers"); if(saved) cardNumbers = JSON.parse(saved); } catch(e) {}
-    var markedCells = new Set(); try { const saved = sessionStorage.getItem("markedCells"); if(saved) markedCells = new Set(JSON.parse(saved)); } catch(e) {}
+    var cardNumbers = []; try { const _saved = localStorage.getItem("cardNumbers"); if(_saved) { cardNumbers = JSON.parse(_saved); } } catch(e) {}
+    var markedCells = new Set(); try { const saved = localStorage.getItem("markedCells"); if(saved) markedCells = new Set(JSON.parse(saved)); } catch(e) {}
     var drawnNumbers = new Set();
     var drawnOrder = []; // порядок выпадения
     var gameScreenShown = false;
@@ -1055,12 +1055,12 @@
 
     window.initWS = function() {
       wsReady = true;
-      // Восстановление сессии
-      const _sid   = sessionStorage.getItem('currentLobbyId');
-      const _adm   = sessionStorage.getItem('isAdmin') === 'true';
-      const _card  = sessionStorage.getItem('cardNumbers');
-      const _marks = sessionStorage.getItem('markedCells');
-      const _game  = sessionStorage.getItem('gameScreenShown') === 'true';
+      // Восстановление сессии — localStorage переживает закрытие вкладки
+      const _sid   = localStorage.getItem('currentLobbyId');
+      const _adm   = localStorage.getItem('isAdmin') === 'true';
+      const _card  = localStorage.getItem('cardNumbers');
+      const _marks = localStorage.getItem('markedCells');
+      const _game  = localStorage.getItem('gameScreenShown') === 'true';
       if (_sid) {
         currentLobbyId = _sid;
         isAdmin        = _adm;
@@ -1071,8 +1071,10 @@
           document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
           const gs = document.getElementById('gameScreen');
           if (gs) { gs.classList.add('active'); currentScreen = 'gameScreen'; }
-          if (!cardNumbers || !cardNumbers.length) cardNumbers = generateLotoCard();
-          setTimeout(() => { renderCard(); updateGameStats(); updateGameDisplay(); }, 100);
+          // Не генерируем карту локально — загружаем с сервера через get_state
+          if (cardNumbers && cardNumbers.length) {
+            setTimeout(() => { renderCard(); updateGameStats(); updateGameDisplay(); }, 100);
+          }
         }
       }
       // Авторизация
@@ -1138,6 +1140,25 @@
 
         case 'state_update':
           if (msg.version !== undefined) lastKnownVersion = String(msg.version);
+
+          // ── V5: сервер подтверждает права админа ──────────────────
+          if (msg.isAdmin !== undefined) {
+            isAdmin = msg.isAdmin;
+            localStorage.setItem('isAdmin', String(isAdmin));
+          }
+
+          // ── V5: восстанавливаем карточку с сервера после F5 ───────
+          if (msg.card && Array.isArray(msg.card) && msg.card.length === 3) {
+            cardNumbers = msg.card;
+            localStorage.setItem('cardNumbers', JSON.stringify(cardNumbers));
+          }
+
+          // ── V5: восстанавливаем отмеченные числа ──────────────────
+          if (Array.isArray(msg.markedCells) && msg.markedCells.length > 0 && markedCells.size === 0) {
+            markedCells = new Set(msg.markedCells.map(Number));
+            localStorage.setItem('markedCells', JSON.stringify([...markedCells]));
+          }
+
           if (msg.lobby) {
             // Обновляем лобби
             currentLobbyId = msg.lobby.id;
@@ -1147,19 +1168,22 @@
               maxPlayers: msg.lobby.max_players || 10,
               players: msg.lobby.players || []
             };
-            isAdmin = (String(msg.lobby.admin_id).trim() === String(userId).trim());
-            sessionStorage.setItem('currentLobbyId', currentLobbyId);
-            sessionStorage.setItem('isAdmin', String(isAdmin));
+            // isAdmin уже обновлён выше из msg.isAdmin (серверная проверка)
+            if (msg.lobby.admin_id !== undefined && msg.isAdmin === undefined) {
+              isAdmin = (String(msg.lobby.admin_id).trim() === String(userId).trim());
+            }
+            localStorage.setItem('currentLobbyId', currentLobbyId);
+            localStorage.setItem('isAdmin', String(isAdmin));
 
             if (msg.lobby.status === 'playing' && !gameScreenShown && currentScreen !== 'mainMenu') {
               gameScreenShown = true;
-              sessionStorage.setItem('gameScreenShown', 'true');
-              if (!cardNumbers || !cardNumbers.length) {
-                cardNumbers = generateLotoCard();
-                sessionStorage.setItem('cardNumbers', JSON.stringify(cardNumbers));
+              localStorage.setItem('gameScreenShown', 'true');
+              // Карточка уже восстановлена из msg.card выше — НЕ генерируем рандомную
+              if (cardNumbers && cardNumbers.length) {
+                showScreen('gameScreen');
+                updateGameDisplay(); renderCard(); updateGameStats();
               }
-              showScreen('gameScreen');
-              updateGameDisplay(); renderCard(); updateGameStats();
+              // Если карточки нет — мост сам подгрузит её через _loadMyCard при game_started
             }
             updateLobbyDisplay(); updateGameDisplay();
           }
@@ -1177,8 +1201,6 @@
             }
           }
           if (msg.chat) {
-            // Очищаем и рендерим чат заново или добавляем новые (упростим: просто перерисуем если нужно)
-            // Но лучше appendChatMessage уже умеет фильтровать дубли по ID
             msg.chat.forEach(m => appendChatMessage(m));
           }
           break;
@@ -1229,7 +1251,11 @@
           if (msg.card) {
             cardNumbers = msg.card;
           } else {
-            if (!cardNumbers || !cardNumbers.length) cardNumbers = generateLotoCard();
+            // Карточка придёт от Bridge через _loadMyCard — не генерируем локально
+            if (!cardNumbers || !cardNumbers.length) {
+              // Оставляем пустой массив, Bridge подгрузит карту через Supabase Realtime
+              console.log('[index] game_started: waiting for card from Bridge');
+            }
           }
           markedCells.clear();
           drawnNumbers.clear();
@@ -1237,11 +1263,10 @@
           alreadyWon = false;
           alreadyNotified14 = false;
           gameScreenShown = true;
-          sessionStorage.setItem('cardNumbers', JSON.stringify(cardNumbers));
-          sessionStorage.setItem('markedCells', '[]');
-          sessionStorage.setItem('gameScreenShown', 'true');
-          renderCard();
-          updateGameStats();
+          localStorage.setItem('cardNumbers', JSON.stringify(cardNumbers));
+          localStorage.setItem('markedCells', '[]');
+          localStorage.setItem('gameScreenShown', 'true');
+          if (cardNumbers && cardNumbers.length) { renderCard(); updateGameStats(); }
           if (currentScreen !== 'gameScreen') showScreen('gameScreen');
           break;
 
@@ -1639,7 +1664,7 @@
 
     // ====== ЛОББИ (через WebSocket) ======
     function createLobby() {
-      currentLobbyId = null; sessionStorage.removeItem("currentLobbyId");  // Сброс перед созданием
+      currentLobbyId = null; localStorage.removeItem("currentLobbyId");  // Сброс перед созданием
       playSound('click');
       if (!wsReady) { alert('Нет связи с сервером. Проверь подключение.'); return; }
       const name = document.getElementById('lobbyNameInput').value || 'Моя игра';
@@ -1664,10 +1689,10 @@
       cardNumbers = []; markedCells.clear(); drawnNumbers.clear(); drawnOrder = [];
       alreadyWon = false; alreadyNotified14 = false;
       chatMessagesList.length = 0; chatMessagesIds.clear();
-      lastKnownVersion = -1; // Сбрасываем версию при выходе
-      sessionStorage.removeItem('currentLobbyId'); sessionStorage.removeItem('isAdmin');
-      sessionStorage.removeItem('cardNumbers'); sessionStorage.removeItem('markedCells');
-      sessionStorage.removeItem('gameScreenShown');
+      lastKnownVersion = -1;
+      localStorage.removeItem('currentLobbyId'); localStorage.removeItem('isAdmin');
+      localStorage.removeItem('cardNumbers'); localStorage.removeItem('markedCells');
+      localStorage.removeItem('gameScreenShown');
     }
 
     function leaveLobby() {
@@ -1920,8 +1945,9 @@
       }
       updateGameStats();
       checkWinLocal();
-      sessionStorage.setItem('markedCells', JSON.stringify([...markedCells]));
-      if (currentLobbyId) sendAPI({ action: 'mark_cell', userId, lobbyId: currentLobbyId, count: markedCells.size });
+      localStorage.setItem('markedCells', JSON.stringify([...markedCells]));
+      // V5: отправляем реальные числа для восстановления после F5
+      if (currentLobbyId) sendAPI({ action: 'mark_cell', userId, lobbyId: currentLobbyId, cells: [...markedCells] });
     }
 
     function applyMarkIcon(cell) {
