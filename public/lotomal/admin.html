@@ -441,9 +441,27 @@
             input.focus();
         }
 
+        function normalizeId(value) {
+            if (value === null || value === undefined) return null;
+            const normalized = String(value).trim();
+            if (!normalized || normalized === 'undefined' || normalized === 'null') return null;
+            return normalized;
+        }
+
+        function getBrowserUserId() {
+            let id = localStorage.getItem('browserUserId');
+            if (!id) {
+                id = 'b' + Date.now() + Math.floor(Math.random() * 10000);
+                localStorage.setItem('browserUserId', id);
+            }
+            return id;
+        }
+
         const query = new URLSearchParams(window.location.search);
-        const lobbyId = query.get('lobbyId');
-        const userId = query.get('userId');
+        const lobbyId = normalizeId(query.get('lobbyId')) || normalizeId(localStorage.getItem('currentLobbyId'));
+        const userId = normalizeId(query.get('userId')) || normalizeId(localStorage.getItem('browserUserId')) || getBrowserUserId();
+        if (lobbyId) localStorage.setItem('currentLobbyId', lobbyId);
+        if (userId) localStorage.setItem('browserUserId', userId);
 
         async function addNumberToDrawn(num) {
             if (!lobbyId || !userId) {

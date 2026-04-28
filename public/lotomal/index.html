@@ -6,7 +6,6 @@
   <title>Лото</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" async></script>
   <script src="/loto-realtime.js" defer></script>
-  <script src="https://telegram.org/js/telegram-web-app.js" async></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body {
@@ -880,15 +879,7 @@
     // ====== НАСТРОЙКА АДМИНОВ ======
     const ADMIN_IDS = [514468501]; // Almaz
 
-    // ====== TELEGRAM ======
-    let tg = window.Telegram?.WebApp || {
-      initDataUnsafe: {},
-      expand() {},
-      ready() {},
-    };
-    tg.expand();
-    tg.ready();
-    const tgUser = tg.initDataUnsafe?.user;
+    // ====== BROWSER MODE ======
 
     // Для браузерных игроков — постоянный ID сохраняется в localStorage
     function getBrowserUserId() {
@@ -900,8 +891,15 @@
       return id;
     }
 
-    var userId = String(tgUser?.id || getBrowserUserId());
-    var userName = tgUser?.first_name || localStorage.getItem('browserNickname') || 'Игрок';
+    function normalizeLobbyId(value) {
+      if (value === null || value === undefined) return null;
+      const normalized = String(value).trim();
+      if (!normalized || normalized === 'undefined' || normalized === 'null') return null;
+      return normalized;
+    }
+
+    var userId = String(getBrowserUserId());
+    var userName = localStorage.getItem('browserNickname') || 'Игрок';
     var isSuperAdmin = ADMIN_IDS.includes(Number(userId));
 
     // ====== СОСТОЯНИЕ ======
@@ -915,6 +913,16 @@
     var drawnOrder = []; // порядок выпадения
     var gameScreenShown = false;
     let settings = { sound:false, vibration:true, animations:true };
+    function vibrate(type = 'light') {
+      if (!settings?.vibration) return;
+      if (!navigator.vibrate) return;
+      const pattern = type === 'success'
+        ? [15, 25, 15]
+        : type === 'error'
+        ? [35, 20, 35]
+        : [12];
+      try { navigator.vibrate(pattern); } catch(_) {}
+    }
     // Стиль закрашивания ячейки (эмодзи-маркер)
     const MARK_STYLES = [
       { id: 'check',    label: '✓',  emoji: null,  img: null },
@@ -1060,7 +1068,7 @@
     window.initWS = function() {
       wsReady = true;
       // Восстановление сессии — localStorage переживает закрытие вкладки
-      const _sid   = localStorage.getItem('currentLobbyId');
+      const _sid   = normalizeLobbyId(localStorage.getItem('currentLobbyId'));
       const _adm   = localStorage.getItem('isAdmin') === 'true';
       const _card  = localStorage.getItem('cardNumbers');
       const _marks = localStorage.getItem('markedCells');
@@ -1080,6 +1088,9 @@
             setTimeout(() => { renderCard(); updateGameStats(); updateGameDisplay(); }, 100);
           }
         }
+      }
+      else {
+        localStorage.removeItem('currentLobbyId');
       }
       // Авторизация
       setConnStatus('connecting', 'Подключение...');
@@ -1165,7 +1176,7 @@
 
           if (msg.lobby) {
             // Обновляем лобби
-            currentLobbyId = msg.lobby.id;
+            currentLobbyId = normalizeLobbyId(msg.lobby.id);
             currentLobby = {
               code: msg.lobby.code,
               name: msg.lobby.name,
@@ -1176,7 +1187,8 @@
             if (msg.lobby.admin_id !== undefined && msg.isAdmin === undefined) {
               isAdmin = (String(msg.lobby.admin_id).trim() === String(userId).trim());
             }
-            localStorage.setItem('currentLobbyId', currentLobbyId);
+            if (currentLobbyId) localStorage.setItem('currentLobbyId', currentLobbyId);
+            else localStorage.removeItem('currentLobbyId');
             localStorage.setItem('isAdmin', String(isAdmin));
 
             if (msg.lobby.status === 'playing' && !gameScreenShown && currentScreen !== 'mainMenu') {
@@ -1201,7 +1213,7 @@
             updateDrawnNumbersDisplay();
             if (newCount > oldCount) {
               playSound('barrel');
-              if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+              vibrate('light');
             }
           }
           if (msg.chat) {
@@ -1210,7 +1222,7 @@
           break;
 
         case 'lobby_created':
-          currentLobbyId = msg.lobby.id;
+          currentLobbyId = normalizeLobbyId(msg.lobby?.id);
           currentLobby = {
             code: msg.lobby.code,
             name: msg.lobby.name,
@@ -1219,12 +1231,19 @@
           };
           isAdmin = true;
           gameScreenShown = false;
+          if (currentLobbyId) localStorage.setItem('currentLobbyId', currentLobbyId);
+          else localStorage.removeItem('currentLobbyId');
           showScreen('lobbyWaitScreen');
           updateLobbyDisplay();
           break;
 
         case 'lobby_joined':
-          currentLobbyId = msg.lobbyId || msg.lobby?.id;
+          currentLobbyId = normalizeLobbyId(msg.lobbyId || msg.lobby?.id);
+          if (!currentLobbyId) {
+            alert('Ошибка: не удалось определить lobbyId');
+            break;
+          }
+          localStorage.setItem('currentLobbyId', currentLobbyId);
           isAdmin = msg.isAdmin || false;
           gameScreenShown = false;
           lastKnownVersion = -1; // Новое лобби — сбрасываем версию
@@ -1285,7 +1304,7 @@
           }
           updateDrawnNumbersDisplay();
           playSound('barrel');
-          if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+          vibrate('light');
           break;
 
         case 'numbers_updated':
@@ -1650,7 +1669,7 @@
       userProfile.nickname = newNick;
       localStorage.setItem('userProfile', JSON.stringify(userProfile));
       localStorage.setItem('browserNickname', userProfile.nickname);
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      vibrate('success');
       showToast('✅ Профиль сохранён');
     }
 
@@ -1663,7 +1682,7 @@
       if (setting === 'animations') document.body.classList.toggle('no-animations', !settings.animations);
 
       if (setting !== 'sound') playSound('click');
-      if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      vibrate('light');
     }
 
     // ====== ЛОББИ (через WebSocket) ======
@@ -1675,7 +1694,7 @@
       const password = document.getElementById('createPasswordInput').value;
       const maxPlayers = parseInt(document.getElementById('maxPlayersInput').value) || 10;
       sendWS({ type: 'create_lobby', name, password, maxPlayers, mode: 'classic', rounds: 1 });
-      if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      vibrate('success');
     }
 
     function joinLobby() {
@@ -1717,14 +1736,33 @@
       leaveLobby();
     }
 
+    function openAdminPanel() {
+      const lid = normalizeLobbyId(currentLobbyId || localStorage.getItem('currentLobbyId'));
+      if (!lid) {
+        alert('Сначала создайте или откройте лобби');
+        return;
+      }
+      localStorage.setItem('currentLobbyId', lid);
+      window.open('/lotomal/admin.html?lobbyId=' + encodeURIComponent(lid) + '&userId=' + encodeURIComponent(userId), '_blank');
+    }
+
+    function openOverlayPanel() {
+      const lid = normalizeLobbyId(currentLobbyId || localStorage.getItem('currentLobbyId'));
+      if (!lid) {
+        alert('Сначала создайте или откройте лобби');
+        return;
+      }
+      localStorage.setItem('currentLobbyId', lid);
+      window.open('/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid), '_blank');
+    }
     function updateGameDisplay() {
       const container = document.getElementById('creatorButtonsGameContainer');
       if (!container) return;
       if (isAdmin) {
           container.style.display = 'flex';
           container.innerHTML = `
-              <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="window.open('/lotomal/admin.html?lobbyId='+currentLobbyId+'&userId='+userId, '_blank')">🛡️ Админ.панель</button>
-              <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="window.open('/lotomal/overlay.html?lobbyId='+currentLobbyId, '_blank')">🎥 Оверлей</button>
+              <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="openAdminPanel()">🛡️ Админ.панель</button>
+              <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="openOverlayPanel()">🎥 Оверлей</button>
           `;
       } else {
           container.style.display = 'none';
@@ -1765,8 +1803,8 @@
             div.id = 'creatorButtons';
             div.style.cssText = 'display:flex; gap:10px; margin-top:10px;';
             div.innerHTML = `
-                <button class="btn-secondary" style="flex:1" onclick="window.open('/lotomal/admin.html?lobbyId='+currentLobbyId+'&userId='+userId, '_blank')">🛡️ Админ.панель</button>
-                <button class="btn-secondary" style="flex:1" onclick="window.open('/lotomal/overlay.html?lobbyId='+currentLobbyId, '_blank')">🎥 Оверлей</button>
+                <button class="btn-secondary" style="flex:1" onclick="openAdminPanel()">🛡️ Админ.панель</button>
+                <button class="btn-secondary" style="flex:1" onclick="openOverlayPanel()">🎥 Оверлей</button>
             `;
             adminControls.appendChild(div);
         }
@@ -1930,7 +1968,7 @@
 
     function toggleCell(number, cell) {
       if (!drawnNumbers.has(number)) {
-        if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+        vibrate('error');
         return;
       }
       if (markedCells.has(number)) {
@@ -1945,7 +1983,7 @@
         setTimeout(() => cell.classList.remove('just-marked'), 500);
         applyMarkIcon(cell);
         playSound('click');
-        if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+        vibrate('light');
       }
       updateGameStats();
       checkWinLocal();
@@ -2177,7 +2215,7 @@
       playSound('win');
       userProfile.gamesWon++;
       localStorage.setItem('userProfile', JSON.stringify(userProfile));
-      if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      vibrate('success');
     }
 
     function closeWinModal() {
@@ -2243,7 +2281,7 @@
       const text = (input.value || '').trim();
       if (!text) return;
       input.value = '';
-      if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      vibrate('light');
       // Отправляем через API напрямую с данными пользователя
       sendAPI({ action: 'chat_message', userId, lobbyId: currentLobbyId, text,
         nickname: userProfile.nickname, avatar: userProfile.avatar || '👤' })
@@ -2335,3 +2373,4 @@
   </script>
 </body>
 </html>
+
