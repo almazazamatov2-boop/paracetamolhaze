@@ -10,6 +10,8 @@ const SUPABASE_URL =
 const SUPABASE_SERVICE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SECRET_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   '';
 
 function getSupabaseClient(): SupabaseClient | null {
@@ -50,29 +52,74 @@ function generateLobbyCode(): string {
 }
 
 function generateFallbackCard(): (number | null)[][] {
-  const rows: (number | null)[][] = [[], [], []];
-  for (let col = 0; col < 9; col += 1) {
-    const min = col * 10 + 1;
-    const max = col === 8 ? 90 : (col + 1) * 10;
-    const pool: number[] = [];
-    for (let n = min; n <= max; n += 1) pool.push(n);
-    for (let i = pool.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
+  const ranges = [
+    [1, 9],
+    [10, 19],
+    [20, 29],
+    [30, 39],
+    [40, 49],
+    [50, 59],
+    [60, 69],
+    [70, 79],
+    [80, 90],
+  ];
+
+  for (let attempt = 0; attempt < 2000; attempt += 1) {
+    const colCount = Array(9).fill(0);
+    const mask = Array.from({ length: 3 }, () => Array(9).fill(false));
+    let ok = true;
+
+    const requiredCols = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+    shuffle(requiredCols);
+    for (let i = 0; i < 9; i += 1) {
+      const row = Math.floor(i / 3);
+      const col = requiredCols[i];
+      mask[row][col] = true;
+      colCount[col] += 1;
     }
-    for (let r = 0; r < 3; r += 1) rows[r].push(pool[r] ?? null);
+
+    for (let row = 0; row < 3; row += 1) {
+      const need = 5 - mask[row].filter(Boolean).length;
+      const available: number[] = [];
+      for (let col = 0; col < 9; col += 1) {
+        if (!mask[row][col] && colCount[col] < 2) available.push(col);
+      }
+      if (available.length < need) {
+        ok = false;
+        break;
+      }
+      shuffle(available);
+      available.slice(0, need).forEach((col) => {
+        mask[row][col] = true;
+        colCount[col] += 1;
+      });
+    }
+    if (!ok) continue;
+
+    const card = Array.from({ length: 3 }, () => Array<number | null>(9).fill(null));
+    for (let col = 0; col < 9; col += 1) {
+      const [min, max] = ranges[col];
+      const rows = [0, 1, 2].filter((row) => mask[row][col]);
+      const pool: number[] = [];
+      for (let n = min; n <= max; n += 1) pool.push(n);
+      shuffle(pool);
+      const chosen = pool.slice(0, rows.length).sort((a, b) => a - b);
+      rows.sort((a, b) => a - b).forEach((row, index) => {
+        card[row][col] = chosen[index];
+      });
+    }
+    return card;
   }
-  rows.forEach((row) => {
-    const filled = row.map((v, i) => (v !== null ? i : -1)).filter((i) => i >= 0);
-    for (let i = filled.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [filled[i], filled[j]] = [filled[j], filled[i]];
-    }
-    filled.slice(5).forEach((i) => {
-      row[i] = null;
-    });
-  });
-  return rows;
+
+  return Array.from({ length: 3 }, () => Array<number | null>(9).fill(null));
+}
+
+function shuffle<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
 }
 
 function mapPlayers(players: any[]) {
@@ -489,4 +536,3 @@ export async function GET(req: NextRequest) {
     return json({ error: message }, 500);
   }
 }
-

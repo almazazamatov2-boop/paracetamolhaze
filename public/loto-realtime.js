@@ -1,8 +1,7 @@
 // =============================================
-// LOTO — Supabase Bridge V4 (fetch interceptor)
-// Перехватывает ВСЕ запросы к /api/loto и транслирует их в Supabase.
-// Monkey-patching функций убран — fetch-перехват надёжнее и не зависит
-// от порядка загрузки скриптов.
+// LOTO — Supabase Bridge V7 (server-only fetch interceptor)
+// Все игровые запросы идут через наш Next API, чтобы браузер игрока
+// не зависел от прямого доступа к *.supabase.co.
 // =============================================
 
 const SUPABASE_URL  = 'https://dlybapjwphbcynfkdxyk.supabase.co';
@@ -629,40 +628,30 @@ async function _handleLotoAPI(url, options) {
     const urlStr = String(url);
     const isServerSupabaseRoute = urlStr.includes('/api/loto-supabase');
     const isLotoRoute = (urlStr.includes('/api/loto') || urlStr.includes('/api/drawn')) && !isServerSupabaseRoute;
-    // Перехватываем только наши API-маршруты
+    // Перехватываем только игровые API-маршруты.
     if (isLotoRoute) {
-      return withTimeout(_handleLotoAPI(urlStr, options), 2500, 'SUPABASE_TIMEOUT').catch(err => {
-        const msg = String(err?.message || err || '');
-        const canFallback =
-          msg.includes('SUPABASE_UNAVAILABLE') ||
-          msg.includes('SUPABASE_REQUEST_FAILED') ||
-          msg.includes('SUPABASE_TIMEOUT') ||
-          msg.includes('Failed to fetch') ||
-          msg.includes('NetworkError');
-        if (canFallback) {
-          const serverUrl = toServerBridgeUrl(urlStr);
-          console.warn('[Bridge] Supabase bridge fallback to server Supabase API:', msg);
-          return _origFetch(serverUrl, options);
-        }
-        console.error('[Bridge] Unhandled error:', err);
-        return jsonResponse({ type: 'error', message: msg });
-      });
+      return _origFetch(toServerBridgeUrl(urlStr), options);
     }
     return _origFetch(url, options);
   };
 
-  console.log('[Loto Bridge V6] ✅ fetch interceptor installed — /api/loto → Supabase');
+  console.log('[Loto Bridge V7] fetch interceptor installed — /api/loto → server Supabase API');
 })();
 
 // ── Обратная совместимость: adminAddBarrel ────────────────────────────────────
 // Используется как прямой вызов из старых мест в коде
 
 window.adminAddBarrel = async function(val) {
-  const sb  = getSB();
   const lid = window.currentLobbyId;
-  if (!sb || !lid) return;
-  const { data: lobby } = await sb
-    .from('loto_lobbies').select('drawn_numbers').eq('id', lid).single();
-  const arr = [...(lobby?.drawn_numbers || []), Number(val)];
-  await sb.from('loto_lobbies').update({ drawn_numbers: arr }).eq('id', lid);
+  if (!lid) return;
+  await fetch('/api/loto', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action: 'draw_number',
+      lobbyId: lid,
+      userId: window.userId,
+      number: Number(val)
+    })
+  });
 };
