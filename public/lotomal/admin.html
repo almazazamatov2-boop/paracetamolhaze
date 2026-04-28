@@ -164,7 +164,6 @@
             color: #000;
             border-color: #FFD700;
             box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
-            animation: pulse 2s ease-in-out infinite;
         }
 
         @keyframes pulse {
@@ -451,6 +450,11 @@
                 alert('Ошибка: Отсутствует ID лобби или пользователя в URL. Перезайдите в админку из игры.');
                 return;
             }
+            // OPTIMISTIC UPDATE — рисуем сразу, не ждём Supabase
+            drawnOrder = [...drawnOrder, num];
+            drawnNumbers = new Set(drawnOrder);
+            updateDisplay();
+            showLastNumber(num);
             try {
                 const res = await fetch('/api/loto', {
                     method: 'POST',
@@ -458,21 +462,15 @@
                     body: JSON.stringify({ action: 'draw_number', lobbyId, userId, number: num })
                 });
                 const data = await res.json();
-                
                 if (data.type === 'error' || data.error) {
-                    alert('Ошибка: ' + (data.message || data.error));
-                    return;
-                }
-
-                if (data.drawn) {
-                    drawnOrder = data.drawn;
-                    drawnNumbers = new Set(data.drawn);
+                    // Откатываем если ошибка
+                    drawnOrder = drawnOrder.filter(n => n !== num);
+                    drawnNumbers = new Set(drawnOrder);
                     updateDisplay();
-                    showLastNumber(num);
+                    alert('Ошибка: ' + (data.message || data.error));
                 }
             } catch(e) {
                 console.error('API Error:', e);
-                await loadFromServer();
             }
         }
 
@@ -647,7 +645,7 @@
                         if (pPanel) pPanel.style.display = 'block';
                         renderPlayers(players.map(p => ({
                             nickname: p.nickname,
-                            progress: (p.marked_cells || []).length
+                            progress: Array.isArray(p.marked_cells) ? p.marked_cells.length : (Number(p.marked_cells) || 0)
                         })));
                     }
                 })

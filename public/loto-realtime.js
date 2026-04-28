@@ -101,9 +101,12 @@ function subscribeToLobby(lobbyId) {
       if (typeof window.drawnOrder    !== 'undefined') window.drawnOrder    = drawn;
       if (typeof window.drawnNumbers  !== 'undefined') window.drawnNumbers  = new Set(drawn);
 
-      // UI
-      if (window.updateDisplay)             window.updateDisplay();
+      // Обновляем только отображение выпавших чисел — НЕ вызываем renderCard (анимации)
+      if (window.updateGameDisplay)         window.updateGameDisplay();
+      if (window.updateGameStats)           window.updateGameStats();
       if (window.updateDrawnNumbersDisplay) window.updateDrawnNumbersDisplay();
+      // updateDisplay() для admin.html
+      if (window.updateDisplay && !window.cardNumbers) window.updateDisplay();
 
       // Событие «игра стартовала» — загружаем карточку текущего игрока
       if (row.event && row.event.type === 'game_started') {

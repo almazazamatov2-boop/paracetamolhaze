@@ -229,8 +229,8 @@
     .cell.marked{
       background: linear-gradient(145deg, #DAA520 0%, #B8860B 100%);
       color:#000; border-color:#FFD700; box-shadow:0 0 20px rgba(255,215,0,.6);
-      animation: markCell .5s cubic-bezier(.34,1.56,.64,1);
     }
+    .cell.just-marked{ animation: markCell .5s cubic-bezier(.34,1.56,.64,1); }
     @keyframes markCell{ 0%{transform:scale(1);} 50%{transform:scale(1.2) rotate(5deg);} 100%{transform:scale(1);} }
     .cell.marked::after{ content:'✓'; position:absolute; font-size:24px; color:rgba(0,0,0,.5); }
     .cell.marked.has-icon::after{ content:''; display:none; }
@@ -1915,6 +1915,8 @@
       } else {
         markedCells.add(number);
         cell.classList.add('marked');
+        cell.classList.add('just-marked');
+        setTimeout(() => cell.classList.remove('just-marked'), 500);
         applyMarkIcon(cell);
         playSound('click');
         if (settings.vibration && tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
