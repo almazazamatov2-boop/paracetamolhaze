@@ -20,13 +20,21 @@ function getSB() {
 }
 
 // Ждёт инициализации SDK (на случай гонки, хотя в <head> она маловероятна)
-function waitForSB() {
+function waitForSB(timeoutMs = 2500) {
   return new Promise(resolve => {
     const sb = getSB();
     if (sb) return resolve(sb);
+    const timeout = setTimeout(() => {
+      clearInterval(t);
+      resolve(null);
+    }, timeoutMs);
     const t = setInterval(() => {
       const sb2 = getSB();
-      if (sb2) { clearInterval(t); resolve(sb2); }
+      if (sb2) {
+        clearInterval(t);
+        clearTimeout(timeout);
+        resolve(sb2);
+      }
     }, 50);
   });
 }
@@ -213,6 +221,7 @@ async function _getLobbyState(sb, lobbyId) {
 
 async function _handleLotoAPI(url, options) {
   const sb    = await waitForSB();
+  if (!sb) throw new Error('SUPABASE_UNAVAILABLE');
   const isGet = !options?.method || options.method === 'GET';
   let body    = {};
   let action;
@@ -560,6 +569,10 @@ async function _handleLotoAPI(url, options) {
     // Перехватываем только наши API-маршруты
     if (urlStr.includes('/api/loto') || urlStr.includes('/api/drawn')) {
       return _handleLotoAPI(urlStr, options).catch(err => {
+        if (String(err?.message || err).includes('SUPABASE_UNAVAILABLE')) {
+          console.warn('[Bridge] Supabase SDK unavailable, falling back to server API');
+          return _origFetch(url, options);
+        }
         console.error('[Bridge] Unhandled error:', err);
         return jsonResponse({ type: 'error', message: String(err?.message || err) });
       });

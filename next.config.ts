@@ -20,6 +20,18 @@ const nextConfig: NextConfig = {
         source: '/overlays/roll',
         destination: '/overlays/roll.html',
       },
+      {
+        source: '/lotomal',
+        destination: '/lotomal/index.html',
+      },
+      {
+        source: '/lotomal/admin',
+        destination: '/lotomal/admin.html',
+      },
+      {
+        source: '/lotomal/overlay',
+        destination: '/lotomal/overlay.html',
+      },
     ]
   },
 };
