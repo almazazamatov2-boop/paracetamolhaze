@@ -440,6 +440,7 @@ async function readChatWithAvatars(sb: SupabaseClient, lobbyId: string, players:
 
   return (data || []).map((row: any) => ({
     id: row.id,
+    lobbyId,
     userId: row.user_id,
     nickname: row.nickname,
     avatar: avatarByUserId.get(String(row.user_id)) || '👤',
@@ -804,12 +805,18 @@ async function handleAction(
         .select()
         .single();
       if (msgErr) throw msgErr;
+      const { error: chatEventErr } = await sb
+        .from('loto_lobbies')
+        .update({ event: { type: 'chat_message', ts: Date.now(), userId } })
+        .eq('id', lobbyId);
+      if (chatEventErr) throw chatEventErr;
 
       return json({
         type: 'chat_message',
         message: msg
           ? {
               id: msg.id,
+              lobbyId,
               userId: msg.user_id,
               nickname: msg.nickname,
               avatar: profile.avatar,
@@ -818,6 +825,34 @@ async function handleAction(
             }
           : null,
       });
+    }
+
+    case 'clear_chat': {
+      if (!lobbyId) return json({ type: 'error', message: 'No lobby id' });
+
+      const { data: lobby, error: lobbyErr } = await sb
+        .from('loto_lobbies')
+        .select('admin_id')
+        .eq('id', lobbyId)
+        .maybeSingle();
+      if (lobbyErr) throw lobbyErr;
+      if (!lobby) return json({ error: 'Lobby not found' }, 404);
+      if (String(lobby.admin_id) !== userId) {
+        return json({ type: 'error', message: 'Only host can clear chat' });
+      }
+
+      const { error: clearErr } = await sb
+        .from('loto_chat')
+        .delete()
+        .eq('lobby_id', lobbyId);
+      if (clearErr) throw clearErr;
+      const { error: clearEventErr } = await sb
+        .from('loto_lobbies')
+        .update({ event: { type: 'chat_cleared', ts: Date.now(), userId } })
+        .eq('id', lobbyId);
+      if (clearEventErr) throw clearEventErr;
+
+      return json({ type: 'chat_cleared', lobbyId });
     }
 
     case 'update_profile': {

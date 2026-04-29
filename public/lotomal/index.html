@@ -1095,7 +1095,7 @@
     // ====== POLLING & API ======
     let pollInterval = null;
     let lastKnownVersion = -1; // Версия состояния, известная клиенту
-    let wsReady = false; const chatMessagesList = []; const chatMessagesIds = new Set();
+    let wsReady = false; const chatMessagesList = []; const chatMessagesIds = new Set(); let chatLobbyId = null;
     let creatingLobby = false;
     let startingGame = false;
     let markSyncInFlight = false;
@@ -1143,12 +1143,14 @@
       if (!pollInterval) {
         pollInterval = setInterval(async () => {
           if (!currentLobbyId) return;
+          const requestedLobbyId = currentLobbyId;
           try {
             // Передаём клиентскую версию — сервер вернёт no_change если ничего не изменилось (1 Redis-команда)
-            const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(currentLobbyId)}&userId=${encodeURIComponent(userId)}&v=${encodeURIComponent(lastKnownVersion)}`);
+            const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(requestedLobbyId)}&userId=${encodeURIComponent(userId)}&v=${encodeURIComponent(lastKnownVersion)}`);
             if (res.status === 404 || res.status === 410) { clearGameSession(); showScreen('mainMenu'); return; }
             if (res.ok) {
               const msg = await res.json();
+              if (requestedLobbyId !== currentLobbyId) return;
               if (msg.type === 'no_change') return; // Ничего не изменилось — пропускаем
               if (msg.version !== undefined) lastKnownVersion = String(msg.version);
               handleWsMessage(msg);
@@ -1252,6 +1254,12 @@
               // Если карточки нет — мост сам подгрузит её через _loadMyCard при game_started
             }
             updateLobbyDisplay(); updateGameDisplay();
+            const incomingLobbyId = normalizeLobbyId(msg.lobby?.id || currentLobbyId);
+            if (incomingLobbyId && incomingLobbyId !== chatLobbyId) {
+              resetChatCache(incomingLobbyId);
+            } else if (!chatLobbyId && incomingLobbyId) {
+              chatLobbyId = incomingLobbyId;
+            }
           }
 
           const barrels = msg.all || msg.drawn;
@@ -1279,7 +1287,11 @@
             updateGameStats();
           }
           if (msg.chat) {
-            msg.chat.forEach(m => appendChatMessage(m));
+            const scopedLobbyId = normalizeLobbyId(msg.lobby?.id || currentLobbyId || chatLobbyId);
+            if (Array.isArray(msg.chat) && msg.chat.length === 0 && chatMessagesList.length > 0) {
+              resetChatCache(scopedLobbyId);
+            }
+            msg.chat.forEach(m => appendChatMessage({ ...m, lobbyId: scopedLobbyId }));
           }
           break;
 
@@ -1294,6 +1306,7 @@
           };
           isAdmin = true;
           gameScreenShown = false;
+          resetChatCache(currentLobbyId);
           if (currentLobbyId) localStorage.setItem('currentLobbyId', currentLobbyId);
           else localStorage.removeItem('currentLobbyId');
           showScreen('lobbyWaitScreen');
@@ -1310,9 +1323,17 @@
           isAdmin = msg.isAdmin || false;
           gameScreenShown = false;
           lastKnownVersion = -1; // Новое лобби — сбрасываем версию
+          resetChatCache(currentLobbyId);
           showScreen('lobbyWaitScreen');
           // Сразу запрашиваем состояние
-          fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(currentLobbyId)}&userId=${encodeURIComponent(userId)}`).then(r => r.json()).then(m => { if (m.version !== undefined) lastKnownVersion = String(m.version); handleWsMessage(m); });
+          const requestedLobbyId = currentLobbyId;
+          fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(requestedLobbyId)}&userId=${encodeURIComponent(userId)}`)
+            .then(r => r.json())
+            .then(m => {
+              if (requestedLobbyId !== currentLobbyId) return;
+              if (m.version !== undefined) lastKnownVersion = String(m.version);
+              handleWsMessage(m);
+            });
           break;
 
         case 'player_joined':
@@ -1378,6 +1399,10 @@
 
         case 'chat_message':
           if (msg.message) appendChatMessage(msg.message);
+          break;
+
+        case 'chat_cleared':
+          resetChatCache(normalizeLobbyId(msg.lobbyId || currentLobbyId));
           break;
 
         case 'game_won':
@@ -1457,6 +1482,16 @@
     }
 
     // ====== НАВИГАЦИЯ ======
+    function resetChatCache(nextLobbyId = null) {
+      chatLobbyId = normalizeLobbyId(nextLobbyId);
+      chatMessagesList.length = 0;
+      chatMessagesIds.clear();
+      ['chatBoxLobby', 'chatBoxGame'].forEach(boxId => {
+        const box = document.getElementById(boxId);
+        if (box) box.innerHTML = '';
+      });
+    }
+
     function renderChatMessages() {
       // Re-render all cached chat messages into both chat boxes
       ['chatBoxLobby', 'chatBoxGame'].forEach(boxId => {
@@ -1786,7 +1821,7 @@
       currentLobbyId = null; isAdmin = false; gameScreenShown = false;
       cardNumbers = []; markedCells.clear(); drawnNumbers.clear(); drawnOrder = [];
       alreadyWon = false; alreadyNotified14 = false;
-      chatMessagesList.length = 0; chatMessagesIds.clear();
+      resetChatCache(null);
       lastKnownVersion = -1;
       localStorage.removeItem('currentLobbyId'); localStorage.removeItem('isAdmin');
       localStorage.removeItem('cardNumbers'); localStorage.removeItem('markedCells');
@@ -2103,14 +2138,17 @@
 
     async function syncMarksToServer() {
       if (!currentLobbyId) return;
+      const requestedLobbyId = currentLobbyId;
       markSyncPendingCount += 1;
       markSyncInFlight = true;
       try {
-        const resp = await sendAPI({ action: 'mark_cell', userId, lobbyId: currentLobbyId, cells: [...markedCells] });
+        const resp = await sendAPI({ action: 'mark_cell', userId, lobbyId: requestedLobbyId, cells: [...markedCells] });
+        if (requestedLobbyId !== currentLobbyId) return;
         if (resp && (resp.type === 'error' || resp.error)) {
-          const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(currentLobbyId)}&userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
+          const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(requestedLobbyId)}&userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
           if (res.ok) {
             const msg = await res.json();
+            if (requestedLobbyId !== currentLobbyId) return;
             if (msg && msg.type && msg.type !== 'no_change') handleWsMessage(msg);
           }
         }
@@ -2399,6 +2437,9 @@
     // ====== ЧАТ ======
     function appendChatMessage(msg) {
       if (!msg || !msg.id || chatMessagesIds.has(msg.id)) return;
+      const messageLobbyId = normalizeLobbyId(msg.lobbyId || msg.lobby_id || currentLobbyId);
+      if (chatLobbyId && messageLobbyId && chatLobbyId !== messageLobbyId) return;
+      if (!chatLobbyId && messageLobbyId) chatLobbyId = messageLobbyId;
       const linkedPlayer = (currentLobby?.players || []).find(p => String(p.id) === String(msg.userId));
       const resolvedNick = msg.nickname || linkedPlayer?.nickname || 'Игрок';
       const resolvedAvatar = msg.avatar || linkedPlayer?.avatar || '👤';
@@ -2465,9 +2506,16 @@
         });
     }
 
-    function clearChatPrompt() {
+    async function clearChatPrompt() {
       if (!isAdmin && !isSuperAdmin) { alert('❌ Только для админов'); return; }
-      alert('Очистка чата будет доступна в следующей версии.');
+      if (!currentLobbyId) { alert('Сначала зайди в лобби'); return; }
+      if (!confirm('Очистить чат у всех игроков в этом лобби?')) return;
+      const resp = await sendAPI({ action: 'clear_chat', userId, lobbyId: currentLobbyId });
+      if (resp?.type === 'chat_cleared') {
+        resetChatCache(currentLobbyId);
+        return;
+      }
+      alert('Не удалось очистить чат');
     }
 
     // ====== АДМИН-ПАНЕЛЬ: управление бочонками (REST API) ======
