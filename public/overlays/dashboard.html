@@ -166,7 +166,7 @@
             try {
                 const res = await fetch('/api/auth/me');
                 const data = await res.json();
-                if (!data.id) { window.location.href = '/auth/twitch'; return; }
+                if (!data.id) { window.location.href = '/auth/twitch?source=overlays'; return; }
                 currentUser = data;
                 
                 document.getElementById('username').textContent = data.display_name;

@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getRequestBaseUrl } from '@/lib/auth-origin';
 
 function targetUrl(baseUrl: string, source: string | null, error?: string) {
-  const path =
-    source === '67'
-      ? '/67'
-      : source === 'kinokadr'
-        ? '/kinokadr'
-        : source === 'emojino'
-          ? '/emojino'
-          : source === 'poker'
-            ? '/poker'
-            : source === 'kinoquiz'
-              ? '/kinoquiz'
-              : '/overlays/dashboard';
+  let path = '/overlays/dashboard';
+  if (source === '67') path = '/67';
+  if (source === 'kinokadr') path = '/kinokadr';
+  if (source === 'emojino') path = '/emojino';
+  if (source === 'poker') path = '/poker';
+  if (source === 'kinoquiz') path = '/kinoquiz';
+  if (source === 'overlays') path = '/overlays/dashboard';
 
   return error ? `${baseUrl}${path}?error=${error}` : `${baseUrl}${path}`;
 }
