@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Лото</title>
-  <script src="/loto-realtime.js?v=9" defer></script>
+  <script src="/loto-realtime.js?v=10" defer></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body {
@@ -345,6 +345,12 @@
     }
     @keyframes slideUp { from{transform:translateY(50px); opacity:0;} to{transform:translateY(0); opacity:1;} }
     .modal-title{ color:#FFD700; font-size:24px; font-weight:700; margin-bottom:20px; text-align:center; }
+    .popup-link{
+      display:block; margin-top:16px; padding:16px;
+      background:linear-gradient(145deg,#FFD700 0%,#DAA520 100%);
+      color:#000; border-radius:12px; text-decoration:none;
+      font-size:18px; font-weight:800; text-align:center;
+    }
     @keyframes popIn { 0%{transform:scale(0); opacity:0;} 100%{transform:scale(1); opacity:1;} }
 
 
@@ -663,6 +669,17 @@
         </div>
       </div>
       <button class="btn-secondary" style="margin-top:20px;" onclick="closePlayerProfile()">Закрыть</button>
+    </div>
+  </div>
+
+  <div class="modal" id="popupBlockedModal">
+    <div class="modal-content" style="text-align:center; padding:30px 20px;">
+      <div class="modal-title">Новая вкладка заблокирована</div>
+      <div style="color:rgba(255,215,0,.75); line-height:1.45; font-size:14px;">
+        Откройте панель вручную. Игра останется на этой вкладке.
+      </div>
+      <a id="popupBlockedLink" class="popup-link" href="#" target="_blank" rel="noopener noreferrer">Открыть</a>
+      <button class="btn-secondary" style="margin-top:12px;" onclick="closePopupBlockedModal()">Закрыть</button>
     </div>
   </div>
 
@@ -1757,10 +1774,23 @@
         if (opened) {
           try { opened.opener = null; opened.focus(); } catch (_) {}
         }
-        if (!opened) window.location.href = url;
+        if (!opened) showPopupBlockedModal(url);
       } catch (_) {
-        window.location.href = url;
+        showPopupBlockedModal(url);
       }
+    }
+
+    function showPopupBlockedModal(url) {
+      const modal = document.getElementById('popupBlockedModal');
+      const link = document.getElementById('popupBlockedLink');
+      if (!modal || !link) return;
+      link.href = url;
+      modal.classList.add('show');
+    }
+
+    function closePopupBlockedModal() {
+      const modal = document.getElementById('popupBlockedModal');
+      if (modal) modal.classList.remove('show');
     }
 
     function openAdminPanel() {
