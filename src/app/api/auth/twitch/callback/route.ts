@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(targetUrl(baseUrl, source, 'twitch_env_missing'));
   }
 
-  const redirectUri = `${baseUrl}/api/auth/twitch/callback`;
+  const redirectUri = `${baseUrl}${request.nextUrl.pathname}`;
   const needs67Bootstrap = shouldRegisterRealtimeHooks(source);
 
   try {

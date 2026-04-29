@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const clientId = process.env.TWITCH_CLIENT_ID;
   const source = request.nextUrl.searchParams.get('source') || '67';
   const origin = getRequestBaseUrl(request);
-  const redirectUri = `${origin}/api/auth/twitch/callback`;
+  const redirectUri = `${origin}/callback`;
   const scope = 'user:read:email chat:read chat:edit channel:read:redemptions';
   
   if (!clientId) {
