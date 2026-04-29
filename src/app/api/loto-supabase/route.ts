@@ -156,6 +156,30 @@ async function readLobbyAndPlayers(sb: SupabaseClient, lobbyId: string) {
   return { lobby, players: players || [] };
 }
 
+async function syncPlayerMarksToDrawn(sb: SupabaseClient, lobbyId: string, drawn: number[]) {
+  const allowed = new Set(drawn.map(Number));
+  const { data: players, error } = await sb
+    .from('loto_players')
+    .select('id, marked_cells')
+    .eq('lobby_id', lobbyId);
+  if (error) throw error;
+
+  await Promise.all(
+    (players || []).map(async (player) => {
+      const current = Array.isArray(player.marked_cells) ? player.marked_cells.map(Number) : [];
+      const next = current.filter((number) => allowed.has(number));
+      if (next.length === current.length && next.every((number, index) => number === current[index])) return;
+
+      const { error: updateErr } = await sb
+        .from('loto_players')
+        .update({ marked_cells: next })
+        .eq('id', player.id)
+        .eq('lobby_id', lobbyId);
+      if (updateErr) throw updateErr;
+    })
+  );
+}
+
 async function handleAction(
   sb: SupabaseClient,
   action: string | null,
@@ -425,6 +449,7 @@ async function handleAction(
         .update({ drawn_numbers: next })
         .eq('id', lobbyId);
       if (updErr) throw updErr;
+      await syncPlayerMarksToDrawn(sb, lobbyId, next);
       return json({ type: 'state_update', all: next, drawn: next });
     }
 
@@ -435,6 +460,11 @@ async function handleAction(
           .update({ drawn_numbers: [] })
           .eq('id', lobbyId);
         if (resetErr) throw resetErr;
+        const { error: clearMarksErr } = await sb
+          .from('loto_players')
+          .update({ marked_cells: [] })
+          .eq('lobby_id', lobbyId);
+        if (clearMarksErr) throw clearMarksErr;
       }
       return json({ type: 'state_update', all: [], drawn: [] });
     }
@@ -481,9 +511,17 @@ async function handleAction(
 
     case 'mark_cell': {
       if (lobbyId && userId) {
+        const { data: lobby, error: lobbyErr } = await sb
+          .from('loto_lobbies')
+          .select('drawn_numbers')
+          .eq('id', lobbyId)
+          .maybeSingle();
+        if (lobbyErr) throw lobbyErr;
+        const allowed = new Set((lobby?.drawn_numbers || []).map(Number));
+        const cells = parseCells(body).filter((number) => allowed.has(number));
         const { error: markErr } = await sb
           .from('loto_players')
-          .update({ marked_cells: parseCells(body) })
+          .update({ marked_cells: cells })
           .eq('id', userId)
           .eq('lobby_id', lobbyId);
         if (markErr) throw markErr;
