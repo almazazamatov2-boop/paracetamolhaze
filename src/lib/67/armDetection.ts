@@ -1,7 +1,7 @@
 // Arm detection for the "67" arm pump movement
-// Velocity-based peak detection with strict thresholds
+// Velocity-based peak detection with relaxed thresholds
 // Each hand independently: detect down→up cycle via direction changes
-// ONLY counts when wrist is clearly visible in frame
+// Counts only when wrist is visible in frame
 
 export interface Landmark {
   x: number;
@@ -27,16 +27,16 @@ interface ArmTracker {
   onPump: (arm: 'left' | 'right') => void;
 }
 
-// Minimum vertical displacement (fraction of torso height) for a valid pump
-const MIN_PUMP_HEIGHT = 0.20;
+// Minimum vertical displacement in normalized screen Y (0..1)
+const MIN_PUMP_HEIGHT = 0.045;
 // Exponential smoothing (lower = smoother, filters more noise)
-const SMOOTH = 0.2;
+const SMOOTH = 0.25;
 // Minimum velocity to register direction change
-const DIRECTION_THRESHOLD = 0.0012;
+const DIRECTION_THRESHOLD = 0.0007;
 // Cooldown frames after a counted pump
-const COOLDOWN = 8;
+const COOLDOWN = 5;
 // Minimum wrist visibility to track
-const VIS_THRESHOLD = 0.7;
+const VIS_THRESHOLD = 0.45;
 
 export function createArmTracker(cb: { onPump: (arm: 'left' | 'right') => void }): ArmTracker {
   return {
@@ -69,35 +69,17 @@ function resetArm(arm: PerArmState) {
 export function processLandmarks(landmarks: Landmark[], tracker: ArmTracker): { total: number; leftHit: boolean; rightHit: boolean } {
   const result = { total: tracker.totalPumps, leftHit: false, rightHit: false };
 
-  if (!landmarks || landmarks.length < 25) return result;
+  if (!landmarks || landmarks.length < 17) return result;
 
-  const lShoulder = landmarks[11];
-  const rShoulder = landmarks[12];
   const lWrist = landmarks[15];
   const rWrist = landmarks[16];
-  const lHip = landmarks[23];
-  const rHip = landmarks[24];
-
-  // Check shoulder visibility for torso measurement
-  const lShoulderVis = lShoulder.visibility ?? 0;
-  const rShoulderVis = rShoulder.visibility ?? 0;
-  if (lShoulderVis < VIS_THRESHOLD || rShoulderVis < VIS_THRESHOLD) {
-    // Shoulders not visible — reset both arms to prevent phantom counting
-    resetArm(tracker.left);
-    resetArm(tracker.right);
-    return result;
-  }
-
-  // Torso height for normalization
-  const torsoH = Math.abs(((lHip.y + rHip.y) / 2) - ((lShoulder.y + rShoulder.y) / 2));
-  if (torsoH < 0.05) return result;
 
   // Check WRIST visibility — only count if wrist is clearly visible
   const lWristVis = lWrist.visibility ?? 0;
   const rWristVis = rWrist.visibility ?? 0;
 
-  result.leftHit = trackArm(lWrist.y, lWristVis, tracker.left, torsoH, tracker, 'left');
-  result.rightHit = trackArm(rWrist.y, rWristVis, tracker.right, torsoH, tracker, 'right');
+  result.leftHit = trackArm(lWrist.y, lWristVis, tracker.left, tracker, 'left');
+  result.rightHit = trackArm(rWrist.y, rWristVis, tracker.right, tracker, 'right');
   result.total = tracker.totalPumps;
 
   return result;
@@ -107,7 +89,6 @@ function trackArm(
   rawY: number,
   visibility: number,
   arm: PerArmState,
-  torsoH: number,
   tracker: ArmTracker,
   side: 'left' | 'right',
 ): boolean {
@@ -158,9 +139,8 @@ function trackArm(
   if (arm.direction === -1 && newDirection === 1 && arm.bottomY !== null) {
     // How far wrist went up from bottom (up = lower Y in screen coords)
     const displacement = arm.bottomY - arm.smoothedY;
-    const normalizedDisp = displacement / torsoH;
 
-    if (normalizedDisp >= MIN_PUMP_HEIGHT) {
+    if (displacement >= MIN_PUMP_HEIGHT) {
       arm.totalPumps++;
       tracker.totalPumps++;
       arm.cooldown = COOLDOWN;
@@ -179,12 +159,10 @@ function trackArm(
  * Check if both wrists are visible (for ready phase).
  */
 export function areHandsVisible(landmarks: Landmark[]): boolean {
-  if (!landmarks || landmarks.length < 25) return false;
+  if (!landmarks || landmarks.length < 17) return false;
   return (
-    (landmarks[15].visibility ?? 0) > 0.5 &&
-    (landmarks[16].visibility ?? 0) > 0.5 &&
-    (landmarks[11].visibility ?? 0) > 0.5 &&
-    (landmarks[12].visibility ?? 0) > 0.5
+    (landmarks[15].visibility ?? 0) > 0.35 &&
+    (landmarks[16].visibility ?? 0) > 0.35
   );
 }
 
