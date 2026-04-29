@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 
-const PROFILE_LOBBY_ID = '__profile__';
+const PROFILE_LOBBY_ID = '00000000-0000-0000-0000-000000000000';
 
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
