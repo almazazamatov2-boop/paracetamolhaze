@@ -14,6 +14,10 @@ const SUPABASE_SERVICE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   '';
 
+const PROFILE_LOBBY_ID = '__profile__';
+const MAX_NICKNAME_LENGTH = 24;
+const MAX_AVATAR_LENGTH = 350_000;
+
 function getSupabaseClient(): SupabaseClient | null {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
@@ -36,6 +40,37 @@ function normalizeLobbyId(value: unknown): string | null {
   const normalized = asString(value);
   if (!normalized || normalized === 'undefined' || normalized === 'null') return null;
   return normalized;
+}
+
+function normalizeGames(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
+}
+
+function sanitizeNickname(value: unknown, userId = ''): string {
+  let nickname = asString(value).replace(/\s+/g, ' ').trim();
+  nickname = nickname.replace(/[^\p{L}\p{N}_ .-]/gu, '');
+  if (!nickname) {
+    const suffix = String(userId || '').replace(/\D/g, '').slice(-4) || String(Date.now()).slice(-4);
+    nickname = `Игрок${suffix}`;
+  }
+  if (nickname.length > MAX_NICKNAME_LENGTH) nickname = nickname.slice(0, MAX_NICKNAME_LENGTH);
+  return nickname;
+}
+
+function sanitizeAvatar(value: unknown): string {
+  const avatar = asString(value);
+  if (!avatar) return '👤';
+  if (avatar.startsWith('data:image/') && avatar.length <= MAX_AVATAR_LENGTH) return avatar;
+  if (avatar.length <= 8) return avatar;
+  return '👤';
+}
+
+function sanitizePassword(value: unknown): string | null {
+  const password = asString(value);
+  if (!password) return null;
+  return password.slice(0, 64);
 }
 
 function parseCells(body: any): number[] {
@@ -122,14 +157,186 @@ function shuffle<T>(items: T[]): T[] {
   return items;
 }
 
+function flattenCardNumbers(card: any): number[] {
+  if (!Array.isArray(card)) return [];
+  const result: number[] = [];
+  for (const row of card) {
+    if (!Array.isArray(row)) continue;
+    for (const value of row) {
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0) result.push(n);
+    }
+  }
+  return result;
+}
+
+function buildStateVersion(lobby: any, players: any[], markedCells: number[], drawn: number[]): string {
+  const playersSig = (players || [])
+    .map((p) => {
+      const markedLen = Array.isArray(p.marked_cells) ? p.marked_cells.length : 0;
+      return [
+        String(p.id || ''),
+        String(p.status || ''),
+        asString(p.nickname).toLowerCase(),
+        String(markedLen),
+        String(normalizeGames(p.games_played)),
+        String(normalizeGames(p.games_won)),
+      ].join(':');
+    })
+    .sort()
+    .join('|');
+  const eventSig = lobby?.event ? JSON.stringify(lobby.event) : '';
+  return [
+    String(lobby?.status || ''),
+    drawn.join(','),
+    String(players.length || 0),
+    playersSig,
+    eventSig,
+    String(markedCells.length),
+  ].join('::');
+}
+
 function mapPlayers(players: any[]) {
   return (players || []).map((p) => ({
     id: p.id,
     nickname: p.nickname,
+    avatar: sanitizeAvatar(p.avatar),
     isAdmin: !!p.is_admin,
     status: p.status,
+    games_played: normalizeGames(p.games_played),
+    games_won: normalizeGames(p.games_won),
     progress: Array.isArray(p.marked_cells) ? p.marked_cells.length : 0,
   }));
+}
+
+async function isNicknameTaken(sb: SupabaseClient, nickname: string, userId: string): Promise<boolean> {
+  const { data, error } = await sb
+    .from('loto_players')
+    .select('id')
+    .ilike('nickname', nickname)
+    .neq('id', userId)
+    .limit(1);
+  if (error) throw error;
+  return !!(data && data.length);
+}
+
+async function makeUniqueNickname(sb: SupabaseClient, nickname: string, userId: string): Promise<string> {
+  let candidate = sanitizeNickname(nickname, userId);
+  if (!(await isNicknameTaken(sb, candidate, userId))) return candidate;
+
+  const fallback = sanitizeNickname(`${candidate}${String(userId).replace(/\D/g, '').slice(-4)}`, userId);
+  if (!(await isNicknameTaken(sb, fallback, userId))) return fallback;
+
+  for (let i = 0; i < 20; i += 1) {
+    const rnd = String(Math.floor(1000 + Math.random() * 9000));
+    const next = sanitizeNickname(`${candidate}${rnd}`, userId);
+    if (!(await isNicknameTaken(sb, next, userId))) return next;
+  }
+
+  throw new Error('NICKNAME_TAKEN');
+}
+
+async function ensureNicknameFree(sb: SupabaseClient, nickname: string, userId: string): Promise<string> {
+  const candidate = sanitizeNickname(nickname, userId);
+  if (await isNicknameTaken(sb, candidate, userId)) {
+    throw new Error('NICKNAME_TAKEN');
+  }
+  return candidate;
+}
+
+async function readProfileRow(sb: SupabaseClient, userId: string) {
+  const { data, error } = await sb
+    .from('loto_players')
+    .select('*')
+    .eq('id', userId)
+    .eq('lobby_id', PROFILE_LOBBY_ID)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function readFallbackProfileFromAnyLobby(sb: SupabaseClient, userId: string) {
+  const { data, error } = await sb
+    .from('loto_players')
+    .select('nickname, avatar, games_played, games_won')
+    .eq('id', userId)
+    .neq('lobby_id', PROFILE_LOBBY_ID)
+    .limit(50);
+  if (error) throw error;
+  if (!data || !data.length) return null;
+
+  const sorted = [...data].sort((a, b) => {
+    const pa = normalizeGames(a.games_played);
+    const pb = normalizeGames(b.games_played);
+    if (pb !== pa) return pb - pa;
+    return normalizeGames(b.games_won) - normalizeGames(a.games_won);
+  });
+  return sorted[0];
+}
+
+async function upsertProfileRow(
+  sb: SupabaseClient,
+  userId: string,
+  profile: { nickname: string; avatar: string; games_played: number; games_won: number }
+) {
+  const { error } = await sb.from('loto_players').upsert(
+    {
+      id: userId,
+      lobby_id: PROFILE_LOBBY_ID,
+      nickname: profile.nickname,
+      avatar: profile.avatar,
+      is_admin: false,
+      status: 'profile',
+      card: null,
+      marked_cells: [],
+      games_played: profile.games_played,
+      games_won: profile.games_won,
+    },
+    { onConflict: 'id,lobby_id' }
+  );
+  if (error) throw error;
+}
+
+async function resolveProfile(
+  sb: SupabaseClient,
+  userId: string,
+  requestedNickname: unknown,
+  requestedAvatar: unknown
+) {
+  if (!userId) {
+    return {
+      nickname: sanitizeNickname(requestedNickname),
+      avatar: sanitizeAvatar(requestedAvatar),
+      games_played: 0,
+      games_won: 0,
+    };
+  }
+
+  const profileRow = await readProfileRow(sb, userId);
+  const fallbackRow = profileRow ? null : await readFallbackProfileFromAnyLobby(sb, userId);
+
+  const baseNickname = sanitizeNickname(
+    requestedNickname || profileRow?.nickname || fallbackRow?.nickname,
+    userId
+  );
+  const nickname = await makeUniqueNickname(sb, baseNickname, userId);
+  const avatar = sanitizeAvatar(requestedAvatar || profileRow?.avatar || fallbackRow?.avatar || '👤');
+  const games_played = normalizeGames(profileRow?.games_played ?? fallbackRow?.games_played);
+  const games_won = normalizeGames(profileRow?.games_won ?? fallbackRow?.games_won);
+
+  await upsertProfileRow(sb, userId, { nickname, avatar, games_played, games_won });
+
+  return { nickname, avatar, games_played, games_won };
+}
+
+async function syncProfileFromPlayerRow(sb: SupabaseClient, player: any) {
+  if (!player?.id) return;
+  await upsertProfileRow(sb, String(player.id), {
+    nickname: sanitizeNickname(player.nickname, String(player.id)),
+    avatar: sanitizeAvatar(player.avatar),
+    games_played: normalizeGames(player.games_played),
+    games_won: normalizeGames(player.games_won),
+  });
 }
 
 async function findFreeLobbyCode(sb: SupabaseClient): Promise<string> {
@@ -180,25 +387,54 @@ async function syncPlayerMarksToDrawn(sb: SupabaseClient, lobbyId: string, drawn
   );
 }
 
+async function readChatWithAvatars(sb: SupabaseClient, lobbyId: string, players: any[]) {
+  const { data, error } = await sb
+    .from('loto_chat')
+    .select('id, user_id, nickname, text, created_at')
+    .eq('lobby_id', lobbyId)
+    .order('created_at', { ascending: true })
+    .limit(50);
+  if (error) throw error;
+
+  const avatarByUserId = new Map<string, string>();
+  for (const player of players || []) {
+    avatarByUserId.set(String(player.id), sanitizeAvatar(player.avatar));
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    userId: row.user_id,
+    nickname: row.nickname,
+    avatar: avatarByUserId.get(String(row.user_id)) || '👤',
+    text: row.text,
+    timestamp: row.created_at,
+  }));
+}
+
 async function handleAction(
   sb: SupabaseClient,
   action: string | null,
   body: any,
   lobbyId: string | null,
   userId: string,
-  nickname: string
+  nickname: string,
+  avatar: string
 ) {
   switch (action) {
-    case 'auth':
+    case 'auth': {
+      if (!userId) return json({ type: 'error', message: 'Missing userId' });
+      const profile = await resolveProfile(sb, userId, nickname, avatar);
       return json({
         type: 'auth_success',
         user: {
           id: userId,
-          nickname,
-          games_played: 0,
-          games_won: 0,
+          nickname: profile.nickname,
+          avatar: profile.avatar,
+          games_played: profile.games_played,
+          games_won: profile.games_won,
         },
       });
+    }
 
     case 'get_state': {
       if (!lobbyId) return json({ type: 'no_change' });
@@ -206,34 +442,21 @@ async function handleAction(
       if (!lobby) return json({ error: 'Lobby not found' }, 404);
 
       const clientVersion = asString(body?.v || body?.version);
+      const drawn = (lobby.drawn_numbers || []).map(Number);
       let card: (number | null)[][] | null = null;
       let markedCells: number[] = [];
       const playerRow = userId ? (players || []).find((p) => String(p.id) === userId) : null;
       if (playerRow) {
         card = playerRow.card || null;
-        markedCells = Array.isArray(playerRow.marked_cells) ? playerRow.marked_cells : [];
+        markedCells = Array.isArray(playerRow.marked_cells) ? playerRow.marked_cells.map(Number) : [];
       }
 
-      const drawn = (lobby.drawn_numbers || []).map(Number);
-      const lobbyVersionMs = new Date(lobby.updated_at || lobby.created_at || 0).getTime() || 0;
-      const playersVersionMs = (players || []).reduce((max, p) => {
-        const playerMs = new Date(p.updated_at || p.created_at || 0).getTime() || 0;
-        return Math.max(max, playerMs);
-      }, 0);
-      const playerVersionMs = playerRow
-        ? new Date(playerRow.updated_at || playerRow.created_at || 0).getTime() || 0
-        : 0;
-      const version = [
-        Math.max(lobbyVersionMs, playersVersionMs),
-        playerVersionMs,
-        drawn.length,
-        drawn.length ? drawn[drawn.length - 1] : 0,
-        markedCells.length,
-      ].join(':');
-
+      const version = buildStateVersion(lobby, players, markedCells, drawn);
       if (clientVersion && clientVersion === version) {
         return json({ type: 'no_change', version });
       }
+
+      const chat = await readChatWithAvatars(sb, lobbyId, players);
 
       return json({
         type: 'state_update',
@@ -242,6 +465,7 @@ async function handleAction(
         isAdmin: String(lobby.admin_id) === userId,
         card,
         markedCells,
+        chat,
         lobby: {
           id: lobby.id,
           code: lobby.code,
@@ -257,24 +481,27 @@ async function handleAction(
     case 'list_lobbies': {
       const { data: lobbies, error: lobbiesErr } = await sb
         .from('loto_lobbies')
-        .select('id, code, name, max_players, status')
+        .select('id, code, name, max_players, status, password')
         .in('status', ['waiting', 'playing'])
-        .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(50);
       if (lobbiesErr) throw lobbiesErr;
       if (!lobbies?.length) return json([]);
 
       const mapped = await Promise.all(
-        lobbies.map(async (lobby) => {
+        lobbies.map(async (lobby: any) => {
           const { count, error: countErr } = await sb
             .from('loto_players')
             .select('id', { count: 'exact', head: true })
             .eq('lobby_id', lobby.id);
           if (countErr) throw countErr;
           return {
-            ...lobby,
+            id: lobby.id,
+            code: lobby.code,
+            name: lobby.name,
+            max_players: lobby.max_players,
+            status: lobby.status,
             players_count: count || 0,
-            has_password: 0,
+            has_password: asString(lobby.password) ? 1 : 0,
           };
         })
       );
@@ -282,16 +509,23 @@ async function handleAction(
     }
 
     case 'create_lobby': {
+      if (!userId) return json({ type: 'error', message: 'Missing userId' });
+      const profile = await resolveProfile(sb, userId, nickname, avatar);
       const code = await findFreeLobbyCode(sb);
+      const password = sanitizePassword(body?.password);
+
       const { data: lobby, error: createErr } = await sb
         .from('loto_lobbies')
         .insert({
           code,
-          name: body?.name || 'My game',
+          name: body?.name || 'Моя игра',
+          password,
           admin_id: userId,
           max_players: body?.maxPlayers || 10,
           status: 'waiting',
+          mode: asString(body?.mode) || 'classic',
           drawn_numbers: [],
+          event: { type: 'lobby_created', ts: Date.now() },
         })
         .select()
         .single();
@@ -301,7 +535,10 @@ async function handleAction(
         {
           id: userId,
           lobby_id: lobby.id,
-          nickname,
+          nickname: profile.nickname,
+          avatar: profile.avatar,
+          games_played: profile.games_played,
+          games_won: profile.games_won,
           is_admin: true,
           status: 'waiting',
         },
@@ -318,12 +555,22 @@ async function handleAction(
           status: lobby.status,
           admin_id: lobby.admin_id,
           max_players: lobby.max_players,
-          players: [{ id: userId, nickname, isAdmin: true }],
+          players: [
+            {
+              id: userId,
+              nickname: profile.nickname,
+              avatar: profile.avatar,
+              games_played: profile.games_played,
+              games_won: profile.games_won,
+              isAdmin: true,
+            },
+          ],
         },
       });
     }
 
     case 'join_lobby': {
+      if (!userId) return json({ type: 'error', message: 'Missing userId' });
       const code = asString(body?.code).toUpperCase();
       if (!code) return json({ type: 'error', message: 'Enter lobby code' });
 
@@ -336,13 +583,24 @@ async function handleAction(
 
       if (!lobby) return json({ type: 'error', message: 'Lobby not found' });
       if (lobby.status === 'finished') return json({ type: 'error', message: 'Game is already finished' });
+      if (lobby.status !== 'waiting') return json({ type: 'error', message: 'Game already started' });
 
+      const expectedPassword = asString(lobby.password);
+      const providedPassword = asString(body?.password);
+      if (expectedPassword && expectedPassword !== providedPassword) {
+        return json({ type: 'error', message: 'Неверный пароль' });
+      }
+
+      const profile = await resolveProfile(sb, userId, nickname, avatar);
       const isAdminHere = String(lobby.admin_id) === userId;
       const { error: joinErr } = await sb.from('loto_players').upsert(
         {
           id: userId,
           lobby_id: lobby.id,
-          nickname,
+          nickname: profile.nickname,
+          avatar: profile.avatar,
+          games_played: profile.games_played,
+          games_won: profile.games_won,
           is_admin: isAdminHere,
           status: 'waiting',
         },
@@ -374,7 +632,7 @@ async function handleAction(
 
       const { data: lobby, error: lobbyErr } = await sb
         .from('loto_lobbies')
-        .select('admin_id')
+        .select('admin_id,status')
         .eq('id', lobbyId)
         .single();
       if (lobbyErr) throw lobbyErr;
@@ -384,18 +642,31 @@ async function handleAction(
 
       const { data: players, error: playersErr } = await sb
         .from('loto_players')
-        .select('id')
+        .select('id,nickname,avatar,games_played,games_won')
         .eq('lobby_id', lobbyId);
       if (playersErr) throw playersErr;
 
       await Promise.all(
-        (players || []).map(async (player) => {
+        (players || []).map(async (player: any) => {
+          const nextPlayed = normalizeGames(player.games_played) + 1;
           const { error: updErr } = await sb
             .from('loto_players')
-            .update({ card: generateFallbackCard(), status: 'playing', marked_cells: [] })
+            .update({
+              card: generateFallbackCard(),
+              status: 'playing',
+              marked_cells: [],
+              games_played: nextPlayed,
+            })
             .eq('id', player.id)
             .eq('lobby_id', lobbyId);
           if (updErr) throw updErr;
+
+          await upsertProfileRow(sb, String(player.id), {
+            nickname: sanitizeNickname(player.nickname, String(player.id)),
+            avatar: sanitizeAvatar(player.avatar),
+            games_played: nextPlayed,
+            games_won: normalizeGames(player.games_won),
+          });
         })
       );
 
@@ -409,7 +680,7 @@ async function handleAction(
         .eq('id', lobbyId);
       if (startErr) throw startErr;
 
-      return handleAction(sb, 'get_state', { lobbyId, userId, nickname }, lobbyId, userId, nickname);
+      return handleAction(sb, 'get_state', { lobbyId, userId, nickname, avatar }, lobbyId, userId, nickname, avatar);
     }
 
     case 'draw_number': {
@@ -436,7 +707,7 @@ async function handleAction(
 
       const { error: updErr } = await sb
         .from('loto_lobbies')
-        .update({ drawn_numbers: drawn })
+        .update({ drawn_numbers: drawn, event: { type: 'number_drawn', ts: Date.now(), number } })
         .eq('id', lobbyId);
       if (updErr) throw updErr;
 
@@ -459,7 +730,7 @@ async function handleAction(
           : current.slice(0, -1);
       const { error: updErr } = await sb
         .from('loto_lobbies')
-        .update({ drawn_numbers: next })
+        .update({ drawn_numbers: next, event: { type: 'number_undone', ts: Date.now(), number } })
         .eq('id', lobbyId);
       if (updErr) throw updErr;
       await syncPlayerMarksToDrawn(sb, lobbyId, next);
@@ -470,7 +741,7 @@ async function handleAction(
       if (lobbyId) {
         const { error: resetErr } = await sb
           .from('loto_lobbies')
-          .update({ drawn_numbers: [] })
+          .update({ drawn_numbers: [], event: { type: 'numbers_reset', ts: Date.now() } })
           .eq('id', lobbyId);
         if (resetErr) throw resetErr;
         const { error: clearMarksErr } = await sb
@@ -484,12 +755,13 @@ async function handleAction(
 
     case 'chat_message': {
       if (!lobbyId) return json({ type: 'success' });
+      const profile = await resolveProfile(sb, userId, nickname, avatar);
       const { data: msg, error: msgErr } = await sb
         .from('loto_chat')
         .insert({
           lobby_id: lobbyId,
           user_id: userId,
-          nickname,
+          nickname: profile.nickname,
           text: body?.text || '',
         })
         .select()
@@ -503,6 +775,7 @@ async function handleAction(
               id: msg.id,
               userId: msg.user_id,
               nickname: msg.nickname,
+              avatar: profile.avatar,
               text: msg.text,
               timestamp: msg.created_at,
             }
@@ -511,34 +784,114 @@ async function handleAction(
     }
 
     case 'update_profile': {
-      if (lobbyId && userId && body?.nickname) {
-        const { error: profileErr } = await sb
-          .from('loto_players')
-          .update({ nickname: body.nickname })
-          .eq('id', userId)
-          .eq('lobby_id', lobbyId);
-        if (profileErr) throw profileErr;
-      }
-      return json({ type: 'success' });
+      if (!userId) return json({ type: 'error', message: 'Missing userId' });
+
+      const currentProfile = await resolveProfile(sb, userId, nickname, avatar);
+      const nextNickname = body?.nickname !== undefined
+        ? await ensureNicknameFree(sb, sanitizeNickname(body.nickname, userId), userId)
+        : currentProfile.nickname;
+      const nextAvatar = body?.avatar !== undefined
+        ? sanitizeAvatar(body.avatar)
+        : currentProfile.avatar;
+
+      await upsertProfileRow(sb, userId, {
+        nickname: nextNickname,
+        avatar: nextAvatar,
+        games_played: normalizeGames(currentProfile.games_played),
+        games_won: normalizeGames(currentProfile.games_won),
+      });
+
+      const { error: syncRowsErr } = await sb
+        .from('loto_players')
+        .update({ nickname: nextNickname, avatar: nextAvatar })
+        .eq('id', userId)
+        .neq('lobby_id', PROFILE_LOBBY_ID);
+      if (syncRowsErr) throw syncRowsErr;
+
+      return json({
+        type: 'profile_updated',
+        profile: {
+          id: userId,
+          nickname: nextNickname,
+          avatar: nextAvatar,
+          games_played: normalizeGames(currentProfile.games_played),
+          games_won: normalizeGames(currentProfile.games_won),
+        },
+      });
     }
 
     case 'mark_cell': {
-      if (lobbyId && userId) {
-        const { data: lobby, error: lobbyErr } = await sb
-          .from('loto_lobbies')
-          .select('drawn_numbers')
-          .eq('id', lobbyId)
-          .maybeSingle();
-        if (lobbyErr) throw lobbyErr;
-        const allowed = new Set((lobby?.drawn_numbers || []).map(Number));
-        const cells = parseCells(body).filter((number) => allowed.has(number));
-        const { error: markErr } = await sb
-          .from('loto_players')
-          .update({ marked_cells: cells })
-          .eq('id', userId)
-          .eq('lobby_id', lobbyId);
-        if (markErr) throw markErr;
+      if (!lobbyId || !userId) return json({ type: 'success' });
+
+      const { data: lobby, error: lobbyErr } = await sb
+        .from('loto_lobbies')
+        .select('drawn_numbers,status')
+        .eq('id', lobbyId)
+        .maybeSingle();
+      if (lobbyErr) throw lobbyErr;
+      if (!lobby) return json({ type: 'error', message: 'Lobby not found' });
+
+      const { data: player, error: playerErr } = await sb
+        .from('loto_players')
+        .select('card, marked_cells, nickname, avatar, games_played, games_won')
+        .eq('id', userId)
+        .eq('lobby_id', lobbyId)
+        .maybeSingle();
+      if (playerErr) throw playerErr;
+      if (!player) return json({ type: 'error', message: 'Player not found in lobby' });
+
+      const allowed = new Set((lobby.drawn_numbers || []).map(Number));
+      const cells = parseCells(body).filter((number) => allowed.has(number));
+
+      const { error: markErr } = await sb
+        .from('loto_players')
+        .update({ marked_cells: cells })
+        .eq('id', userId)
+        .eq('lobby_id', lobbyId);
+      if (markErr) throw markErr;
+
+      const cardNumbers = flattenCardNumbers(player.card);
+      const cardSet = new Set(cardNumbers);
+      const markedCardCount = [...new Set(cells)].filter((n) => cardSet.has(n)).length;
+      const isWin = cardNumbers.length > 0 && markedCardCount >= cardNumbers.length;
+
+      if (isWin && lobby.status !== 'finished') {
+        const nextWon = normalizeGames(player.games_won) + 1;
+        const nextPlayed = normalizeGames(player.games_played);
+        const winnerName = sanitizeNickname(player.nickname || nickname, userId);
+        const winnerAvatar = sanitizeAvatar(player.avatar || avatar);
+
+        const [{ error: winRowErr }, { error: finishErr }] = await Promise.all([
+          sb
+            .from('loto_players')
+            .update({ games_won: nextWon })
+            .eq('id', userId)
+            .eq('lobby_id', lobbyId),
+          sb
+            .from('loto_lobbies')
+            .update({
+              status: 'finished',
+              event: { type: 'game_won', ts: Date.now(), winnerId: userId, winnerName },
+            })
+            .eq('id', lobbyId),
+        ]);
+        if (winRowErr) throw winRowErr;
+        if (finishErr) throw finishErr;
+
+        await upsertProfileRow(sb, userId, {
+          nickname: winnerName,
+          avatar: winnerAvatar,
+          games_played: nextPlayed,
+          games_won: nextWon,
+        });
+
+        return json({
+          type: 'game_won',
+          winnerId: userId,
+          winnerName,
+        });
       }
+
       return json({ type: 'success' });
     }
 
@@ -550,8 +903,9 @@ async function handleAction(
 function getIdentity(bodyOrParams: any) {
   const lobbyId = normalizeLobbyId(bodyOrParams?.lobbyId);
   const userId = asString(bodyOrParams?.userId);
-  const nickname = asString(bodyOrParams?.nickname) || 'Player';
-  return { lobbyId, userId, nickname };
+  const nickname = sanitizeNickname(bodyOrParams?.nickname, userId);
+  const avatar = sanitizeAvatar(bodyOrParams?.avatar);
+  return { lobbyId, userId, nickname, avatar };
 }
 
 export async function POST(req: NextRequest) {
@@ -561,12 +915,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const action = asString(body?.action || body?.type) || null;
-    const { lobbyId, userId, nickname } = getIdentity(body);
-    return await handleAction(sb, action, body, lobbyId, userId, nickname);
+    const { lobbyId, userId, nickname, avatar } = getIdentity(body);
+    return await handleAction(sb, action, body, lobbyId, userId, nickname, avatar);
   } catch (error: any) {
-    const message = String(error?.message || error || 'Internal server error');
-    console.error('Loto Supabase API Error:', message);
-    return json({ error: message }, 500);
+    const messageRaw = String(error?.message || error || 'Internal server error');
+    if (messageRaw.includes('NICKNAME_TAKEN')) {
+      return json({ type: 'error', message: 'Этот ник уже занят' }, 409);
+    }
+    console.error('Loto Supabase API Error:', messageRaw);
+    return json({ error: messageRaw }, 500);
   }
 }
 
@@ -579,9 +936,18 @@ export async function GET(req: NextRequest) {
     const action = asString(searchParams.get('action')) || null;
     const lobbyId = normalizeLobbyId(searchParams.get('lobbyId'));
     const userId = asString(searchParams.get('userId'));
-    const nickname = asString(searchParams.get('nickname')) || 'Player';
+    const nickname = sanitizeNickname(searchParams.get('nickname'), userId);
+    const avatar = sanitizeAvatar(searchParams.get('avatar'));
     const v = asString(searchParams.get('v'));
-    return await handleAction(sb, action, { lobbyId, userId, nickname, v }, lobbyId, userId, nickname);
+    return await handleAction(
+      sb,
+      action,
+      { lobbyId, userId, nickname, avatar, v },
+      lobbyId,
+      userId,
+      nickname,
+      avatar
+    );
   } catch (error: any) {
     const message = String(error?.message || error || 'Internal server error');
     console.error('Loto Supabase API Error:', message);

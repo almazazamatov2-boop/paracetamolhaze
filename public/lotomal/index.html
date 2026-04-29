@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Лото</title>
-  <script src="/loto-realtime.js?v=11" defer></script>
+  <script src="/loto-realtime.js?v=12" defer></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body {
@@ -1516,6 +1516,12 @@
         const res = await fetch(`/api/users/${userId}/stats`, { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
+          if (data.nickname && /^Игрок\d*$/.test(userProfile.nickname || '')) {
+            userProfile.nickname = data.nickname;
+          }
+          if (data.avatar && data.avatar !== '👤') {
+            userProfile.avatar = data.avatar;
+          }
           userProfile.gamesPlayed = data.games_played || 0;
           userProfile.gamesWon = data.games_won || 0;
         }
@@ -1900,7 +1906,7 @@
         item.className = 'player-item';
         item.style.cursor = 'pointer';
         item.innerHTML = `
-          <div class="player-avatar">${player.avatar && player.avatar.startsWith('data:') ? `<img src="${player.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : (player.nickname || 'И').charAt(0).toUpperCase()}</div>
+          <div class="player-avatar">${player.avatar ? (player.avatar.startsWith('data:') ? `<img src="${player.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">` : escapeHtml(player.avatar)) : (player.nickname || 'И').charAt(0).toUpperCase()}</div>
           <div class="player-info">
             <div class="player-name">${escapeHtml(player.nickname || 'Игрок')}</div>
             <div class="player-status">${(()=>{const g=player.games_played||player.gamesPlayed||0;const l=getLevel(g);return l.icon+' Ур.'+l.level+' · '+l.name;})()}</div>
@@ -1954,6 +1960,15 @@
           const res = await fetch(`/api/users/${userId}/stats`, { cache: 'no-store' });
           if (res.ok) {
             const data = await res.json();
+            if (data.avatar && data.avatar.startsWith && data.avatar.startsWith('data:')) {
+              ppAv.innerHTML = '';
+              const fresh = document.createElement('img');
+              fresh.src = data.avatar;
+              fresh.style.cssText = 'width:100%;height:100%;border-radius:50%;object-fit:cover;display:block;';
+              ppAv.appendChild(fresh);
+            } else if (data.avatar && data.avatar !== '👤') {
+              ppAv.textContent = data.avatar;
+            }
             const games = data.games_played || 0;
             const wins  = data.games_won || 0;
             const wr = games > 0 ? Math.round(wins / games * 100) : 0;
@@ -2384,8 +2399,17 @@
     // ====== ЧАТ ======
     function appendChatMessage(msg) {
       if (!msg || !msg.id || chatMessagesIds.has(msg.id)) return;
+      const linkedPlayer = (currentLobby?.players || []).find(p => String(p.id) === String(msg.userId));
+      const resolvedNick = msg.nickname || linkedPlayer?.nickname || 'Игрок';
+      const resolvedAvatar = msg.avatar || linkedPlayer?.avatar || '👤';
+      const resolvedGames = linkedPlayer?.games_played || linkedPlayer?.gamesPlayed || 0;
+      const resolvedWins = linkedPlayer?.games_won || linkedPlayer?.gamesWon || 0;
       chatMessagesIds.add(msg.id);
-      chatMessagesList.push(msg);
+      chatMessagesList.push({
+        ...msg,
+        nickname: resolvedNick,
+        avatar: resolvedAvatar
+      });
       // Рендерим в ОБА чата сразу — виден и в лобби и в игре
       ['chatBoxLobby', 'chatBoxGame'].forEach(boxId => {
         const box = document.getElementById(boxId);
@@ -2400,13 +2424,21 @@
         const mm = String(dt.getMinutes()).padStart(2,'0');
         el.innerHTML = `<div class="chat-meta"><span class="chat-nick" style="cursor:pointer;color:#FFD700;"
           data-uid="${escapeHtml(String(msg.userId||''))}"
-          data-nick="${escapeHtml(msg.nickname||'Игрок')}"
-          data-av="${escapeHtml(msg.avatar||'👤')}">${escapeHtml(msg.nickname||'Игрок')}</span>
+          data-nick="${escapeHtml(resolvedNick)}"
+          data-av="${escapeHtml(resolvedAvatar)}"
+          data-gp="${escapeHtml(String(resolvedGames))}"
+          data-gw="${escapeHtml(String(resolvedWins))}">${escapeHtml(resolvedNick)}</span>
           <span>${hh}:${mm}</span></div>
           <div class="chat-text">${escapeHtml(msg.text||'')}</div>`;
         el.querySelector('.chat-nick').addEventListener('click', e => {
           const t = e.target;
-          showPlayerProfile({ id: t.dataset.uid, nickname: t.dataset.nick, avatar: t.dataset.av });
+          showPlayerProfile({
+            id: t.dataset.uid,
+            nickname: t.dataset.nick,
+            avatar: t.dataset.av,
+            games_played: Number(t.dataset.gp || 0),
+            games_won: Number(t.dataset.gw || 0)
+          });
         });
         box.appendChild(el);
         if (atBottom) box.scrollTop = box.scrollHeight;
