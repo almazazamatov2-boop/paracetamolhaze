@@ -205,29 +205,40 @@ async function handleAction(
       const { lobby, players } = await readLobbyAndPlayers(sb, lobbyId);
       if (!lobby) return json({ error: 'Lobby not found' }, 404);
 
+      const clientVersion = asString(body?.v || body?.version);
       let card: (number | null)[][] | null = null;
       let markedCells: number[] = [];
-      if (userId) {
-        const { data: playerRow, error: playerErr } = await sb
-          .from('loto_players')
-          .select('card, marked_cells')
-          .eq('id', userId)
-          .eq('lobby_id', lobbyId)
-          .maybeSingle();
-        if (playerErr) throw playerErr;
-        if (playerRow) {
-          card = playerRow.card || null;
-          markedCells = Array.isArray(playerRow.marked_cells) ? playerRow.marked_cells : [];
-        }
+      const playerRow = userId ? (players || []).find((p) => String(p.id) === userId) : null;
+      if (playerRow) {
+        card = playerRow.card || null;
+        markedCells = Array.isArray(playerRow.marked_cells) ? playerRow.marked_cells : [];
       }
 
-      const updatedAt = lobby.updated_at || lobby.created_at || new Date().toISOString();
-      const version = String(new Date(updatedAt).getTime() || Date.now());
+      const drawn = (lobby.drawn_numbers || []).map(Number);
+      const lobbyVersionMs = new Date(lobby.updated_at || lobby.created_at || 0).getTime() || 0;
+      const playersVersionMs = (players || []).reduce((max, p) => {
+        const playerMs = new Date(p.updated_at || p.created_at || 0).getTime() || 0;
+        return Math.max(max, playerMs);
+      }, 0);
+      const playerVersionMs = playerRow
+        ? new Date(playerRow.updated_at || playerRow.created_at || 0).getTime() || 0
+        : 0;
+      const version = [
+        Math.max(lobbyVersionMs, playersVersionMs),
+        playerVersionMs,
+        drawn.length,
+        drawn.length ? drawn[drawn.length - 1] : 0,
+        markedCells.length,
+      ].join(':');
+
+      if (clientVersion && clientVersion === version) {
+        return json({ type: 'no_change', version });
+      }
 
       return json({
         type: 'state_update',
         version,
-        drawn: (lobby.drawn_numbers || []).map(Number),
+        drawn,
         isAdmin: String(lobby.admin_id) === userId,
         card,
         markedCells,
@@ -377,14 +388,16 @@ async function handleAction(
         .eq('lobby_id', lobbyId);
       if (playersErr) throw playersErr;
 
-      for (const player of players || []) {
-        const { error: updErr } = await sb
-          .from('loto_players')
-          .update({ card: generateFallbackCard(), status: 'playing', marked_cells: [] })
-          .eq('id', player.id)
-          .eq('lobby_id', lobbyId);
-        if (updErr) throw updErr;
-      }
+      await Promise.all(
+        (players || []).map(async (player) => {
+          const { error: updErr } = await sb
+            .from('loto_players')
+            .update({ card: generateFallbackCard(), status: 'playing', marked_cells: [] })
+            .eq('id', player.id)
+            .eq('lobby_id', lobbyId);
+          if (updErr) throw updErr;
+        })
+      );
 
       const { error: startErr } = await sb
         .from('loto_lobbies')
@@ -567,7 +580,8 @@ export async function GET(req: NextRequest) {
     const lobbyId = normalizeLobbyId(searchParams.get('lobbyId'));
     const userId = asString(searchParams.get('userId'));
     const nickname = asString(searchParams.get('nickname')) || 'Player';
-    return await handleAction(sb, action, { lobbyId, userId, nickname }, lobbyId, userId, nickname);
+    const v = asString(searchParams.get('v'));
+    return await handleAction(sb, action, { lobbyId, userId, nickname, v }, lobbyId, userId, nickname);
   } catch (error: any) {
     const message = String(error?.message || error || 'Internal server error');
     console.error('Loto Supabase API Error:', message);

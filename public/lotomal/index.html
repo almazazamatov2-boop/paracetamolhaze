@@ -987,6 +987,16 @@
 
     let currentMarkStyle = 'check';
     let userProfile = { nickname: userName, avatar:'👤', gamesPlayed:0, gamesWon:0 };
+    try {
+      const cachedProfile = JSON.parse(localStorage.getItem('userProfile') || 'null');
+      if (cachedProfile && typeof cachedProfile === 'object') {
+        if (cachedProfile.nickname) {
+          userProfile.nickname = cachedProfile.nickname;
+          userName = cachedProfile.nickname;
+        }
+        if (cachedProfile.avatar) userProfile.avatar = cachedProfile.avatar;
+      }
+    } catch (_) {}
 
     // ====== ЗВУКИ (Web Audio API — не нужен sounds.json) ======
     let audioCtx = null;
@@ -1086,6 +1096,12 @@
     let pollInterval = null;
     let lastKnownVersion = -1; // Версия состояния, известная клиенту
     let wsReady = false; const chatMessagesList = []; const chatMessagesIds = new Set();
+    let creatingLobby = false;
+    let startingGame = false;
+    let markSyncInFlight = false;
+    let markSyncPendingCount = 0;
+    let lastLocalMarkEditAt = 0;
+    let lastMarkSyncFinishedAt = 0;
 
     window.initWS = function() {
       wsReady = true;
@@ -1129,7 +1145,7 @@
           if (!currentLobbyId) return;
           try {
             // Передаём клиентскую версию — сервер вернёт no_change если ничего не изменилось (1 Redis-команда)
-            const res = await fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}&v=${lastKnownVersion}`);
+            const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(currentLobbyId)}&userId=${encodeURIComponent(userId)}&v=${encodeURIComponent(lastKnownVersion)}`);
             if (res.status === 404 || res.status === 410) { clearGameSession(); showScreen('mainMenu'); return; }
             if (res.ok) {
               const msg = await res.json();
@@ -1160,7 +1176,9 @@
 
     window.sendWS = function(msg) {
       // Прокси для обратной совместимости
-      sendAPI({ ...msg, action: msg.type, userId, lobbyId: currentLobbyId });
+      const nickname = (userProfile && userProfile.nickname) || userName || localStorage.getItem('browserNickname') || 'Игрок';
+      const avatar = (userProfile && userProfile.avatar) || '👤';
+      return sendAPI({ ...msg, action: msg.type, userId, lobbyId: currentLobbyId, nickname, avatar });
     }
 
     function handleWsMessage(msg) {
@@ -1194,7 +1212,12 @@
           // ── V5: восстанавливаем отмеченные числа ──────────────────
           if (Array.isArray(msg.markedCells)) {
             const nextMarked = new Set(msg.markedCells.map(Number).filter(Number.isFinite));
-            if (!sameNumberSet(nextMarked, markedCells)) {
+            const now = Date.now();
+            const protectLocalMarks =
+              markSyncInFlight ||
+              (now - lastLocalMarkEditAt < 1400) ||
+              (now - lastMarkSyncFinishedAt < 450);
+            if ((!protectLocalMarks || sameNumberSet(nextMarked, markedCells)) && !sameNumberSet(nextMarked, markedCells)) {
               markedCells = nextMarked;
               cardNeedsRefresh = true;
             }
@@ -1289,7 +1312,7 @@
           lastKnownVersion = -1; // Новое лобби — сбрасываем версию
           showScreen('lobbyWaitScreen');
           // Сразу запрашиваем состояние
-          fetch(`/api/loto?action=get_state&lobbyId=${currentLobbyId}`).then(r => r.json()).then(m => { if (m.version !== undefined) lastKnownVersion = String(m.version); handleWsMessage(m); });
+          fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(currentLobbyId)}&userId=${encodeURIComponent(userId)}`).then(r => r.json()).then(m => { if (m.version !== undefined) lastKnownVersion = String(m.version); handleWsMessage(m); });
           break;
 
         case 'player_joined':
@@ -1726,14 +1749,20 @@
     }
 
     // ====== ЛОББИ (через WebSocket) ======
-    function createLobby() {
+    async function createLobby() {
+      if (creatingLobby) return;
+      creatingLobby = true;
       currentLobbyId = null; localStorage.removeItem("currentLobbyId");  // Сброс перед созданием
       playSound('click');
-      if (!wsReady) { alert('Нет связи с сервером. Проверь подключение.'); return; }
+      if (!wsReady) { alert('Нет связи с сервером. Проверь подключение.'); creatingLobby = false; return; }
       const name = document.getElementById('lobbyNameInput').value || 'Моя игра';
       const password = document.getElementById('createPasswordInput').value;
       const maxPlayers = parseInt(document.getElementById('maxPlayersInput').value) || 10;
-      sendWS({ type: 'create_lobby', name, password, maxPlayers, mode: 'classic', rounds: 1 });
+      try {
+        await sendWS({ type: 'create_lobby', name, password, maxPlayers, mode: 'classic', rounds: 1 });
+      } finally {
+        creatingLobby = false;
+      }
       vibrate('success');
     }
 
@@ -1949,9 +1978,15 @@
       document.getElementById('playerProfileModal').classList.remove('show');
     }
 
-    function startGame() {
+    async function startGame() {
       if (!isAdmin) return;
-      sendWS({ type: 'start_game' });
+      if (startingGame) return;
+      startingGame = true;
+      try {
+        await sendWS({ type: 'start_game' });
+      } finally {
+        setTimeout(() => { startingGame = false; }, 300);
+      }
     }
 
     // ====== ГЕНЕРАЦИЯ КАРТОЧКИ ======
@@ -2051,11 +2086,32 @@
       }
     }
 
+    async function syncMarksToServer() {
+      if (!currentLobbyId) return;
+      markSyncPendingCount += 1;
+      markSyncInFlight = true;
+      try {
+        const resp = await sendAPI({ action: 'mark_cell', userId, lobbyId: currentLobbyId, cells: [...markedCells] });
+        if (resp && (resp.type === 'error' || resp.error)) {
+          const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(currentLobbyId)}&userId=${encodeURIComponent(userId)}`, { cache: 'no-store' });
+          if (res.ok) {
+            const msg = await res.json();
+            if (msg && msg.type && msg.type !== 'no_change') handleWsMessage(msg);
+          }
+        }
+      } finally {
+        markSyncPendingCount = Math.max(0, markSyncPendingCount - 1);
+        markSyncInFlight = markSyncPendingCount > 0;
+        lastMarkSyncFinishedAt = Date.now();
+      }
+    }
+
     function toggleCell(number, cell) {
       if (!drawnNumbers.has(number)) {
         vibrate('error');
         return;
       }
+      lastLocalMarkEditAt = Date.now();
       if (markedCells.has(number)) {
         markedCells.delete(number);
         cell.classList.remove('marked');
@@ -2074,7 +2130,7 @@
       checkWinLocal();
       localStorage.setItem('markedCells', JSON.stringify([...markedCells]));
       // V5: отправляем реальные числа для восстановления после F5
-      if (currentLobbyId) sendAPI({ action: 'mark_cell', userId, lobbyId: currentLobbyId, cells: [...markedCells] });
+      if (currentLobbyId) syncMarksToServer();
     }
 
     function applyMarkIcon(cell) {

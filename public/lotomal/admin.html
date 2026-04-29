@@ -460,6 +460,9 @@
         const lobbyId = normalizeId(query.get('lobbyId')) || normalizeId(localStorage.getItem('currentLobbyId'));
         const userId = normalizeId(query.get('userId')) || normalizeId(localStorage.getItem('browserUserId')) || getBrowserUserId();
         let adminPollTimer = null;
+        let adminPollBusy = false;
+        let adminMutating = false;
+        let adminLastVersion = '';
         if (lobbyId) localStorage.setItem('currentLobbyId', lobbyId);
         if (userId) localStorage.setItem('browserUserId', userId);
 
@@ -468,6 +471,8 @@
                 alert('Ошибка: Отсутствует ID лобби или пользователя в URL. Перезайдите в админку из игры.');
                 return;
             }
+            if (adminMutating) return;
+            adminMutating = true;
             // OPTIMISTIC UPDATE — рисуем сразу, не ждём Supabase
             drawnOrder = [...drawnOrder, num];
             drawnNumbers = new Set(drawnOrder);
@@ -486,15 +491,31 @@
                     drawnNumbers = new Set(drawnOrder);
                     updateDisplay();
                     alert('Ошибка: ' + (data.message || data.error));
+                } else {
+                    const barrels = data.all || data.drawn;
+                    if (barrels) {
+                        drawnOrder = barrels.map(Number);
+                        drawnNumbers = new Set(drawnOrder);
+                        updateDisplay();
+                    }
+                    if (data.version !== undefined) adminLastVersion = String(data.version);
                 }
             } catch(e) {
                 console.error('API Error:', e);
+                drawnOrder = drawnOrder.filter(n => n !== num);
+                drawnNumbers = new Set(drawnOrder);
+                updateDisplay();
+                await loadFromServer(true);
+            } finally {
+                adminMutating = false;
             }
         }
 
         async function removeNumber(num) {
             if (!lobbyId || !userId) return;
             if (!confirm(`Удалить бочонок ${num}?`)) return;
+            if (adminMutating) return;
+            adminMutating = true;
             try {
                 const res = await fetch('/api/loto', {
                     method: 'POST',
@@ -508,7 +529,12 @@
                     drawnNumbers = new Set(drawnOrder);
                     updateDisplay();
                 }
-            } catch(e) { await loadFromServer(); }
+                if (data.version !== undefined) adminLastVersion = String(data.version);
+            } catch(e) {
+                await loadFromServer(true);
+            } finally {
+                adminMutating = false;
+            }
         }
 
         function showLastNumber(num) {
@@ -554,23 +580,35 @@
         async function clearAll() {
             if (!lobbyId || !userId) return;
             if (!confirm('Удалить все выпавшие бочонки?')) return;
+            if (adminMutating) return;
+            adminMutating = true;
             try {
-                await fetch('/api/loto', {
+                const res = await fetch('/api/loto', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ action: 'reset_numbers', lobbyId, userId })
                 });
+                const data = await res.json();
                 drawnOrder = [];
                 drawnNumbers.clear();
                 updateDisplay();
-            } catch(e) { await loadFromServer(); }
+                if (data.version !== undefined) adminLastVersion = String(data.version);
+            } catch(e) {
+                await loadFromServer(true);
+            } finally {
+                adminMutating = false;
+            }
         }
 
-        async function loadFromServer() {
+        async function loadFromServer(force = false) {
             if (!lobbyId) return;
+            if (!force && (adminMutating || adminPollBusy)) return;
+            adminPollBusy = true;
             try {
-                const res = await fetch(`/api/loto?action=get_state&lobbyId=${lobbyId}`, { cache: 'no-store' });
+                const res = await fetch(`/api/loto?action=get_state&lobbyId=${encodeURIComponent(lobbyId)}&userId=${encodeURIComponent(userId)}&v=${encodeURIComponent(adminLastVersion)}`, { cache: 'no-store' });
                 const data = await res.json();
+                if (data.type === 'no_change') return;
+                if (data.version !== undefined) adminLastVersion = String(data.version);
                 
                 if (data.error) {
                     console.error('Loto State Error:', data.error);
@@ -590,6 +628,8 @@
                 console.error('Fetch error:', e);
                 document.getElementById('drawnList').innerHTML =
                     '<div style="color:rgba(255,100,100,.8);font-size:14px;">⚠️ Сервер недоступен</div>';
+            } finally {
+                adminPollBusy = false;
             }
         }
 
@@ -601,7 +641,7 @@
         // Инициализация
         window.addEventListener('DOMContentLoaded', () => {
             initGrid();
-            loadFromServer();
+            loadFromServer(true);
             if (!adminPollTimer) adminPollTimer = setInterval(loadFromServer, 1000);
         });
 
