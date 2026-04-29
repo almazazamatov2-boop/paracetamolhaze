@@ -25,7 +25,7 @@ function shouldRegisterRealtimeHooks(source: string | null): boolean {
 async function fetchJson(
   input: string,
   init?: RequestInit,
-  timeoutMs = 10000
+  timeoutMs = 7000
 ): Promise<{ ok: boolean; status: number; data: any }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -67,6 +67,7 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectUri = `${baseUrl}/api/auth/twitch/callback`;
+  const needs67Bootstrap = shouldRegisterRealtimeHooks(source);
 
   try {
     const tokenResult = await fetchJson('https://id.twitch.tv/oauth2/token', {
@@ -87,46 +88,63 @@ export async function GET(request: NextRequest) {
     }
     const data = tokenResult.data;
 
-    const userResult = await fetchJson('https://api.twitch.tv/helix/users', {
-      headers: { 'Authorization': `Bearer ${data.access_token}`, 'Client-Id': clientId! }
-    });
-    const userData = userResult.data;
-    const user = userData?.data?.[0] ?? null;
+    let user: any = null;
+    if (needs67Bootstrap) {
+      const userResult = await fetchJson(
+        'https://api.twitch.tv/helix/users',
+        {
+          headers: {
+            'Authorization': `Bearer ${data.access_token}`,
+            'Client-Id': clientId!,
+          },
+        },
+        4000
+      );
+      user = userResult.data?.data?.[0] ?? null;
+    }
     
-    if (shouldRegisterRealtimeHooks(source) && user?.id) {
+    if (needs67Bootstrap && user?.id) {
       const userId = user.id;
 
       try {
-        const appTokenResult = await fetchJson('https://id.twitch.tv/oauth2/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: clientId!,
-            client_secret: clientSecret!,
-            grant_type: 'client_credentials'
-          })
-        });
+        const appTokenResult = await fetchJson(
+          'https://id.twitch.tv/oauth2/token',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              client_id: clientId!,
+              client_secret: clientSecret!,
+              grant_type: 'client_credentials',
+            }),
+          },
+          4000
+        );
         const appTokenData = appTokenResult.data;
 
         if (appTokenData.access_token) {
-          const subResult = await fetchJson('https://api.twitch.tv/helix/eventsub/subscriptions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${appTokenData.access_token}`,
-              'Client-Id': clientId!,
-              'Content-Type': 'application/json'
+          const subResult = await fetchJson(
+            'https://api.twitch.tv/helix/eventsub/subscriptions',
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${appTokenData.access_token}`,
+                'Client-Id': clientId!,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                type: 'channel.channel_points_custom_reward_redemption.add',
+                version: '1',
+                condition: { broadcaster_user_id: userId },
+                transport: {
+                  method: 'webhook',
+                  callback: `${baseUrl}/api/ov_webhook`,
+                  secret: clientSecret || 'fallback_secret_1234567890123',
+                },
+              }),
             },
-            body: JSON.stringify({
-              type: 'channel.channel_points_custom_reward_redemption.add',
-              version: '1',
-              condition: { broadcaster_user_id: userId },
-              transport: {
-                method: 'webhook',
-                callback: `${baseUrl}/api/ov_webhook`,
-                secret: clientSecret || 'fallback_secret_1234567890123'
-              }
-            })
-          });
+            4000
+          );
           if (!subResult.ok) {
             console.error('Webhook Sub Error:', subResult.data);
           }
@@ -136,7 +154,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (shouldRegisterRealtimeHooks(source) && user) {
+    if (needs67Bootstrap && user) {
       const { supabase } = await import('@/lib/supabase');
       const { error: syncError } = await supabase
         .from('game_67_users')

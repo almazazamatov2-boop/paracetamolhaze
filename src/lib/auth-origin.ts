@@ -36,9 +36,7 @@ function sanitizeConfiguredUrl(value: string | undefined): string | null {
 }
 
 export function getRequestBaseUrl(request: NextRequest): string {
-  const configured =
-    sanitizeConfiguredUrl(process.env.TWITCH_AUTH_BASE_URL) ??
-    sanitizeConfiguredUrl(process.env.NEXT_PUBLIC_SITE_URL);
+  const configured = sanitizeConfiguredUrl(process.env.TWITCH_AUTH_BASE_URL);
 
   if (configured) return configured;
 
@@ -57,4 +55,3 @@ export function getRequestBaseUrl(request: NextRequest): string {
 
   return request.nextUrl.origin;
 }
-
