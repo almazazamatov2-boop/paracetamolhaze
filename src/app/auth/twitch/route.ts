@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestBaseUrl } from '@/lib/auth-origin';
 
 function sourcePath(source: string) {
   if (source === '67') return '/67';
@@ -12,11 +13,7 @@ function sourcePath(source: string) {
 export async function GET(request: NextRequest) {
   const clientId = process.env.TWITCH_CLIENT_ID;
   const source = request.nextUrl.searchParams.get('source') || '67';
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const origin = forwardedHost
-    ? `${forwardedProto || 'https'}://${forwardedHost}`
-    : request.nextUrl.origin;
+  const origin = getRequestBaseUrl(request);
   const redirectUri = `${origin}/api/auth/twitch/callback`;
   const scope = 'user:read:email chat:read chat:edit channel:read:redemptions';
   

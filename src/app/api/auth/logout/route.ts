@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestBaseUrl } from '@/lib/auth-origin';
 
 function sourcePath(source: string | null) {
   if (source === '67') return '/67';
@@ -11,11 +12,7 @@ function sourcePath(source: string | null) {
 
 export async function GET(request: NextRequest) {
   const source = request.nextUrl.searchParams.get('source');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const baseUrl = forwardedHost
-    ? `${forwardedProto || 'https'}://${forwardedHost}`
-    : request.nextUrl.origin;
+  const baseUrl = getRequestBaseUrl(request);
 
   const target = `${baseUrl}${sourcePath(source)}`;
   const response = NextResponse.redirect(target);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getRequestBaseUrl } from '@/lib/auth-origin';
 
 function targetUrl(baseUrl: string, source: string | null, error?: string) {
   const path =
@@ -17,16 +18,39 @@ function targetUrl(baseUrl: string, source: string | null, error?: string) {
   return error ? `${baseUrl}${path}?error=${error}` : `${baseUrl}${path}`;
 }
 
+function shouldRegisterRealtimeHooks(source: string | null): boolean {
+  return source === '67' || source === null || source === '';
+}
+
+async function fetchJson(
+  input: string,
+  init?: RequestInit,
+  timeoutMs = 10000
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    const text = await response.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    return { ok: response.ok, status: response.status, data };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get('code');
   const error = searchParams.get('error');
   const source = searchParams.get('state');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const baseUrl = forwardedHost
-    ? `${forwardedProto || 'https'}://${forwardedHost}`
-    : request.nextUrl.origin;
+  const baseUrl = getRequestBaseUrl(request);
 
   if (error) {
     return NextResponse.redirect(targetUrl(baseUrl, source, error));
@@ -45,7 +69,7 @@ export async function GET(request: NextRequest) {
   const redirectUri = `${baseUrl}/api/auth/twitch/callback`;
 
   try {
-    const response = await fetch('https://id.twitch.tv/oauth2/token', {
+    const tokenResult = await fetchJson('https://id.twitch.tv/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -57,25 +81,23 @@ export async function GET(request: NextRequest) {
       }),
     });
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Twitch Token Error:', data);
+    if (!tokenResult.ok || !tokenResult.data?.access_token) {
+      console.error('Twitch Token Error:', tokenResult.data);
       return NextResponse.redirect(targetUrl(baseUrl, source, 'auth_failed'));
     }
+    const data = tokenResult.data;
 
-    // 1. Fetch user ID to register webhook
-    const userRes = await fetch('https://api.twitch.tv/helix/users', {
+    const userResult = await fetchJson('https://api.twitch.tv/helix/users', {
       headers: { 'Authorization': `Bearer ${data.access_token}`, 'Client-Id': clientId! }
     });
-    const userData = await userRes.json();
+    const userData = userResult.data;
+    const user = userData?.data?.[0] ?? null;
     
-    if (userData?.data?.[0]?.id) {
-      const userId = userData.data[0].id;
-      
+    if (shouldRegisterRealtimeHooks(source) && user?.id) {
+      const userId = user.id;
+
       try {
-        // 2. Fetch App Access Token
-        const appTokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
+        const appTokenResult = await fetchJson('https://id.twitch.tv/oauth2/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({
@@ -84,11 +106,10 @@ export async function GET(request: NextRequest) {
             grant_type: 'client_credentials'
           })
         });
-        const appTokenData = await appTokenRes.json();
+        const appTokenData = appTokenResult.data;
 
-        // 3. Register EventSub Webhook
         if (appTokenData.access_token) {
-          const subRes = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+          const subResult = await fetchJson('https://api.twitch.tv/helix/eventsub/subscriptions', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${appTokenData.access_token}`,
@@ -106,9 +127,8 @@ export async function GET(request: NextRequest) {
               }
             })
           });
-          if (!subRes.ok) {
-            const subErr = await subRes.json();
-            console.error('Webhook Sub Error:', subErr);
+          if (!subResult.ok) {
+            console.error('Webhook Sub Error:', subResult.data);
           }
         }
       } catch (subErr) {
@@ -116,17 +136,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 4. Update/Create user in database for game 67 (Supabase)
-    if (userData?.data?.[0]) {
-      const u = userData.data[0];
+    if (shouldRegisterRealtimeHooks(source) && user) {
       const { supabase } = await import('@/lib/supabase');
       const { error: syncError } = await supabase
         .from('game_67_users')
         .upsert({
-          twitch_id: u.id,
-          username: u.display_name,
-          login: u.login,
-          image: u.profile_image_url
+          twitch_id: user.id,
+          username: user.display_name,
+          login: user.login,
+          image: user.profile_image_url
         }, { onConflict: 'twitch_id' });
       
       if (syncError) console.error('Supabase User Sync Error:', syncError);
