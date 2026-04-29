@@ -313,6 +313,7 @@
       font-weight:800;
       font-size: 12px;
     }
+    .chat-clear-btn{ display:none; }
 
     /* Админ-панель */
     .admin-grid{
@@ -487,10 +488,20 @@
     }
 
     @media (max-width: 600px){
-      .logo-text{ font-size:64px; }
-      .cell{ font-size:35px; }
-      .loto-card{ gap:3px; padding:6px; }
+      .logo-text{ font-size:56px; }
+      .game-container{ max-width:380px; }
+      .card-wrapper{ padding:12px; border-width:2px; border-radius:16px; }
+      .loto-card{ gap:2px; padding:5px; border-radius:10px; }
+      .cell{ font-size:clamp(18px, 5.2vw, 24px); border-width:1px; border-radius:7px; }
+      .cell.marked::after{ font-size:18px; }
+      .drawn-number{ width:36px; height:36px; min-width:36px; font-size:14px; }
       .chat-box{ height: 160px; }
+    }
+    @media (max-width: 420px){
+      .game-container{ max-width:330px; }
+      .cell{ font-size:clamp(16px, 4.8vw, 20px); }
+      .drawn-numbers{ padding:12px; }
+      .drawn-number{ width:34px; height:34px; min-width:34px; font-size:13px; }
     }
   
         /* Список лобби */
@@ -782,7 +793,7 @@
     <div class="chat-card">
       <div class="chat-title">
         <span>💬 Чат лобби</span>
-        <button class="chip-btn" onclick="clearChatPrompt()">Очистить</button>
+        <button class="chip-btn chat-clear-btn" onclick="clearChatPrompt()">Очистить</button>
       </div>
       <div class="chat-box" id="chatBoxLobby"></div>
       <div class="chat-input-row">
@@ -821,7 +832,7 @@
       <div class="chat-card">
         <div class="chat-title">
           <span>💬 Чат игры</span>
-          <button class="chip-btn" onclick="clearChatPrompt()">Очистить</button>
+          <button class="chip-btn chat-clear-btn" onclick="clearChatPrompt()">Очистить</button>
         </div>
         <div class="chat-box" id="chatBoxGame"></div>
         <div class="chat-input-row">
@@ -1822,6 +1833,7 @@
       cardNumbers = []; markedCells.clear(); drawnNumbers.clear(); drawnOrder = [];
       alreadyWon = false; alreadyNotified14 = false;
       resetChatCache(null);
+      updateChatClearButtons();
       lastKnownVersion = -1;
       localStorage.removeItem('currentLobbyId'); localStorage.removeItem('isAdmin');
       localStorage.removeItem('cardNumbers'); localStorage.removeItem('markedCells');
@@ -1915,7 +1927,14 @@
           <button class="btn-secondary" style="flex:1; ${size}" onclick="openOverlayPanel()">🎥 Оверлей</button>
       `;
     }
+    function updateChatClearButtons() {
+      const canClear = !!isAdmin && !!normalizeLobbyId(currentLobbyId || currentLobby?.id);
+      document.querySelectorAll('.chat-clear-btn').forEach(btn => {
+        btn.style.display = canClear ? 'inline-flex' : 'none';
+      });
+    }
     function updateGameDisplay() {
+      updateChatClearButtons();
       const container = document.getElementById('creatorButtonsGameContainer');
       if (!container) return;
       if (isAdmin) {
@@ -1929,6 +1948,7 @@
     }
 
     function updateLobbyDisplay() {
+      updateChatClearButtons();
       if (!currentLobby) return;
       document.getElementById('currentLobbyCode').textContent = currentLobby.code;
       document.getElementById('lobbyPlayerCount').textContent =
@@ -2507,7 +2527,7 @@
     }
 
     async function clearChatPrompt() {
-      if (!isAdmin && !isSuperAdmin) { alert('❌ Только для админов'); return; }
+      if (!isAdmin) { alert('❌ Только для хоста лобби'); return; }
       if (!currentLobbyId) { alert('Сначала зайди в лобби'); return; }
       if (!confirm('Очистить чат у всех игроков в этом лобби?')) return;
       const resp = await sendAPI({ action: 'clear_chat', userId, lobbyId: currentLobbyId });
