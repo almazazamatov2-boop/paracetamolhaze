@@ -312,6 +312,8 @@ async function resolveProfile(
     };
   }
 
+  await ensureProfileLobbyExists(sb);
+
   const profileRow = await readProfileRow(sb, userId);
   const fallbackRow = profileRow ? null : await readFallbackProfileFromAnyLobby(sb, userId);
 
@@ -327,6 +329,41 @@ async function resolveProfile(
   await upsertProfileRow(sb, userId, { nickname, avatar, games_played, games_won });
 
   return { nickname, avatar, games_played, games_won };
+}
+
+async function ensureProfileLobbyExists(sb: SupabaseClient) {
+  const { data, error } = await sb
+    .from('loto_lobbies')
+    .select('id')
+    .eq('id', PROFILE_LOBBY_ID)
+    .maybeSingle();
+  if (error) throw error;
+  if (data?.id) return;
+
+  const code = await findFreeLobbyCode(sb);
+  const { error: insertErr } = await sb
+    .from('loto_lobbies')
+    .insert({
+      id: PROFILE_LOBBY_ID,
+      code,
+      name: 'System Profiles',
+      password: null,
+      admin_id: 'system-profile',
+      max_players: 1,
+      status: 'finished',
+      mode: 'system',
+      drawn_numbers: [],
+      event: { type: 'profile_store', ts: 0 },
+    })
+    .select('id')
+    .single();
+
+  if (insertErr) {
+    const msg = String(insertErr?.message || '').toLowerCase();
+    const codeErr = String((insertErr as any)?.code || '');
+    if (codeErr === '23505' || msg.includes('duplicate key')) return;
+    throw insertErr;
+  }
 }
 
 async function syncProfileFromPlayerRow(sb: SupabaseClient, player: any) {
