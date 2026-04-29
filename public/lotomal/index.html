@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Лото</title>
-  <script src="/loto-realtime.js?v=8" defer></script>
+  <script src="/loto-realtime.js?v=9" defer></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
     body {
@@ -1177,6 +1177,7 @@
             // Обновляем лобби
             currentLobbyId = normalizeLobbyId(msg.lobby.id) || currentLobbyId || normalizeLobbyId(localStorage.getItem('currentLobbyId'));
             currentLobby = {
+              id: currentLobbyId,
               code: msg.lobby.code || currentLobby?.code || '',
               name: msg.lobby.name || currentLobby?.name || '',
               maxPlayers: msg.lobby.max_players || msg.lobby.maxPlayers || currentLobby?.maxPlayers || 10,
@@ -1222,6 +1223,7 @@
         case 'lobby_created':
           currentLobbyId = normalizeLobbyId(msg.lobby?.id);
           currentLobby = {
+            id: currentLobbyId,
             code: msg.lobby.code,
             name: msg.lobby.name,
             maxPlayers: msg.lobby.maxPlayers || 10,
@@ -1734,37 +1736,72 @@
       leaveLobby();
     }
 
+    function getActiveLobbyId() {
+      return normalizeLobbyId(currentLobbyId || currentLobby?.id || localStorage.getItem('currentLobbyId'));
+    }
+
+    function getPanelUrl(kind) {
+      const lid = getActiveLobbyId();
+      if (!lid) return null;
+      currentLobbyId = lid;
+      localStorage.setItem('currentLobbyId', lid);
+      if (kind === 'admin') {
+        return '/lotomal/admin.html?lobbyId=' + encodeURIComponent(lid) + '&userId=' + encodeURIComponent(userId);
+      }
+      return '/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid);
+    }
+
+    function openPanelUrl(url) {
+      try {
+        const opened = window.open(url, '_blank');
+        if (opened) {
+          try { opened.opener = null; opened.focus(); } catch (_) {}
+        }
+        if (!opened) window.location.href = url;
+      } catch (_) {
+        window.location.href = url;
+      }
+    }
+
     function openAdminPanel() {
-      const lid = normalizeLobbyId(currentLobbyId || localStorage.getItem('currentLobbyId'));
-      if (!lid) {
+      const url = getPanelUrl('admin');
+      if (!url) {
         alert('Сначала создайте или откройте лобби');
         return;
       }
-      localStorage.setItem('currentLobbyId', lid);
-      window.open('/lotomal/admin.html?lobbyId=' + encodeURIComponent(lid) + '&userId=' + encodeURIComponent(userId), '_blank');
+      openPanelUrl(url);
     }
 
     function openOverlayPanel() {
-      const lid = normalizeLobbyId(currentLobbyId || localStorage.getItem('currentLobbyId'));
-      if (!lid) {
+      const url = getPanelUrl('overlay');
+      if (!url) {
         alert('Сначала создайте или откройте лобби');
         return;
       }
-      localStorage.setItem('currentLobbyId', lid);
-      window.open('/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid), '_blank');
+      openPanelUrl(url);
+    }
+
+    function renderCreatorButtons(container, compact) {
+      const lid = getActiveLobbyId() || '';
+      const key = `${lid}:${userId}:${compact ? 'game' : 'lobby'}`;
+      if (container.dataset.creatorButtonsKey === key && container.children.length) return;
+      container.dataset.creatorButtonsKey = key;
+      const size = compact ? 'font-size:12px; padding:8px;' : '';
+      container.innerHTML = `
+          <button class="btn-secondary" style="flex:1; ${size}" onclick="openAdminPanel()">🛡️ Админ.панель</button>
+          <button class="btn-secondary" style="flex:1; ${size}" onclick="openOverlayPanel()">🎥 Оверлей</button>
+      `;
     }
     function updateGameDisplay() {
       const container = document.getElementById('creatorButtonsGameContainer');
       if (!container) return;
       if (isAdmin) {
           container.style.display = 'flex';
-          container.innerHTML = `
-              <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="openAdminPanel()">🛡️ Админ.панель</button>
-              <button class="btn-secondary" style="flex:1; font-size:12px; padding:8px;" onclick="openOverlayPanel()">🎥 Оверлей</button>
-          `;
+          renderCreatorButtons(container, true);
       } else {
           container.style.display = 'none';
           container.innerHTML = '';
+          delete container.dataset.creatorButtonsKey;
       }
     }
 
@@ -1800,12 +1837,9 @@
             const div = document.createElement('div');
             div.id = 'creatorButtons';
             div.style.cssText = 'display:flex; gap:10px; margin-top:10px;';
-            div.innerHTML = `
-                <button class="btn-secondary" style="flex:1" onclick="openAdminPanel()">🛡️ Админ.панель</button>
-                <button class="btn-secondary" style="flex:1" onclick="openOverlayPanel()">🎥 Оверлей</button>
-            `;
             adminControls.appendChild(div);
         }
+        renderCreatorButtons(document.getElementById('creatorButtons'), false);
       } else {
         adminControls.style.display = 'none';
       }
