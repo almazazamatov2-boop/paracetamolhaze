@@ -8,7 +8,7 @@ const DEFAULT_NICKS = [
   'yaTomal', 'habarhub', 'RinaMiura', 'm1llenn1ummm', 'txt_abloko',
   'txt_abloko2', 'gantitupik', 'kukushonoktv', 'Wiesal_t', 'lll_mommy',
   'Saint_ioannX', 'Juliebayy', 'tripleoff', 'zxckostik2010', 'sasavot',
-  'evelone2004'
+  'evelone2004', 'kurokoken', 'egypop13', 'GolDi_21', 'STRYPOFF13', 'limonnub'
 ];
 
 const PROJECTS = [
