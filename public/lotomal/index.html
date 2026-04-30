@@ -654,6 +654,12 @@
           <div class="toggle-thumb"></div>
         </div>
       </div>
+      <div class="settings-item">
+        <div class="settings-label">🎉 юбилей?</div>
+        <div class="toggle" id="jubileeToggle" onclick="toggleSetting('jubilee')">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -947,7 +953,7 @@
     var drawnNumbers = new Set();
     var drawnOrder = []; // порядок выпадения
     var gameScreenShown = false;
-    const DEFAULT_SETTINGS = { sound: true, vibration: true, animations: true };
+    const DEFAULT_SETTINGS = { sound: true, jubilee: true, vibration: true, animations: true };
     let settings = { ...DEFAULT_SETTINGS };
 
     function toBoolSetting(value, fallback) {
@@ -964,13 +970,14 @@
       const source = (raw && typeof raw === 'object') ? raw : {};
       return {
         sound: toBoolSetting(source.sound, DEFAULT_SETTINGS.sound),
+        jubilee: toBoolSetting(source.jubilee, DEFAULT_SETTINGS.jubilee),
         vibration: toBoolSetting(source.vibration, DEFAULT_SETTINGS.vibration),
         animations: toBoolSetting(source.animations, DEFAULT_SETTINGS.animations),
       };
     }
 
     function applySettingsUI() {
-      ['sound', 'vibration', 'animations'].forEach((setting) => {
+      ['sound', 'jubilee', 'vibration', 'animations'].forEach((setting) => {
         const el = document.getElementById(setting + 'Toggle');
         if (el) el.classList.toggle('active', !!settings[setting]);
       });
@@ -1047,14 +1054,38 @@
 
     // ====== ЗВУКИ (Web Audio API — не нужен sounds.json) ======
     let audioCtx = null;
+    const JUBILEE_SOUND_URL = '/lotomal/jubilee-sound.mp3';
+    let jubileeAudio = null;
 
     function getAudioCtx() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       return audioCtx;
     }
 
+    function ensureJubileeAudio() {
+      if (jubileeAudio) return jubileeAudio;
+      const audio = new Audio(JUBILEE_SOUND_URL);
+      audio.preload = 'auto';
+      audio.volume = 1;
+      jubileeAudio = audio;
+      return jubileeAudio;
+    }
+
     async function loadSounds() {
       // Web Audio не требует загрузки файлов
+      try {
+        ensureJubileeAudio();
+      } catch (_) {}
+    }
+
+    function playJubileeSound() {
+      if (!settings.jubilee) return;
+      try {
+        const audio = ensureJubileeAudio();
+        audio.currentTime = 0;
+        const played = audio.play();
+        if (played && typeof played.catch === 'function') played.catch(() => {});
+      } catch (_) {}
     }
 
     function playSound(name) {
@@ -2266,7 +2297,9 @@
         cell.classList.add('just-marked');
         setTimeout(() => cell.classList.remove('just-marked'), 500);
         applyMarkIcon(cell);
-        playSound('click');
+        const isJubileeNumber = Number.isFinite(Number(number)) && Number(number) % 5 === 0;
+        if (isJubileeNumber && settings.jubilee) playJubileeSound();
+        else playSound('click');
         vibrate('light');
       }
       updateGameStats();
