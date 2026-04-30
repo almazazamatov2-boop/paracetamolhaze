@@ -17,6 +17,9 @@ const SUPABASE_SERVICE_KEY =
 const PROFILE_LOBBY_ID = '00000000-0000-0000-0000-000000000000';
 const MAX_NICKNAME_LENGTH = 24;
 const MAX_AVATAR_LENGTH = 350_000;
+const GAME_WON_CLEANUP_DELAY_MS = 20 * 60 * 1000;
+const CLEANUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+let lastFinishedLobbyCleanupAt = 0;
 
 function getSupabaseClient(): SupabaseClient | null {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
@@ -207,6 +210,80 @@ function mapPlayers(players: any[]) {
     games_won: normalizeGames(p.games_won),
     progress: Array.isArray(p.marked_cells) ? p.marked_cells.length : 0,
   }));
+}
+
+function getEventTimestampMs(event: any): number | null {
+  let eventPayload = event;
+  if (typeof eventPayload === 'string') {
+    try {
+      eventPayload = JSON.parse(eventPayload);
+    } catch {
+      return null;
+    }
+  }
+  if (!eventPayload || typeof eventPayload !== 'object') return null;
+  const ts = Number((eventPayload as any).ts);
+  if (!Number.isFinite(ts) || ts <= 0) return null;
+  return ts;
+}
+
+function isGameWonEvent(event: any): boolean {
+  let eventPayload = event;
+  if (typeof eventPayload === 'string') {
+    try {
+      eventPayload = JSON.parse(eventPayload);
+    } catch {
+      return false;
+    }
+  }
+  return !!eventPayload && typeof eventPayload === 'object' && (eventPayload as any).type === 'game_won';
+}
+
+async function cleanupExpiredWonLobbies(sb: SupabaseClient, nowMs = Date.now()) {
+  const { data: finishedLobbies, error: readErr } = await sb
+    .from('loto_lobbies')
+    .select('id,event')
+    .eq('status', 'finished')
+    .neq('id', PROFILE_LOBBY_ID)
+    .limit(300);
+  if (readErr) throw readErr;
+
+  const expiredLobbyIds = (finishedLobbies || [])
+    .filter((lobby: any) => {
+      const event = lobby?.event;
+      if (!isGameWonEvent(event)) return false;
+      const ts = getEventTimestampMs(event);
+      return ts !== null && nowMs - ts >= GAME_WON_CLEANUP_DELAY_MS;
+    })
+    .map((lobby: any) => String(lobby.id))
+    .filter(Boolean);
+
+  if (!expiredLobbyIds.length) return 0;
+
+  const { error: chatDeleteErr } = await sb
+    .from('loto_chat')
+    .delete()
+    .in('lobby_id', expiredLobbyIds);
+  if (chatDeleteErr) throw chatDeleteErr;
+
+  const { error: lobbyDeleteErr } = await sb
+    .from('loto_lobbies')
+    .delete()
+    .in('id', expiredLobbyIds);
+  if (lobbyDeleteErr) throw lobbyDeleteErr;
+
+  return expiredLobbyIds.length;
+}
+
+async function maybeRunFinishedLobbyCleanup(sb: SupabaseClient) {
+  const nowMs = Date.now();
+  if (nowMs - lastFinishedLobbyCleanupAt < CLEANUP_CHECK_INTERVAL_MS) return;
+  lastFinishedLobbyCleanupAt = nowMs;
+  try {
+    await cleanupExpiredWonLobbies(sb, nowMs);
+  } catch (error: any) {
+    console.warn('Loto cleanup warning:', String(error?.message || error || 'Unknown cleanup error'));
+  }
 }
 
 async function isNicknameTaken(sb: SupabaseClient, nickname: string, userId: string): Promise<boolean> {
@@ -985,6 +1062,7 @@ export async function POST(req: NextRequest) {
   if (!sb) return json({ error: 'Supabase is not configured on server' }, 500);
 
   try {
+    await maybeRunFinishedLobbyCleanup(sb);
     const body = await req.json().catch(() => ({}));
     const action = asString(body?.action || body?.type) || null;
     const { lobbyId, userId, nickname, avatar } = getIdentity(body);
@@ -1004,6 +1082,7 @@ export async function GET(req: NextRequest) {
   if (!sb) return json({ error: 'Supabase is not configured on server' }, 500);
 
   try {
+    await maybeRunFinishedLobbyCleanup(sb);
     const { searchParams } = new URL(req.url);
     const action = asString(searchParams.get('action')) || null;
     const lobbyId = normalizeLobbyId(searchParams.get('lobbyId'));
