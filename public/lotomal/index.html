@@ -649,7 +649,7 @@
 
     <div class="profile-card">
       <div class="settings-item">
-        <div class="settings-label">🔊 Звук</div>
+        <div class="settings-label">🔊 Звуковые эффекты</div>
         <div class="toggle" id="soundToggle" onclick="toggleSetting('sound')">
           <div class="toggle-thumb"></div>
         </div>
@@ -947,7 +947,35 @@
     var drawnNumbers = new Set();
     var drawnOrder = []; // порядок выпадения
     var gameScreenShown = false;
-    let settings = { sound:false, vibration:true, animations:true };
+    const DEFAULT_SETTINGS = { sound: true, vibration: true, animations: true };
+    let settings = { ...DEFAULT_SETTINGS };
+
+    function toBoolSetting(value, fallback) {
+      if (value === undefined || value === null) return fallback;
+      if (typeof value === 'string') {
+        const normalized = value.trim().toLowerCase();
+        if (normalized === 'false' || normalized === '0' || normalized === 'off' || normalized === 'no') return false;
+        if (normalized === 'true' || normalized === '1' || normalized === 'on' || normalized === 'yes') return true;
+      }
+      return Boolean(value);
+    }
+
+    function normalizeSettings(raw) {
+      const source = (raw && typeof raw === 'object') ? raw : {};
+      return {
+        sound: toBoolSetting(source.sound, DEFAULT_SETTINGS.sound),
+        vibration: toBoolSetting(source.vibration, DEFAULT_SETTINGS.vibration),
+        animations: toBoolSetting(source.animations, DEFAULT_SETTINGS.animations),
+      };
+    }
+
+    function applySettingsUI() {
+      ['sound', 'vibration', 'animations'].forEach((setting) => {
+        const el = document.getElementById(setting + 'Toggle');
+        if (el) el.classList.toggle('active', !!settings[setting]);
+      });
+      document.body.classList.toggle('no-animations', !settings.animations);
+    }
     function vibrate(type = 'light') {
       if (!settings?.vibration) return;
       if (!navigator.vibrate) return;
@@ -1798,11 +1826,10 @@
 
     // ====== НАСТРОЙКИ ======
     function toggleSetting(setting) {
+      if (!(setting in settings)) return;
       settings[setting] = !settings[setting];
-      const el = document.getElementById(setting + 'Toggle');
-      if (el) el.classList.toggle('active', settings[setting]);
+      applySettingsUI();
       localStorage.setItem('settings', JSON.stringify(settings));
-      if (setting === 'animations') document.body.classList.toggle('no-animations', !settings.animations);
 
       if (setting !== 'sound') playSound('click');
       vibrate('light');
@@ -2636,14 +2663,15 @@
       if (savedSettings) {
         try {
           const s = JSON.parse(savedSettings);
-          settings = { sound: true, vibration: true, animations: true, ...s };
+          settings = normalizeSettings(s);
         } catch(_) {}
       } else {
-        settings = { sound: true, vibration: true, animations: true };
+        settings = { ...DEFAULT_SETTINGS };
       }
+      settings = normalizeSettings(settings);
+      localStorage.setItem('settings', JSON.stringify(settings));
       // Применяем настройки к UI
-      // Анимации применяем из настроек
-      if (!settings.animations) document.body.classList.add('no-animations');
+      applySettingsUI();
       loadProfile();
       if (isSuperAdmin) document.getElementById('adminMenuBtn').style.display = 'flex';
       initOverlayVariantPicker();
