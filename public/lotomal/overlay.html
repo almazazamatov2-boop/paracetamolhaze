@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Лото — Оверлей</title>
+    <title>Лото - Оверлей</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -16,6 +16,7 @@
             overflow: hidden;
             width: 1920px;
             height: 1080px;
+            color: #fff;
         }
 
         .panel {
@@ -64,6 +65,8 @@
             flex-shrink: 0;
             box-shadow: 0 6px 20px rgba(0,0,0,0.6), inset 0 3px 6px rgba(255,255,255,0.35);
             animation: pulse 2s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
         }
 
         @keyframes pulse {
@@ -88,7 +91,6 @@
             white-space: nowrap;
             margin-top: 4px;
         }
-        .counter-text b { color:#FFD700; font-size:15px; }
 
         .divider {
             width: 100%;
@@ -116,6 +118,8 @@
             font-size: 26px;
             box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 2px 3px rgba(255,255,255,0.3);
             animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative;
+            overflow: hidden;
         }
 
         .barrel.old { animation: none; }
@@ -134,6 +138,176 @@
             0%  { box-shadow:0 3px 8px rgba(0,0,0,0.5),inset 0 2px 3px rgba(255,255,255,0.3),0 0 30px rgba(255,215,0,1); }
             100%{ box-shadow:0 3px 8px rgba(0,0,0,0.5),inset 0 2px 3px rgba(255,255,255,0.3); }
         }
+
+        body.theme-framed .panel {
+            background: rgba(0,0,0,0.32);
+            border: 2px solid rgba(255,215,0,0.95);
+            border-radius: 16px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 24px rgba(255,215,0,0.35);
+            backdrop-filter: blur(4px);
+        }
+
+        body.theme-framed .last-barrel {
+            border: 3px solid rgba(255,215,0,0.96);
+            box-shadow:
+                0 6px 20px rgba(0,0,0,0.6),
+                inset 0 3px 6px rgba(255,255,255,0.35),
+                0 0 0 3px rgba(255,215,0,0.3),
+                0 0 26px rgba(255,215,0,0.65);
+        }
+
+        body.theme-framed .barrel {
+            border: 2px solid rgba(255,215,0,0.85);
+            box-shadow:
+                0 3px 8px rgba(0,0,0,0.5),
+                inset 0 2px 3px rgba(255,255,255,0.3),
+                0 0 14px rgba(255,215,0,0.4);
+        }
+
+        body.theme-relay .panel {
+            top: 14px;
+            right: 14px;
+            left: auto;
+            width: 420px;
+            padding: 10px 10px 12px;
+            border-radius: 14px;
+            border: none;
+            background: rgba(0,0,0,0.16);
+            backdrop-filter: blur(6px);
+            box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+            align-items: stretch;
+        }
+
+        body.theme-relay .last-row {
+            justify-content: flex-start;
+            margin-bottom: 4px;
+        }
+
+        body.theme-relay .last-label {
+            color: rgba(255,255,255,0.88);
+            text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+        }
+
+        body.theme-relay .counter-text {
+            color: rgba(255,255,255,0.72);
+        }
+
+        body.theme-relay .divider {
+            background: linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);
+        }
+
+        body.theme-relay .barrels-grid {
+            width: 100%;
+            grid-template-columns: repeat(8, minmax(0, 1fr));
+            gap: 8px;
+            justify-content: stretch;
+        }
+
+        body.theme-relay .last-barrel {
+            width: 96px;
+            height: 96px;
+            color: #fff;
+            font-size: 46px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.65);
+            background:
+                radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 45%),
+                linear-gradient(145deg, #8a5a2b, #6f431a);
+            border: 3px solid rgba(255,255,255,0.2);
+            box-shadow:
+                0 14px 30px rgba(0,0,0,0.35),
+                0 0 0 4px rgba(0,0,0,0.18),
+                0 0 40px rgba(255,215,0,0.55);
+            animation: relayGlow 1.6s ease-in-out infinite;
+        }
+
+        body.theme-relay .last-barrel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                repeating-linear-gradient(
+                    90deg,
+                    rgba(255,255,255,0.08) 0px,
+                    rgba(255,255,255,0.08) 6px,
+                    rgba(0,0,0,0.06) 10px,
+                    rgba(0,0,0,0.06) 16px
+                );
+            mix-blend-mode: overlay;
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        body.theme-relay .last-barrel::after {
+            content: "";
+            position: absolute;
+            inset: 7px;
+            border-radius: 999px;
+            border: 3px solid rgba(255,255,255,0.85);
+            box-shadow:
+                inset 0 0 0 3px rgba(0,0,0,0.12),
+                0 0 0 3px rgba(255,215,0,0.38),
+                0 0 24px rgba(255,215,0,0.28);
+            pointer-events: none;
+        }
+
+        @keyframes relayGlow {
+            0%,100% { box-shadow:0 14px 30px rgba(0,0,0,0.35),0 0 0 4px rgba(0,0,0,0.18),0 0 34px rgba(255,215,0,0.28); }
+            50%     { box-shadow:0 14px 30px rgba(0,0,0,0.35),0 0 0 4px rgba(0,0,0,0.18),0 0 56px rgba(255,215,0,0.55); }
+        }
+
+        body.theme-relay .barrel {
+            width: auto;
+            min-width: 0;
+            height: 46px;
+            border-radius: 999px;
+            color: #fff;
+            font-size: 18px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+            background:
+                radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 45%),
+                linear-gradient(145deg, #7b4d22, #5e3614);
+            border: 2px solid rgba(255,255,255,0.14);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.28);
+            opacity: 0.92;
+        }
+
+        body.theme-relay .barrel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                repeating-linear-gradient(
+                    90deg,
+                    rgba(255,255,255,0.07) 0px,
+                    rgba(255,255,255,0.07) 6px,
+                    rgba(0,0,0,0.06) 10px,
+                    rgba(0,0,0,0.06) 16px
+                );
+            mix-blend-mode: overlay;
+            opacity: 0.38;
+            pointer-events: none;
+        }
+
+        body.theme-relay .barrel::after {
+            content: "";
+            position: absolute;
+            inset: 6px;
+            border-radius: 999px;
+            border: 2px solid rgba(255,255,255,0.18);
+            pointer-events: none;
+        }
+
+        body.theme-relay .barrel.new-pop {
+            animation: relayChipPop 0.5s cubic-bezier(.16,.84,.3,1.1);
+            outline: 3px solid rgba(255,255,255,0.75);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.28), 0 0 26px rgba(255,215,0,0.4);
+        }
+
+        @keyframes relayChipPop {
+            0% { transform: scale(0.85); opacity: 0.65; }
+            60% { transform: scale(1.10); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.95; }
+        }
     </style>
 </head>
 <body>
@@ -145,7 +319,7 @@
             <div class="last-label">ВЫПАЛ</div>
             <div class="counter-text" id="counterText">0 из 90</div>
         </div>
-        <div class="last-barrel" id="lastBarrel">—</div>
+        <div class="last-barrel" id="lastBarrel">-</div>
     </div>
 
     <div class="divider" id="divider" style="display:none;"></div>
@@ -163,9 +337,23 @@
             return normalized;
         }
 
+        const OVERLAY_VARIANT_STORAGE_KEY = 'lotomalOverlayVariant';
+        const DEFAULT_OVERLAY_VARIANT = 'clean';
+        const AVAILABLE_OVERLAY_VARIANTS = new Set(['clean', 'relay', 'framed']);
+
+        function normalizeVariant(value) {
+            const candidate = String(value || '').trim().toLowerCase();
+            return AVAILABLE_OVERLAY_VARIANTS.has(candidate) ? candidate : DEFAULT_OVERLAY_VARIANT;
+        }
+
         const query = new URLSearchParams(window.location.search);
+        const variant = normalizeVariant(query.get('variant') || localStorage.getItem(OVERLAY_VARIANT_STORAGE_KEY));
+        try { localStorage.setItem(OVERLAY_VARIANT_STORAGE_KEY, variant); } catch (_) {}
+        document.body.classList.add('theme-' + variant);
+
         const lobbyId = normalizeLobbyId(query.get('lobbyId')) || normalizeLobbyId(localStorage.getItem('currentLobbyId'));
         if (lobbyId) localStorage.setItem('currentLobbyId', lobbyId);
+
         let drawnOrder = [];
         let lastNumber = null;
         let pollTimer = null;
@@ -180,7 +368,6 @@
             if (drawnOrder.length === 0) { panel.style.display = 'none'; return; }
             panel.style.display = 'flex';
 
-            // Последний выпавший
             const currentLast = drawnOrder[drawnOrder.length - 1];
             const lastEl = document.getElementById('lastBarrel');
             if (currentLast !== lastNumber) {
@@ -193,7 +380,6 @@
             }
             document.getElementById('counterText').textContent = drawnOrder.length + ' из 90';
 
-            // Предыдущие (все кроме последнего)
             const prev = drawnOrder.slice(0, -1);
             const grid = document.getElementById('barrelsGrid');
             const divider = document.getElementById('divider');

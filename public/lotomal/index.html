@@ -866,6 +866,14 @@
         <div class="admin-row">
           <button class="btn-primary" onclick="openOverlay()">🎥 Открыть оверлей</button>
         </div>
+        <div class="admin-row" style="align-items:center; gap:10px;">
+          <span style="color:#FFD700; font-weight:700; white-space:nowrap;">Вид оверлея:</span>
+          <select class="input-field" id="overlayVariant" style="margin:0;">
+            <option value="clean">1) Прозрачный (текущий)</option>
+            <option value="relay">2) Новый (дерево / relay)</option>
+            <option value="framed">3) Фон + жёлтая рамка</option>
+          </select>
+        </div>
 
         <div class="hint">
           Оверлей (<b>overlay.html</b>) берёт данные с сервера через REST API.
@@ -1862,6 +1870,40 @@
       return normalizeLobbyId(currentLobbyId || currentLobby?.id || localStorage.getItem('currentLobbyId'));
     }
 
+    const OVERLAY_VARIANT_STORAGE_KEY = 'lotomalOverlayVariant';
+    const DEFAULT_OVERLAY_VARIANT = 'clean';
+    const AVAILABLE_OVERLAY_VARIANTS = new Set(['clean', 'relay', 'framed']);
+
+    function normalizeOverlayVariant(value) {
+      const candidate = String(value || '').trim().toLowerCase();
+      return AVAILABLE_OVERLAY_VARIANTS.has(candidate) ? candidate : DEFAULT_OVERLAY_VARIANT;
+    }
+
+    function getSelectedOverlayVariant() {
+      const picker = document.getElementById('overlayVariant');
+      if (picker) {
+        const variant = normalizeOverlayVariant(picker.value);
+        if (picker.value !== variant) picker.value = variant;
+        try { localStorage.setItem(OVERLAY_VARIANT_STORAGE_KEY, variant); } catch (_) {}
+        return variant;
+      }
+      return normalizeOverlayVariant(localStorage.getItem(OVERLAY_VARIANT_STORAGE_KEY));
+    }
+
+    function initOverlayVariantPicker() {
+      const picker = document.getElementById('overlayVariant');
+      if (!picker) return;
+      const fromQuery = new URLSearchParams(window.location.search).get('overlayVariant');
+      const variant = normalizeOverlayVariant(fromQuery || localStorage.getItem(OVERLAY_VARIANT_STORAGE_KEY));
+      picker.value = variant;
+      try { localStorage.setItem(OVERLAY_VARIANT_STORAGE_KEY, variant); } catch (_) {}
+      picker.addEventListener('change', () => {
+        const next = normalizeOverlayVariant(picker.value);
+        picker.value = next;
+        try { localStorage.setItem(OVERLAY_VARIANT_STORAGE_KEY, next); } catch (_) {}
+      });
+    }
+
     function getPanelUrl(kind) {
       const lid = getActiveLobbyId();
       if (!lid) return null;
@@ -1870,7 +1912,8 @@
       if (kind === 'admin') {
         return '/lotomal/admin.html?lobbyId=' + encodeURIComponent(lid) + '&userId=' + encodeURIComponent(userId);
       }
-      return '/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid);
+      const variant = getSelectedOverlayVariant();
+      return '/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid) + '&variant=' + encodeURIComponent(variant);
     }
 
     function openPanelUrl(url) {
@@ -2576,13 +2619,14 @@
 
     function openOverlay() {
       if (!isSuperAdmin) { alert('❌ Нет доступа'); return; }
+      const variant = getSelectedOverlayVariant();
       const lid = normalizeLobbyId(currentLobbyId || localStorage.getItem('currentLobbyId'));
       if (lid) {
         localStorage.setItem('currentLobbyId', lid);
-        window.open('/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid), '_blank');
+        window.open('/lotomal/overlay.html?lobbyId=' + encodeURIComponent(lid) + '&variant=' + encodeURIComponent(variant), '_blank');
         return;
       }
-      window.open('/lotomal/overlay.html', '_blank');
+      window.open('/lotomal/overlay.html?variant=' + encodeURIComponent(variant), '_blank');
     }
 
     // ====== ИНИЦИАЛИЗАЦИЯ ======
@@ -2602,6 +2646,7 @@
       if (!settings.animations) document.body.classList.add('no-animations');
       loadProfile();
       if (isSuperAdmin) document.getElementById('adminMenuBtn').style.display = 'flex';
+      initOverlayVariantPicker();
       // Загружаем стиль закрашивания
       const savedMark = localStorage.getItem('markStyle');
       if (savedMark) {
